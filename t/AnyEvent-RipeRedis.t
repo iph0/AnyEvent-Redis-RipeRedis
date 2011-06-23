@@ -6,17 +6,57 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 23;
 use Test::MockObject;
 use AnyEvent;
+use Scalar::Util 'looks_like_number';
+
+my $RESP_DATA = [
+  '+OK',
+  '+OK',
+  ':10',
+
+  '$3',
+  'bar',
+
+  '*2',
+  '$3',
+  'foo',
+  '$3',
+  'bar',
+  
+  "-ERR unknown command 'some'",
+
+  '+OK',
+  '+QUEUED',
+  '+QUEUED',
+  '+QUEUED',
+  '+QUEUED',
+  
+  "-ERR unknown command 'some'",
+
+  '*4',
+  '+OK',
+  ':11',
+  '$3',
+  'bar',
+  '*2',
+  '$3',
+  'foo',
+  '$3',
+  'bar',
+  
+  '+PONG',
+];
 
 my $mock;
 
 BEGIN {
+  # Create mock object for AnyEvent::Handle
   $mock = Test::MockObject->new();
 
   $mock->fake_module( 'AnyEvent::Handle',
-    new => sub {     
+    new => sub { 
       shift;
       
       my %opts = @_;
@@ -38,46 +78,16 @@ BEGIN {
       );
       
       $mock->{ 'read_queue' } = [];
-
-      $mock->{ 'resp_data' } = [
-        '+OK',
-        '+OK',
-        '+QUEUED',
-        '+QUEUED',
-        '+QUEUED',
-
-        '*3',
-        '+OK',
-        '$3',
-        'bar',
-        '*2',
-        '$3',
-        'foo',
-        '$3',
-        'bar',
-        
-        ':10',
-        '+PONG',
-      ];
-
       $mock->{ 'destroyed' } = 0;
 
       return $mock;
-    },
-
-    push_write => sub {
-      return 1;  
-    },
+    }
   );
 
-  # Creating fake methods
-  
-  ####
   $mock->set_true( qw( 
     push_write
   ) );
   
-  ####
   $mock->mock( 'push_read', sub { 
     my $self = shift;
     my @params = @_;
@@ -85,7 +95,6 @@ BEGIN {
     push( @{ $self->{ 'read_queue' } }, \@params );
   } );
   
-  ####
   $mock->mock( 'unshift_read', sub { 
     my $self = shift;
     my @params = @_;
@@ -93,7 +102,6 @@ BEGIN {
     unshift( @{ $self->{ 'read_queue' } }, \@params );
   } );
 
-  ####
   $mock->mock( 'destroy', sub {
     my $self = shift;
 
@@ -102,16 +110,17 @@ BEGIN {
     return 1;  
   } );
 
-  ####
   $mock->mock( 'destroyed', sub {
     my $self = shift;
 
     return $self->{ 'destroyed' };
   } );
 
+  # Test load
   use_ok( 'AnyEvent::RipeRedis' );
 }
 
+# Test methods
 can_ok( 'AnyEvent::RipeRedis', 'new' );
 can_ok( 'AnyEvent::RipeRedis', '_connect' );
 can_ok( 'AnyEvent::RipeRedis', '_post_connect' );
@@ -142,7 +151,7 @@ $proc_read_timer = AnyEvent->timer(
           $cb = $params->[ 2 ];
         }
         
-        my $str = shift( @{ $mock->{ 'resp_data' } } );
+        my $str = shift( @{ $RESP_DATA } );
 
         $cb->( $mock, $str );
       }
@@ -151,6 +160,9 @@ $proc_read_timer = AnyEvent->timer(
     return 1;
   }
 );
+
+
+# Test constructor
 
 my $r;
 
@@ -198,12 +210,66 @@ $r = new_ok( 'AnyEvent::RipeRedis' => [ {
     my $msg = shift;
     my $err_type = shift;
     
-    diag( "Error [$err_type]: $msg\n" );
+    is( defined( $msg ) && defined( $err_type ), 1, 'on_error' );
 
     return 1;
   }
 } ] );
 
+
+# Test command methods
+
+$r->set( 'foo', 'bar', {
+  cb => sub {
+    my $resp = shift;
+
+    is( $resp, 'OK', 'SET' );
+
+    return 1;
+  }
+} );
+
+$r->incr( 'counter', { 
+  cb => sub {
+    my $val = shift;
+
+    is( $val, 10, 'INCR' );
+
+    return 1;
+  }
+} );
+
+$r->get( 'foo', {
+  cb => sub {
+    my $resp = shift;
+
+    is( $resp, 'bar', 'GET' );
+ 
+    return 1;
+  }
+} );
+
+$r->lrange( 'list', 0, -1, { 
+  cb => sub {
+    my $resp = shift;
+    
+    is_deeply( $resp, [ qw( foo bar ) ], 'LRANGE' );
+
+    return 1;
+  }
+} );
+
+# Unknown command
+$r->some( { 
+  cb => sub {
+    my $resp = shift;
+    
+    return 1;
+  }
+} );
+
+
+# Test transaction
 
 $r->multi( { 
   cb => sub {
@@ -220,6 +286,16 @@ $r->set( 'foo', 'bar', {
     my $resp = shift;
 
     is( $resp, 'QUEUED', 'SET' );
+
+    return 1;
+  }
+} );
+
+$r->incr( 'counter', { 
+  cb => sub {
+    my $val = shift;
+
+    is( $val, 'QUEUED', 'INCR' );
 
     return 1;
   }
@@ -245,25 +321,24 @@ $r->lrange( 'list', 0, -1, {
   }
 } );
 
-$r->exec( { 
+# Unknown command
+$r->some( { 
   cb => sub {
-    my $data = shift;
+    my $resp = shift;
     
-    is_deeply( $data, [ 'OK', 'bar', [ qw( foo bar ) ] ], 'EXEC' );
-
     return 1;
   }
 } );
 
-$r->incr( 'counter', { 
+$r->exec( { 
   cb => sub {
-    my $val = shift;
-
-    is( $val, '10', 'INCR' );
+    my $data = shift;
+    
+    is_deeply( $data, [ 'OK', 11, 'bar', [ qw( foo bar ) ] ], 'EXEC' );
 
     undef( $proc_read_timer );
     $cv->send();
-
+    
     return 1;
   }
 } );
