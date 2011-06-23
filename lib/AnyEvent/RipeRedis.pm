@@ -175,7 +175,8 @@ sub _connect {
   if ( $self->{ 'password' } ) {
     $self->_execute_command( 'auth', $self->{ 'password' },
       sub {
-        if ( $self->{ 'on_auth' } ) {
+        
+        if ( defined( $self->{ 'on_auth' } ) ) {
           my $data = shift;
 
           $self->{ 'on_auth' }->( $data );
@@ -195,7 +196,7 @@ sub _connect {
 sub _post_connect {
   my $self = shift;
 
-  if ( $self->{ 'on_connect' } ) {
+  if ( defined( $self->{ 'on_connect' } ) ) {
     my $connect_attempt = $self->{ 'reconnect_attempt' } ? $self->{ 'reconnect_attempt' } : 1;
     $self->{ 'on_connect' }->( $connect_attempt );
   }
@@ -430,7 +431,7 @@ sub AUTOLOAD {
 sub DESTROY {
   my $self = shift;
   
-  if ( !$self->{ 'handle' }->destroyed() ) {
+  if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
     $self->{ 'handle' }->destroy();
   }
 
