@@ -47,6 +47,25 @@ my $RESP_DATA = [
   'bar',
   
   '+PONG',
+
+  '*3',
+  '$9',
+  'subscribe',
+  '$3',
+  'ch1',
+  ':1',
+  '*3',
+  '$9',
+  'subscribe',
+  '$3',
+  'ch2',
+  ':2',
+  '*3',
+  '$9',
+  'subscribe',
+  '$3',
+  'ch3',
+  ':3',
 ];
 
 my $mock;
@@ -77,6 +96,7 @@ BEGIN {
         } 
       );
       
+      $mock->{ 'on_read' } = undef;
       $mock->{ 'read_queue' } = [];
       $mock->{ 'destroyed' } = 0;
 
@@ -88,11 +108,22 @@ BEGIN {
     push_write
   ) );
   
+  $mock->mock( 'on_read', sub {
+    my $self = shift;
+    my $cb = shift;
+
+    $self->{ 'on_read' } = $cb;
+    
+    return 1;
+  } );
+
   $mock->mock( 'push_read', sub { 
     my $self = shift;
     my @params = @_;
 
     push( @{ $self->{ 'read_queue' } }, \@params );
+
+    return 1;
   } );
   
   $mock->mock( 'unshift_read', sub { 
@@ -100,6 +131,8 @@ BEGIN {
     my @params = @_;
 
     unshift( @{ $self->{ 'read_queue' } }, \@params );
+
+    return 1;
   } );
 
   $mock->mock( 'destroy', sub {
@@ -139,21 +172,29 @@ $proc_read_timer = AnyEvent->timer(
 
     if ( $mock->{ 'connected' } ) {
 
-      while ( my $params = shift( @{ $mock->{ 'read_queue' } } ) ) {
-        my $type = $params->[ 0 ];
+      if ( @{ $mock->{ 'read_queue' } } ) {
         
-        my $cb;
+        while ( @{ $mock->{ 'read_queue' } } ) {
+          my $read_op = $mock->{ 'read_queue' }->[ 0 ];
+          my $type = $read_op->[ 0 ];
+          
+          my $cb;
 
-        if ( $type eq 'line' ) {
-          $cb = $params->[ 1 ];
-        }
-        elsif ( $type eq 'chunk' ) {
-          $cb = $params->[ 2 ];
-        }
-        
-        my $str = shift( @{ $RESP_DATA } );
+          if ( $type eq 'line' ) {
+            $cb = $read_op->[ 1 ];
+          }
+          elsif ( $type eq 'chunk' ) {
+            $cb = $read_op->[ 2 ];
+          }
 
-        $cb->( $mock, $str );
+          if ( my $data = shift( @{ $RESP_DATA } ) ) {
+            shift( @{ $mock->{ 'read_queue' } } );
+            $cb->( $mock, $data );
+          }
+        }
+      }
+      elsif ( defined( $mock->{ 'on_read' } ) && @{ $RESP_DATA } ) {
+        $mock->{ 'on_read' }->();
       }
     }
     
@@ -190,6 +231,33 @@ $r = new_ok( 'AnyEvent::RipeRedis' => [ {
         return 1;
       }
     } );
+
+
+    # Subscription
+    
+#    $r->subscribe( 'ch1', 'ch2', 'ch3', { 
+#      cb => sub {
+#        my $data = shift;
+#
+#        use Data::Dumper;
+#        print Dumper( $data );
+#
+#        return 1;
+#      }
+#    } );
+
+#    $r->unsubscribe( 'ch1', 'ch2', 'ch3', { 
+#      cb => sub {
+#        my $data = shift;
+#
+#        use Data::Dumper;
+#        print Dumper( $data );
+#        undef( $proc_read_timer );
+#        $cv->send();
+#
+#        return 1;
+#      }
+#    } );
 
     return 1;
   },
@@ -335,9 +403,6 @@ $r->exec( {
     my $data = shift;
     
     is_deeply( $data, [ 'OK', 11, 'bar', [ qw( foo bar ) ] ], 'EXEC' );
-
-    undef( $proc_read_timer );
-    $cv->send();
     
     return 1;
   }

@@ -17,11 +17,16 @@ use fields qw(
   on_stop_reconnect
   on_error
   handle
-  commands_queue
+  subs
+  subs_num
+  on_read_is_set
   reconnect_attempt
+  commands_queue
+  multi_begun
+  failover_subs
 );
 
-our $VERSION = '0.012010';
+our $VERSION = '0.300001';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -33,6 +38,7 @@ our $EOL = "\r\n";
 our $ERR_HANDLE = 0;
 our $ERR_PROTOCOL = 1;
 our $ERR_COMMAND = 2;
+our $ERR_SUBS = 3;
 
 
 # Constructor
@@ -51,10 +57,10 @@ sub new {
   $self->{ 'port' } = $opts->{ 'port' } || '6379';
   $self->{ 'password' } = $opts->{ 'password' };
 
-  if ( $opts->{ 'encoding' } ) {
+  if ( defined( $opts->{ 'encoding' } ) ) {
     $self->{ 'encoding' } = find_encoding( $opts->{ 'encoding' } );
 
-    if ( !$self->{ 'encoding' } ) {
+    if ( !defined( $self->{ 'encoding' } ) ) {
       croak "Encoding \"$opts->{ 'encoding' }\" not found.";
     }
   }
@@ -64,7 +70,7 @@ sub new {
   if ( $self->{ 'reconnect' } ) {
 
     if ( defined( $opts->{ 'reconnect_after' } ) ) {
-      
+
       if ( looks_like_number( $opts->{ 'reconnect_after' } ) ) {
         $self->{ 'reconnect_after' } = abs( $opts->{ 'reconnect_after' } );
       }
@@ -75,7 +81,7 @@ sub new {
     else {
       $self->{ 'reconnect_after' } = 5;
     }
-    
+
     if ( defined( $opts->{ 'max_reconnect_attempts' } ) ) {
 
       if ( looks_like_number( $opts->{ 'max_reconnect_attempts' } ) ) {
@@ -131,8 +137,13 @@ sub new {
   }
 
   $self->{ 'handle' } = undef;
-  $self->{ 'commands_queue' } = [];
+  $self->{ 'subs' } = {};
+  $self->{ 'subs_num' } = 0;
+  $self->{ 'on_read_is_set' } = 0;
   $self->{ 'reconnect_attempt' } = 0;
+  $self->{ 'commands_queue' } = [];
+  $self->{ 'multi_begun' } = 0;
+  $self->{ 'failover_subs' } = {};
 
   $self->_connect();
 
@@ -172,21 +183,32 @@ sub _connect {
     }
   );
 
-  if ( $self->{ 'password' } ) {
-    $self->_execute_command( 'auth', $self->{ 'password' },
-      sub {
-        
+  if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
+    $self->_execute_command( 'auth', $self->{ 'password' }, {
+      failover => 0,
+      cb => sub {
+
         if ( defined( $self->{ 'on_auth' } ) ) {
           my $data = shift;
 
           $self->{ 'on_auth' }->( $data );
         }
+
+        return 1;
       }
-    );
+    } );
   }
 
-  foreach my $cmd_args ( @{ $self->{ 'commands_queue' } } ) {
+  my $cmd_queue = $self->{ 'commands_queue' };
+  $self->{ 'commands_queue' } = [];
+
+  foreach my $cmd_args ( @{ $cmd_queue } ) {
     $self->_execute_command( @{ $cmd_args } );
+  }
+  
+  foreach my $ch ( keys( %{ $self->{ 'failover_subs' } } ) ) {
+    my $subs_args = $self->{ 'failover_subs' }->{ $ch };
+    $self->_subscribe( $subs_args->[ 0 ], $ch, $subs_args->[ 1 ] );
   }
 
   return 1;
@@ -197,8 +219,7 @@ sub _post_connect {
   my $self = shift;
 
   if ( defined( $self->{ 'on_connect' } ) ) {
-    my $connect_attempt = $self->{ 'reconnect_attempt' } ? $self->{ 'reconnect_attempt' } : 1;
-    $self->{ 'on_connect' }->( $connect_attempt );
+    $self->{ 'on_connect' }->( $self->{ 'reconnect_attempt' } );
   }
 
   $self->{ 'reconnect_attempt' } = 0;
@@ -215,10 +236,19 @@ sub _error {
   $self->{ 'on_error' }->( $msg, $type );
 
   if ( $type == $ERR_COMMAND ) {
-    shift( @{ $self->{ 'commands_queue' } } );
+    # TODO process error on subscribe
+    
+    if ( !$self->{ 'multi_begun' } ) {
+      shift( @{ $self->{ 'commands_queue' } } );
+    }
   }
-  else {
+  elsif ( $type != $ERR_SUBS ) {
     $self->{ 'handle' }->destroy();
+
+    $self->{ 'multi_begun' } = 0;
+    $self->{ 'subs' } = {};
+    $self->{ 'subs_num' } = 0;
+    $self->{ 'on_read_is_set' } = 0;
 
     if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_reconnect_attempts' } )
       || $self->{ 'reconnect_attempt' } < $self->{ 'max_reconnect_attempts' } ) ) {
@@ -231,7 +261,7 @@ sub _error {
         after => $after,
         cb => sub {
           undef( $timer );
-          
+
           ++$self->{ 'reconnect_attempt' };
 
           $self->_connect();
@@ -252,46 +282,163 @@ sub _error {
 ####
 sub _execute_command {
   my $self = shift;
+  my $cmd = shift;
 
-  my $cb = pop( @_ );
+  my $params = {};
+
+  if ( ref( $_[ -1 ] ) eq 'HASH' ) {
+    $params = pop( @_ );
+  }
+
   my @args = @_;
 
-  my $args_num = scalar( @args );
-  my $cmd = '*' . $args_num . $EOL;
-
-  foreach my $arg ( @args ) {
-
-    if ( $self->{ 'encoding' } && is_utf8( $arg ) ) {
-      $arg = $self->{ 'encoding' }->encode( $arg );
-    }
-    
-    if ( defined( $arg ) ) {
-      my $arg_len = length( $arg );
-      $cmd .= '$' . $arg_len . $EOL . $arg . $EOL;
-    }
-    else {
-      $cmd .= '$-1' . $EOL;
-    }
+  if ( !defined( $params->{ 'failover' } ) ) {
+    $params->{ 'failover' } = 1;
   }
 
-  $self->{ 'handle' }->push_write( $cmd );
-
-  if ( $args[ 0 ] =~ m/^p?subscribe$/io ) {
-    $self->{ 'handle' }->on_read( sub {
-      $self->{ 'handle' }->push_read( line => $self->_read_response( $cb ) );
-    } );
-  }
-  elsif ( $args[ 0 ] =~ m/^p?unsubscribe$/io ) {
-    $self->{ 'handle' }->on_read( undef );
+  if ( defined( $params->{ 'cb' } ) && ref( $params->{ 'cb' } ) ne 'CODE' ) {
+    croak 'Callback must be a CODE reference';
   }
 
-  $self->{ 'handle' }->push_read( line => $self->_read_response( $cb ) );
+  my $cb = sub {
+
+    if ( $params->{ 'failover' } ) {
+
+      if ( $cmd eq 'multi' ) {
+        $self->{ 'multi_begun' } = 1;
+      }
+      elsif ( $cmd eq 'exec' ) {
+        $self->{ 'multi_begun' } = 0;
+
+        while( my $cmd_args = shift( @{ $self->{ 'commands_queue' } } ) ) {
+          
+          if ( $cmd_args->[ 0 ] eq 'exec' ) {
+            last;
+          }
+        }
+      }
+      elsif ( !$self->{ 'multi_begun' } ) {
+        shift( @{ $self->{ 'commands_queue' } } );
+      }
+    }
+
+    if ( defined( $params->{ 'cb' } ) ) {
+      my $data = shift;
+
+      $params->{ 'cb' }->( $data );
+    }
+
+    return 1;
+  };
+
+  if ( $params->{ 'failover' } ) {
+    push( @{ $self->{ 'commands_queue' } }, [ $cmd, @args, $params ] );
+  }
+
+  my $cmd_str = $self->_prepare_command( $cmd, @args );
+  $self->{ 'handle' }->push_write( $cmd_str );
+  $self->{ 'handle' }->push_read( line => $self->_process_response( $cb ) );
 
   return 1;
 }
 
 ####
-sub _read_response {
+sub _subscribe {
+  my $self = shift;
+  my $cmd = lc( shift );
+
+  my $params = {};
+
+  if ( ref( $_[ -1 ] ) eq 'HASH' ) {
+    $params = pop( @_ );
+  }
+
+  my @args = @_;
+
+  if ( !defined( $params->{ 'failover' } ) ) {
+    $params->{ 'failover' } = 1;
+  }
+
+  if ( !defined( $params->{ 'cb' } ) ) {
+    croak 'You must specify callback';
+  }
+  if ( ref( $params->{ 'cb' } ) ne 'CODE' ) {
+    croak 'Callback must be a CODE reference';
+  }
+
+  if ( $params->{ 'failover' } ) {
+
+    foreach my $ch ( @args ) {
+      $self->{ 'failover_subs' }->{ $ch } = [ $cmd, $params ];
+      $self->{ 'subs' }->{ $ch } = $params->{ 'cb' };
+    }
+  }
+  else {
+
+    foreach my $ch ( @args ) {
+      $self->{ 'subs' }->{ $ch } = $params->{ 'cb' };
+    }
+  }
+
+  $self->{ subs_num } += scalar( @args );
+
+  my $cmd_str = $self->_prepare_command( $cmd, @args );
+  $self->{ 'handle' }->push_write( $cmd_str );
+
+  if ( !$self->{ 'on_read_is_set' } ) {
+    $self->{ 'handle' }->on_read(
+      sub {
+        $self->{ 'handle' }->push_read( line => $self->_process_response(
+            $self->_process_pubsub() ) );
+      }
+    );
+
+    $self->{ 'on_read_is_set' } = 1;
+  }
+
+  return 1;
+}
+
+####
+sub _unsubscribe {
+  my $self = shift;
+  my $cmd = shift;
+  my @args = @_;
+
+  my $cmd_str = $self->_prepare_command( $cmd, @args );
+  $self->{ 'handle' }->push_write( $cmd_str );
+
+  # TODO repeat unsubscribe
+
+  return 1;
+}
+
+####
+sub _prepare_command {
+  my $self = shift;
+  my @tkns = @_;
+
+  my $cmd_str = '*' . scalar( @tkns ) . $EOL;
+
+  foreach my $tkn ( @tkns ) {
+
+    if ( $self->{ 'encoding' } && is_utf8( $tkn ) ) {
+      $tkn = $self->{ 'encoding' }->encode( $tkn );
+    }
+
+    if ( defined( $tkn ) ) {
+      $cmd_str .= '$' . length( $tkn ) . $EOL . $tkn . $EOL;
+    }
+    else {
+      $cmd_str .= '$-1' . $EOL;
+    }
+  }
+
+  return $cmd_str;
+}
+
+####
+sub _process_response {
   my $self = shift;
   my $cb = shift;
 
@@ -308,6 +455,8 @@ sub _read_response {
       }
       elsif ( $type eq '-' ) {
         $self->_error( $val, $ERR_COMMAND );
+
+        return;
       }
       elsif ( $type eq '$' ) {
         my $bulk_len = $val;
@@ -339,7 +488,7 @@ sub _read_response {
           my @mbulk_data = ();
           my $mbulk_len = 0;
 
-          my $read_arg = sub {
+          my $arg_cb = sub {
             my $data = shift;
 
             push( @mbulk_data, $data );
@@ -352,7 +501,7 @@ sub _read_response {
           };
 
           for ( my $i = 0; $i < $args_num; $i++ ) {
-            $hdl->unshift_read( line => $self->_read_response( $read_arg ) );
+            $hdl->unshift_read( line => $self->_process_response( $arg_cb ) );
           }
         }
         elsif ( $args_num == 0 ) {
@@ -364,6 +513,8 @@ sub _read_response {
       }
       else {
         $self->_error( "Unknown response type: \"$type\"", $ERR_PROTOCOL );
+
+        return;
       }
     }
     else {
@@ -375,54 +526,89 @@ sub _read_response {
 }
 
 ####
-sub AUTOLOAD {
+sub _process_pubsub {
   my $self = shift;
 
-  my $params = {};
+  return sub {
+    my $data = shift;
 
-  if ( ref( $_[ -1 ] ) eq 'HASH' ) {
-    $params = pop( @_ );
-  }
+    if ( !defined( $data ) ) {
+      $self->_error( 'Pub/Sub data is undefined', $ERR_SUBS );
 
-  my @args = @_;
+      return;
+    }
+    elsif ( ref( $data ) ne 'ARRAY' ) {
+      $self->_error( 'Pub/Sub data must be a array reference', $ERR_SUBS );
+
+      return;
+    }
+
+    my $action = $data->[ 0 ];
+
+    if ( !defined( $action ) ) {
+      $self->_error( "Pub/Sub action is undefined", $ERR_SUBS );
+
+      return;
+    }
+
+    my $ch = $data->[ 1 ];
+
+    if ( !defined( $action ) ) {
+      $self->_error( "Pub/Sub channel name or pattern is undefined", $ERR_SUBS );
+
+      return;
+    }
+
+    if ( $action eq 'subscribe' || $action eq 'psubscribe' ) {
+      $self->{ 'subs' }->{ $ch }->( $data );
+    }
+    elsif ( $action eq 'unsubscribe' || $action eq 'punsubscribe' ) {
+      my $del_cb = delete( $self->{ 'subs' }->{ $ch } );
+      $self->{ 'subs_num' } = $data->[ 2 ];
+
+      if ( $self->{ 'subs_num' } == 0 ) {
+        $self->{ 'handle' }->on_read( undef );
+        $self->{ 'on_read_is_set' } = 0;
+      }
+
+      $del_cb->( $data );
+    }
+    elsif ( $action eq 'message' || $action eq 'pmessage' ) {
+      $self->{ 'subs' }->{ $ch }->( $data );
+    }
+    else {
+      $self->_error( "Unknown Pub/Sub action: $action", $ERR_SUBS );
+
+      return;
+    }
+
+    return 1;
+  };
+}
+
+####
+sub AUTOLOAD {
+  my $self = shift;
 
   our $AUTOLOAD;
 
   my $cmd = $AUTOLOAD;
   $cmd =~ s/^.+:://o;
+  $cmd = lc( $cmd );
 
-  unshift( @args, $cmd );
-
-  if ( defined( $params->{ 'cb' } ) && ref( $params->{ 'cb' } ) ne 'CODE' ) {
-    croak 'Callback must be a CODE reference';
+  if ( $cmd eq 'subscribe' || $cmd eq 'psubscribe' ) {
+    $self->_subscribe( $cmd, @_ );
   }
-
-  my $retry = 1;
-
-  if ( defined( $params->{ 'retry' } ) ) {
-    $retry = $params->{ 'retry' };
+  elsif ( $cmd eq 'unsubscribe' || $cmd eq 'punsubscribe' ) {
+    $self->_unsubscribe( $cmd, @_ );
   }
-
-  my $cb = sub {
-
-    if ( defined( $params->{ 'cb' } ) ) {
-      my $data = shift;
-
-      $params->{ 'cb' }->( $data );
-    }
-
-    if ( $retry ) {
-      shift( @{ $self->{ 'commands_queue' } } );
-    }
-
-    return 1;
-  };
-
-  if ( $retry ) {
-    push( @{ $self->{ 'commands_queue' } }, [ @args, $cb ] );
+  elsif ( $self->{ 'subs_num' } == 0 ) {
+    $self->_execute_command( $cmd, @_ );
   }
-
-  $self->_execute_command( @args, $cb );
+  else {
+    croak 'Only (P)SUBSCRIBE and (P)UNSUBSCRIBE commands allowed when'
+        . ' subscription enabled.';
+  }
 
   return 1;
 }
@@ -430,7 +616,7 @@ sub AUTOLOAD {
 ####
 sub DESTROY {
   my $self = shift;
-  
+
   if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
     $self->{ 'handle' }->destroy();
   }
@@ -475,6 +661,6 @@ Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 
 Copyright (c) 2011, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights reserved.
 
-This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself. 
+This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut
