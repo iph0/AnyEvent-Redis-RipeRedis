@@ -26,7 +26,7 @@ use fields qw(
   failover_subs
 );
 
-our $VERSION = '0.300001';
+our $VERSION = '0.300000';
 
 use AnyEvent;
 use AnyEvent::Handle;
