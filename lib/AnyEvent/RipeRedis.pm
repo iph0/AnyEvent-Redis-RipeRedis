@@ -26,7 +26,7 @@ use fields qw(
   failover_subs
 );
 
-our $VERSION = '0.300000';
+our $VERSION = '0.300010';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -34,11 +34,15 @@ use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number );
 use Carp 'croak';
 
-our $EOL = "\r\n";
-our $ERR_HANDLE = 0;
-our $ERR_PROTOCOL = 1;
-our $ERR_COMMAND = 2;
-our $ERR_SUBS = 3;
+# Available error codes
+our $ERR_CONNECT = 1;
+our $ERR_HANDLE = 2;
+our $ERR_EOF = 3;
+our $ERR_COMMAND = 4;
+our $ERR_SUBS = 5;
+our $ERR_PARSING = 6;
+
+my $EOL = "\r\n";
 
 
 # Constructor
@@ -133,7 +137,7 @@ sub new {
     }
   }
   else {
-    $self->{ 'on_error' } = sub { die "$_[ 0 ]\n" };
+    $self->{ 'on_error' } = sub { warn "$_[ 0 ]\n" };
   }
 
   $self->{ 'handle' } = undef;
@@ -151,12 +155,55 @@ sub new {
 }
 
 
+# Public methods
+
+####
+sub reconnect {
+  my $self = shift;
+
+  $self->disconnect();
+
+  my $after = ( $self->{ 'reconnect_attempt' } > 0 ) ? $self->{ 'reconnect_after' } : 0;
+
+  my $timer;
+
+  $timer = AnyEvent->timer(
+    after => $after,
+    cb => sub {
+      undef( $timer );
+
+      ++$self->{ 'reconnect_attempt' };
+
+      $self->_connect();
+    }
+  );
+  
+  return 1;
+}
+
+####
+sub disconnect {
+  my $self = shift;
+
+  if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
+    $self->{ 'handle' }->destroy();
+  }
+  
+  $self->{ 'multi_begun' } = 0;
+  $self->{ 'subs' } = {};
+  $self->{ 'subs_num' } = 0;
+  $self->{ 'on_read_is_set' } = 0;
+
+  return 1;
+}
+
+
 # Private methods
 
 ####
 sub _connect {
   my $self = shift;
-
+  
   $self->{ 'handle' } = AnyEvent::Handle->new(
     connect => [ $self->{ 'host' }, $self->{ 'port' } ],
     peername => $self->{ 'host' },
@@ -165,19 +212,24 @@ sub _connect {
     on_connect => sub {
       $self->_post_connect();
     },
-
+    
     on_connect_error => sub {
-      my $msg = $_[ 1 ];
-
-      $self->_error( $msg, $ERR_HANDLE );
+      $self->{ 'on_error' }->( $_[ 1 ], $ERR_CONNECT );
+      $self->_attempt_to_reconnect();
 
       return 1;
     },
 
     on_error => sub {
-      my $msg = $_[ 2 ];
+      $self->{ 'on_error' }->( $_[ 2 ], $ERR_HANDLE );
+      $self->_attempt_to_reconnect();
 
-      $self->_error( $msg, $ERR_HANDLE );
+      return 1;
+    },
+
+    on_eof => sub {
+      $self->{ 'on_error' }->( 'Unexpected end-of-file', $ERR_EOF );
+      $self->_attempt_to_reconnect();
 
       return 1;
     }
@@ -207,8 +259,7 @@ sub _connect {
   }
   
   foreach my $ch ( keys( %{ $self->{ 'failover_subs' } } ) ) {
-    my $subs_args = $self->{ 'failover_subs' }->{ $ch };
-    $self->_subscribe( $subs_args->[ 0 ], $ch, $subs_args->[ 1 ] );
+    $self->_subscribe( @{ $self->{ 'failover_subs' }->{ $ch } } );
   }
 
   return 1;
@@ -228,55 +279,20 @@ sub _post_connect {
 }
 
 ####
-sub _error {
+sub _attempt_to_reconnect {
   my $self = shift;
-  my $msg = shift;
-  my $type = shift;
+  
+  if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_reconnect_attempts' } )
+    || $self->{ 'reconnect_attempt' } < $self->{ 'max_reconnect_attempts' } ) ) {
 
-  $self->{ 'on_error' }->( $msg, $type );
+    $self->reconnect();
+  }
+  else {
 
-  if ( $type == $ERR_COMMAND ) {
-    # TODO process error on subscribe
-    
-    if ( !$self->{ 'multi_begun' } ) {
-      shift( @{ $self->{ 'commands_queue' } } );
+    if ( defined( $self->{ 'on_stop_reconnect' } ) ) {
+      $self->{ 'on_stop_reconnect' }->();
     }
   }
-  elsif ( $type != $ERR_SUBS ) {
-    $self->{ 'handle' }->destroy();
-
-    $self->{ 'multi_begun' } = 0;
-    $self->{ 'subs' } = {};
-    $self->{ 'subs_num' } = 0;
-    $self->{ 'on_read_is_set' } = 0;
-
-    if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_reconnect_attempts' } )
-      || $self->{ 'reconnect_attempt' } < $self->{ 'max_reconnect_attempts' } ) ) {
-
-      my $after = ( $self->{ 'reconnect_attempt' } > 0 ) ? $self->{ 'reconnect_after' } : 0;
-
-      my $timer;
-
-      $timer = AnyEvent->timer(
-        after => $after,
-        cb => sub {
-          undef( $timer );
-
-          ++$self->{ 'reconnect_attempt' };
-
-          $self->_connect();
-        }
-      );
-    }
-    else {
-
-      if ( $self->{ 'on_stop_reconnect' } ) {
-        $self->{ 'on_stop_reconnect' }->();
-      }
-    }
-  }
-
-  return 1;
 }
 
 ####
@@ -301,13 +317,15 @@ sub _execute_command {
   }
 
   my $cb = sub {
+    my $data = shift;
+    my $err = shift;
 
     if ( $params->{ 'failover' } ) {
 
-      if ( $cmd eq 'multi' ) {
+      if ( $cmd eq 'multi' && !$err ) {
         $self->{ 'multi_begun' } = 1;
       }
-      elsif ( $cmd eq 'exec' ) {
+      elsif ( $cmd eq 'exec' && !$err ) {
         $self->{ 'multi_begun' } = 0;
 
         while( my $cmd_args = shift( @{ $self->{ 'commands_queue' } } ) ) {
@@ -318,13 +336,14 @@ sub _execute_command {
         }
       }
       elsif ( !$self->{ 'multi_begun' } ) {
-        shift( @{ $self->{ 'commands_queue' } } );
+        shift( @{ $self->{ 'commands_queue' } } ); # TODO подумать об очереди транзакций [[]] !!!!!!
       }
     }
 
-    if ( defined( $params->{ 'cb' } ) ) {
-      my $data = shift;
-
+    if ( $err ) {
+      $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+    }
+    elsif ( defined( $params->{ 'cb' } ) ) {
       $params->{ 'cb' }->( $data );
     }
 
@@ -334,10 +353,15 @@ sub _execute_command {
   if ( $params->{ 'failover' } ) {
     push( @{ $self->{ 'commands_queue' } }, [ $cmd, @args, $params ] );
   }
+  
+  if ( !$self->{ 'handle' }->destroyed() ) {
+    my $cmd_str = $self->_prepare_command( $cmd, @args );
+    $self->{ 'handle' }->push_write( $cmd_str );
+  }
 
-  my $cmd_str = $self->_prepare_command( $cmd, @args );
-  $self->{ 'handle' }->push_write( $cmd_str );
-  $self->{ 'handle' }->push_read( line => $self->_process_response( $cb ) );
+  if ( !$self->{ 'handle' }->destroyed() ) {
+    $self->{ 'handle' }->push_read( line => $self->_process_response( $cb ) );
+  }
 
   return 1;
 }
@@ -369,31 +393,33 @@ sub _subscribe {
   if ( $params->{ 'failover' } ) {
 
     foreach my $ch ( @args ) {
-      $self->{ 'failover_subs' }->{ $ch } = [ $cmd, $params ];
-      $self->{ 'subs' }->{ $ch } = $params->{ 'cb' };
+      $self->{ 'failover_subs' }->{ $ch } = [ $cmd, $ch, $params ];
     }
   }
-  else {
+
+  if ( !$self->{ 'handle' }->destroyed() ) {
 
     foreach my $ch ( @args ) {
       $self->{ 'subs' }->{ $ch } = $params->{ 'cb' };
     }
+
+    $self->{ subs_num } += scalar( @args );
+
+    my $cmd_str = $self->_prepare_command( $cmd, @args );
+    $self->{ 'handle' }->push_write( $cmd_str );
   }
 
-  $self->{ subs_num } += scalar( @args );
+  if ( !$self->{ 'handle' }->destroyed() ) {
+    if ( !$self->{ 'on_read_is_set' } ) {
+      $self->{ 'handle' }->on_read(
+        sub {
+          $self->{ 'handle' }->push_read( line => $self->_process_response(
+              $self->_process_pubsub() ) );
+        }
+      );
 
-  my $cmd_str = $self->_prepare_command( $cmd, @args );
-  $self->{ 'handle' }->push_write( $cmd_str );
-
-  if ( !$self->{ 'on_read_is_set' } ) {
-    $self->{ 'handle' }->on_read(
-      sub {
-        $self->{ 'handle' }->push_read( line => $self->_process_response(
-            $self->_process_pubsub() ) );
-      }
-    );
-
-    $self->{ 'on_read_is_set' } = 1;
+      $self->{ 'on_read_is_set' } = 1;
+    }
   }
 
   return 1;
@@ -405,8 +431,10 @@ sub _unsubscribe {
   my $cmd = shift;
   my @args = @_;
 
-  my $cmd_str = $self->_prepare_command( $cmd, @args );
-  $self->{ 'handle' }->push_write( $cmd_str );
+  if ( !$self->{ 'handle' }->destroyed() ) {
+    my $cmd_str = $self->_prepare_command( $cmd, @args );
+    $self->{ 'handle' }->push_write( $cmd_str );
+  }
 
   # TODO repeat unsubscribe
 
@@ -454,9 +482,7 @@ sub _process_response {
         $cb->( $val );
       }
       elsif ( $type eq '-' ) {
-        $self->_error( $val, $ERR_COMMAND );
-
-        return;
+        $cb->( $val, 1 );
       }
       elsif ( $type eq '$' ) {
         my $bulk_len = $val;
@@ -512,7 +538,8 @@ sub _process_response {
         }
       }
       else {
-        $self->_error( "Unknown response type: \"$type\"", $ERR_PROTOCOL );
+        $self->{ 'on_error' }->( "Unexpected response type: \"$type\"", $ERR_PARSING );
+        $self->_attempt_to_reconnect();
 
         return;
       }
@@ -533,12 +560,12 @@ sub _process_pubsub {
     my $data = shift;
 
     if ( !defined( $data ) ) {
-      $self->_error( 'Pub/Sub data is undefined', $ERR_SUBS );
+      $self->{ 'on_error' }->( 'Pub/Sub data is undefined', $ERR_SUBS );
 
       return;
     }
     elsif ( ref( $data ) ne 'ARRAY' ) {
-      $self->_error( 'Pub/Sub data must be a array reference', $ERR_SUBS );
+      $self->{ 'on_error' }->( 'Pub/Sub data must be a array reference', $ERR_SUBS );
 
       return;
     }
@@ -546,7 +573,7 @@ sub _process_pubsub {
     my $action = $data->[ 0 ];
 
     if ( !defined( $action ) ) {
-      $self->_error( "Pub/Sub action is undefined", $ERR_SUBS );
+      $self->{ 'on_error' }->( 'Pub/Sub action is undefined', $ERR_SUBS );
 
       return;
     }
@@ -554,7 +581,7 @@ sub _process_pubsub {
     my $ch = $data->[ 1 ];
 
     if ( !defined( $action ) ) {
-      $self->_error( "Pub/Sub channel name or pattern is undefined", $ERR_SUBS );
+      $self->{ 'on_error' }->( 'Pub/Sub channel name or pattern is undefined', $ERR_SUBS );
 
       return;
     }
@@ -577,7 +604,7 @@ sub _process_pubsub {
       $self->{ 'subs' }->{ $ch }->( $data );
     }
     else {
-      $self->_error( "Unknown Pub/Sub action: $action", $ERR_SUBS );
+      $self->{ 'on_error' }->( "Unexpected Pub/Sub action: \"$action\"", $ERR_SUBS );
 
       return;
     }
@@ -613,13 +640,10 @@ sub AUTOLOAD {
   return 1;
 }
 
-####
 sub DESTROY {
   my $self = shift;
 
-  if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
-    $self->{ 'handle' }->destroy();
-  }
+  $self->disconnect();
 
   return 1;
 };
