@@ -19,7 +19,6 @@ use fields qw(
   handle
   reconnect_attempt
   commands_queue
-  commands_backup
   watched_keys
   subscrs
   psubscrs
@@ -159,7 +158,6 @@ sub new {
   $self->{ 'handle' } = undef;
   $self->{ 'reconnect_attempt' } = 0;
   $self->{ 'commands_queue' } = [];
-  $self->{ 'commands_backup' } = [];
   $self->{ 'transaction_cursor' } = undef;
   $self->{ 'watched_keys' } = [];
   $self->{ 'subscrs' } = {};
@@ -229,7 +227,7 @@ sub execute_command {
   #    $cmd->{ 'on_message' } = $params->{ 'on_message' };
   #  }
   #}
- 
+
   $self->_push_command( $cmd );
 
   return 1;
@@ -238,13 +236,6 @@ sub execute_command {
 ####
 sub reconnect {
   my $self = shift;
-
-  foreach my $cmd ( @{ $self->{ 'commands_queue' } } ) {
-    
-    if ( $cmd->{ 'failover' } ) {
-      push( @{ $self->{ 'commands_backup' } }, $cmd );
-    }
-  }
 
   $self->disconnect();
 
@@ -274,7 +265,7 @@ sub disconnect {
     $self->{ 'handle' }->destroy();
   }
   
-  $self->{ 'commands_queue' } = [];
+  $self->{ 'handle' } = undef;
   undef( $self->{ 'transaction_cursor' } );
   $self->{ 'watched_keys' } = [];
   $self->{ 'subscrs' } = {};
@@ -309,7 +300,7 @@ sub _connect {
     },
 
     on_eof => sub {
-      $self->{ 'on_error' }->( 'End-of-file detected', $ERR_EOF );
+      $self->{ 'on_error' }->( 'EOF detected', $ERR_EOF );
       $self->_attempt_to_reconnect();
     },
 
@@ -319,6 +310,13 @@ sub _connect {
       return $self->_on_read( $hdl );
     }
   );
+  
+  my @cmd_q;
+  
+  if ( @{ $self->{ 'commands_queue' } } ) {
+    @cmd_q = grep { $_->{ 'failover' } } @{ $self->{ 'commands_queue' } };
+    $self->{ 'commands_queue' } = [];
+  }
 
   if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
     $self->_push_command( { 
@@ -337,6 +335,10 @@ sub _connect {
       }
     } );
   }
+  
+  foreach my $cmd ( @cmd_q ) {
+    $self->_push_command( $cmd );
+  }
 
   return 1;
 }
@@ -346,14 +348,7 @@ sub _post_connect {
   my $self = shift;
 
   $self->{ 'reconnect_attempt' } = 0;
-
-  my $cmd_bak = $self->{ 'commands_backup' };
-  $self->{ 'commands_backup' } = [];
-  
-  foreach my $cmd ( @{ $cmd_bak } ) {
-    $self->_push_command( $cmd );
-  }
-  
+ 
   if ( defined( $self->{ 'on_connect' } ) ) {
     $self->{ 'on_connect' }->( $self->{ 'reconnect_attempt' } );
   }
@@ -367,9 +362,13 @@ sub _push_command {
   my $cmd = shift;
 
   push( @{ $self->{ 'commands_queue' } }, $cmd );  
-  my $cmd_str = $self->_prepare_command( $cmd );
   
-  return $self->{ 'handle' }->push_write( $cmd_str );
+  if ( defined( $self->{ 'handle' } ) ) {
+    my $cmd_str = $self->_prepare_command( $cmd );
+    $self->{ 'handle' }->push_write( $cmd_str );
+  }
+
+  return 1;
 }
 
 ####
