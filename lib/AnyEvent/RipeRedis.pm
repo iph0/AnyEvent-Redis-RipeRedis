@@ -1,5 +1,7 @@
 package AnyEvent::RipeRedis;
 
+# TODO clean tail white spaces
+
 use 5.010000;
 use strict;
 use warnings;
@@ -42,19 +44,6 @@ our $ERR_PROC = 5;
 
 my $EOL = "\r\n";
 
-my %SUB_UNSUB_COMMANDS = (
-  subscribe => 1,
-  psubscribe => 1,
-  unsubscribe => 1,
-  punsubscribe => 1
-);
-
-my %SPEC_COMMANDS = (
-  %SUB_UNSUB_COMMANDS,
-  watch => 1,
-  unwatch => 1,
-  quit => 1
-);
 
 # Constructor
 sub new {
@@ -215,7 +204,7 @@ sub execute_command {
 
     $cmd->{ 'on_exec' } = $params->{ 'on_exec' };
   }
-
+  
   # TODO
   
   #if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' 
@@ -267,9 +256,6 @@ sub disconnect {
   
   $self->{ 'handle' } = undef;
   undef( $self->{ 'transaction_cursor' } );
-  $self->{ 'watched_keys' } = [];
-  $self->{ 'subscrs' } = {};
-  $self->{ 'psubscrs' } = {};
 
   return 1;
 }
@@ -335,10 +321,21 @@ sub _connect {
       }
     } );
   }
-  
+
+  if ( @{ $self->{ 'watched_keys' } } ) {
+    $self->_push_command( {
+      name => 'watch',
+      args => $self->{ 'watched_keys' }
+    } );
+  }
+
+  # TODO restore subscriptions
+
   foreach my $cmd ( @cmd_q ) {
     $self->_push_command( $cmd );
   }
+
+  # TODO При повторе транзакции не вызывать коллбэки, которые уже были вызваны
 
   return 1;
 }
@@ -360,14 +357,14 @@ sub _post_connect {
 sub _push_command {
   my $self = shift;
   my $cmd = shift;
-
+  
   push( @{ $self->{ 'commands_queue' } }, $cmd );  
   
   if ( defined( $self->{ 'handle' } ) ) {
     my $cmd_str = $self->_prepare_command( $cmd );
     $self->{ 'handle' }->push_write( $cmd_str );
   }
-
+  
   return 1;
 }
 
@@ -525,6 +522,8 @@ sub _prcoess_response {
   if ( $err_ocurred ) {
     return $self->_process_error( $data );
   }
+ 
+  # TODO Правильно обрабатывать комманды подписки и отписки
   
   if ( !@{ $self->{ 'commands_queue' } } ) {
     $self->{ 'on_error' }->( 'Do not know how process response. '
@@ -553,10 +552,7 @@ sub _prcoess_response {
         last;
       }
       else {
-        
-        if ( $SPEC_COMMANDS{ $trans_cmd->{ 'name' } } ) {
-          $self->_process_spec_command( $trans_cmd );
-        }
+        $self->_process_spec_conds( $trans_cmd );
 
         if ( exists( $trans_cmd->{ 'on_exec' } ) ) {
           $trans_cmd->{ 'on_exec' }->( $data->[ $data_cursor ] );
@@ -574,22 +570,20 @@ sub _prcoess_response {
     if ( defined( $self->{ 'transaction_cursor' } ) ) {
       ++$self->{ 'transaction_cursor' };
     }
-    else {  
-      
-      if ( $SPEC_COMMANDS{ $cmd->{ 'name' } } ) {
-        $self->_process_spec_command( $cmd );
-      }
-
+    else {
+      $self->_process_spec_conds( $cmd );
       shift( @{ $self->{ 'commands_queue' } } );
     }
   }
 
   if ( exists( $cmd->{ 'cb' } ) ) {
     $cmd->{ 'cb' }->( $data );
+
+    if ( defined( $self->{ 'transaction_cursor' } ) ) {
+      delete( $cmd->{ 'cb' } );
+    }
   }
   
-   # QUIT ?
-
 #*3 
 #$7
 #message
@@ -640,7 +634,7 @@ sub _get_processed_command {
 }
 
 ####
-sub _process_spec_command {
+sub _process_spec_conds {
   my $self = shift;
   my $cmd = shift;
   
@@ -654,20 +648,30 @@ sub _process_spec_command {
   return 1;
 }
 
+
 ####
 sub AUTOLOAD {
-  my $self = shift;
-
   our $AUTOLOAD;
 
   my $cmd_name = $AUTOLOAD;
   $cmd_name =~ s/^.+:://o;
   $cmd_name = lc( $cmd_name );
 
-  $self->execute_command( $cmd_name, @_ );
+  my $sub = sub {
+    my $self = shift;
 
-  return 1;
+    return $self->execute_command( $cmd_name, @_ );
+  };
+  
+  no strict 'refs';
+
+  *{ $AUTOLOAD } = $sub;
+  
+  use strict 'refs';
+
+  goto &{ $sub };
 }
+
 
 ####
 sub DESTROY {
