@@ -1,7 +1,5 @@
 package AnyEvent::RipeRedis;
 
-# TODO clean tail white spaces
-
 use 5.010000;
 use strict;
 use warnings;
@@ -38,7 +36,6 @@ our $ERR_CONNECT = 1;
 our $ERR_HANDLE = 2;
 our $ERR_EOF = 3;
 our $ERR_COMMAND = 4;
-our $ERR_PROCESS = 5;
 
 my $EOL = "\r\n";
 my $EOL_LENGTH = length( $EOL );
@@ -289,11 +286,9 @@ sub _connect {
       $self->_attempt_to_reconnect();
     },
 
-    on_read => $self->_prepare_read_cb( 
-      sub { 
-        $self->_prcoess_response( @_ );
-      }
-    )
+    on_read => $self->_prepare_on_read_cb( sub {
+      $self->_prcoess_response( @_ );
+    } )
   );
 
   if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
@@ -381,251 +376,158 @@ sub _serialize_command {
 }
 
 ####
-sub _prepare_read_cb {
+sub _prepare_on_read_cb {
   my $self = shift;
-  my $input_cb = shift;
-  my $remaining_items = shift;
+  my $cb = shift;
+  my $mbulk_remaining = shift;
 
-  my $bulk_len;
-  my $cb;
-  my $read_cb;
+  my $bulk_eol_len;
+  my @mbulk_data;
+  my $on_read_cb;
+  my $on_data_cb;
 
-  if ( defined( $remaining_items ) ) {
-    $cb = sub {
-      $input_cb->( @_ );
+  if ( defined( $mbulk_remaining ) ) {
+    $on_data_cb = sub {
+      my $data = shift;
 
-      if ( --$remaining_items == 0 ) {
-        undef( $read_cb );
-          
+      push( @mbulk_data, $data );
+
+      if ( --$mbulk_remaining == 0 ) {
+        undef( $on_read_cb );
+
+        $cb->( \@mbulk_data );
+
         return 1;
       }
-
-      return;
-    };
+    }
   }
   else {
-    $cb = sub {
-      $input_cb->( @_ );
+    $on_data_cb = sub {
+      my $data = shift;
+
+      $cb->( $data );
 
       return;
-    };
+    }
   }
-  
-  $read_cb = sub {
+
+  $on_read_cb = sub {
     my $hdl = shift;
-    
+
     local $/ = $EOL;
 
     while ( 1 ) {
-      
-      if ( defined( $bulk_len ) ) {
-        my $bulk_eol_len += $bulk_len + $EOL_LENGTH;
+
+      if ( defined( $bulk_eol_len ) ) {
 
         if ( length( substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
-          my $bulk_data = substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len, '' );
-          chomp( $bulk_data );
+          my $data = substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len, '' );
+          chomp( $data );
 
           if ( $self->{ 'encoding' } ) {
-            $bulk_data = $self->{ 'encoding' }->decode( $bulk_data );
+            $data = $self->{ 'encoding' }->decode( $data );
           }
-          
-          undef( $bulk_len );
 
-          $cb->( $bulk_data ) && return 1;
+          undef( $bulk_eol_len );
+
+          if ( $on_data_cb->( $data ) ) {
+            return 1;
+          }
         }
         else {
-          last;
+          return;
         }
       }
 
       my $eol_pos = index( $hdl->{ 'rbuf' }, $EOL );
 
       if ( $eol_pos >= 0 ) {
-        my $val = substr( $hdl->{ 'rbuf' }, 0, $eol_pos + $EOL_LENGTH, '' );
-        my $type = substr( $val, 0, 1, '' );
-        chomp( $val );
-        
+        my $line = substr( $hdl->{ 'rbuf' }, 0, $eol_pos + $EOL_LENGTH, '' );
+        my $type = substr( $line, 0, 1, '' );
+        chomp( $line );
+
         if ( $type eq '+' || $type eq ':' ) {
-          $cb->( $val ) && return 1;
+
+          if ( $on_data_cb->( $line ) ) {
+            return 1;
+          }
         }
         elsif ( $type eq '-' ) {
-          $cb->( $val, 1 ) && return 1;
+          $self->{ 'on_error' }->( $line, $ERR_COMMAND );
+
+          if ( !defined( $mbulk_remaining ) ) {
+            shift( @{ $self->{ 'commands_queue' } } );
+          }
         }
         elsif ( $type eq '$' ) {
+          my $bulk_len = $line;
 
-          if ( $val > 0 ) {
-            $bulk_len = $val;
+          if ( $bulk_len > 0 ) {
+            $bulk_eol_len = $bulk_len + $EOL_LENGTH;
           }
           else {
-            $cb->( $val ) && return 1;
+
+            if ( $on_data_cb->() ) {
+              return 1;
+            }
           }
         }
         elsif ( $type eq '*' ) {
-          
-          if ( $val > 0 ) {
-            my @mbulk_data;
+          my $mbulk_len = $line;
 
-            my $mbulk_cb = sub {
-              my $data = shift;
-              my $err_ocurred = shift;
+          if ( $mbulk_len > 0 ) {
 
-              if ( $err_ocurred ) {
-                $self->{ 'on_error' }->( $data, $ERR_COMMAND );
-
-                return;
-              }
-              
-              push( @mbulk_data, $data );
-
-              if ( scalar( @mbulk_data ) == $val ) {
-                $cb->( \@mbulk_data );
-              }
-            };
-
-            $hdl->push_read( $self->_prepare_read_cb( $mbulk_cb, $val ) );
-
-            if ( defined( $remaining_items ) && $remaining_items > 1 ) {
-              $hdl->push_read( $read_cb );
+            if ( defined( $mbulk_remaining ) && $mbulk_remaining > 1 ) {
+              $hdl->unshift_read( $on_read_cb );
             }
+
+            $hdl->unshift_read( $self->_prepare_on_read_cb( $on_data_cb, $mbulk_len ) );
 
             return 1;
           }
-          elsif ( $val < 0 ) {
-            $cb->() && return 1;
+          elsif ( $mbulk_len < 0 ) {
+
+            if ( $on_data_cb->() ) {
+              return 1;
+            }
           }
           else {
-            $cb->( [] ) && return 1;
+
+            if ( $on_data_cb->( [] ) ) {
+              return 1;
+            }
           }
-        }
-        else {
-          $self->{ 'on_error' }->( "Unexpected response type: \"$type\"", $ERR_PROCESS );
         }
       }
       else {
-        last;
+        return;
       }
     }
-    
-    return;
   };
 
-  return $read_cb;
+  return $on_read_cb;
 }
-
-####
-#sub _prepare_read_cb {
-#  my $self = shift;
-#  my $cb = shift;
-#
-#  return sub {
-#    my $hdl = shift;
-#    my $line = shift;
-#
-#    if ( !defined( $line ) || $line eq '' ) {
-#      $cb->();
-#    }
-#
-#    my $type = substr( $line, 0, 1 );
-#    my $val = substr( $line, 1 );
-#
-#    if ( $type eq '+' || $type eq ':' ) {
-#      $cb->( $val );
-#    }
-#    elsif ( $type eq '-' ) {
-#      $cb->( $val, 1 );
-#    }
-#    elsif ( $type eq '$' ) {
-#      my $bulk_len = $val;
-#
-#      if ( $bulk_len >= 0 ) {
-#        $hdl->unshift_read( chunk => $bulk_len + length( $EOL ), sub {
-#          my $data = $_[ 1 ];
-#
-#          local $/ = $EOL;
-#          chomp( $data );
-#
-#          if ( $self->{ 'encoding' } ) {
-#            $data = $self->{ 'encoding' }->decode( $data );
-#          }
-#
-#          $cb->( $data );
-#        } );
-#      }
-#      else {
-#        $cb->();
-#      }
-#    }
-#    elsif ( $type eq '*' ) {
-#      my $args_num = $val;
-#
-#      if ( $args_num > 0 ) {
-#        my @mbulk_data;
-#        my $mbulk_len = 0;
-#
-#        my $arg_cb = sub {
-#          my $data = shift;
-#
-#          push( @mbulk_data, $data );
-#
-#          if ( ++$mbulk_len == $args_num ) {
-#            $cb->( \@mbulk_data );
-#          }
-#        };
-#
-#        for ( my $i = 0; $i < $args_num; $i++ ) {
-#          $hdl->unshift_read( line => $self->_prepare_read_cb( $arg_cb ) );
-#        }
-#      }
-#      elsif ( $args_num == 0 ) {
-#        $cb->( [] );
-#      }
-#      else {
-#        $cb->();
-#      }
-#    }
-#    else {
-#      $self->{ 'on_error' }->( "Unexpected response type: \"$type\"", $ERR_PROCESS );
-#      $self->_attempt_to_reconnect();
-#    }
-#  };
-#}
 
 ####
 sub _prcoess_response {
   my $self = shift;
   my $data = shift;
-  my $err_ocurred = shift;
-
-  if ( $err_ocurred ) {
-    $self->{ 'on_error' }->( $data, $ERR_COMMAND );
-
-    shift( @{ $self->{ 'commands_queue' } } );
-
-    return;
-  }
 
   if ( %{ $self->{ 'subs' } } ) {
-    my $msg;
 
-    if ( $self->_looks_like_sub_msg( $data ) ) {
-      $msg = $data->[ 2 ];
+    if ( ref( $data ) eq 'ARRAY' ) {
+
+      if ( $data->[ 0 ] eq 'message' ) {
+        $self->{ 'subs' }->{ $data->[ 1 ] }->( $data->[ 2 ] );
+
+        return 1;
+      }
+      elsif ( $data->[ 0 ] eq 'pmessage' ) {
+        $self->{ 'subs' }->{ $data->[ 1 ] }->( $data->[ 3 ] );
+
+        return 1;
+      }
     }
-    elsif ( $self->_looks_like_psub_msg( $data ) ) {
-      $msg = $data->[ 3 ];
-    }
-
-    if ( defined( $msg ) ) {
-      $self->{ 'subs' }->{ $data->[ 1 ] }->( $msg );
-
-      return 1;
-    }
-  }
-
-  if ( !@{ $self->{ 'commands_queue' } } ) {
-    $self->{ 'on_error' }->( 'Do not know how process response. '
-        . 'Queue of commands is empty', $ERR_PROCESS );
-
-    return;
   }
 
   my $cmd = $self->{ 'commands_queue' }->[ 0 ];
@@ -655,15 +557,6 @@ sub _process_sub {
   my $cmd = shift;
   my $data = shift;
 
-  if ( !( ref( $data ) eq 'ARRAY' && scalar( @{ $data } ) == 3
-      && $data->[ 0 ] eq $cmd->{ 'name' } && !ref( $data->[ 1 ] )
-      && $data->[ 1 ] ~~ $cmd->{ 'args' } && looks_like_number( $data->[ 2 ] ) ) ) {
-
-    $self->{ 'on_error' }->( "Unexpected response to a \"$cmd->{ 'name' }\" command", $ERR_PROCESS );
-
-    return;
-  }
-
   if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe' ) {
     $self->{ 'subs' }->{ $data->[ 1 ] } = $cmd->{ 'on_message' };
   }
@@ -671,32 +564,13 @@ sub _process_sub {
     delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
   }
 
-  --$cmd->{ 'resp_remaining' };
-
-  if ( $cmd->{ 'resp_remaining' } == 0 ) {
+  if ( --$cmd->{ 'resp_remaining' } == 0 ) {
     shift( @{ $self->{ 'commands_queue' } } );
   }
 
   if ( exists( $cmd->{ 'cb' } ) ) {
     $cmd->{ 'cb' }->( $data->[ 2 ] );
   }
-}
-
-####
-sub _looks_like_sub_msg {
-  my $data = $_[ 1 ];
-
-  return ref( $data ) eq 'ARRAY' && scalar( @{ $data } ) == 3
-      && $data->[ 0 ] eq 'message' && !ref( $data->[ 1 ] ) && !ref( $data->[ 2 ] );
-}
-
-####
-sub _looks_like_psub_msg {
-  my $data = $_[ 1 ];
-
-  return ref( $data ) eq 'ARRAY' && scalar( @{ $data } ) == 4
-      && $data->[ 0 ] eq 'pmessage' && !ref( $data->[ 1 ] ) && !ref( $data->[ 2 ] )
-      && !ref( $data->[ 3 ] );
 }
 
 
