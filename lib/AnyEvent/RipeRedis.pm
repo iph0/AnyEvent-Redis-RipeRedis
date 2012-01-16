@@ -21,8 +21,6 @@ use fields qw(
   handle
   reconnect_attempt
   commands_queue
-  watched_keys
-  transaction_cursor
   sub_lock
   subs
 );
@@ -42,11 +40,8 @@ our $ERR_EOF = 3;
 our $ERR_COMMAND = 4;
 our $ERR_PROCESS = 5;
 
-# Available subscription types
-my $SUB_GENERIC = 1;
-my $SUB_PATTERN = 2;
-
 my $EOL = "\r\n";
+my $EOL_LENGTH = length( $EOL );
 
 
 # Constructor
@@ -151,8 +146,6 @@ sub new {
   $self->{ 'handle' } = undef;
   $self->{ 'reconnect_attempt' } = 0;
   $self->{ 'commands_queue' } = [];
-  $self->{ 'watched_keys' } = [];
-  $self->{ 'transaction_cursor' } = undef;
   $self->{ 'sub_lock' } = undef;
   $self->{ 'subs' } = {};
 
@@ -177,14 +170,9 @@ sub execute_command {
 
   my @args = @_;
 
-  if ( !defined( $params->{ 'failover' } ) ) {
-    $params->{ 'failover' } = 1;
-  }
-
   my $cmd = {
     name => $cmd_name,
     args => \@args,
-    failover => $params->{ 'failover' }
   };
 
   if ( defined( $params->{ 'cb' } ) ) {
@@ -210,7 +198,7 @@ sub execute_command {
           . " First, the transaction must be completed.";
     }
 
-    $cmd->{ 'resp_cnt' } = scalar( @args );
+    $cmd->{ 'resp_remaining' } = scalar( @args );
 
     if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
 
@@ -222,17 +210,6 @@ sub execute_command {
       }
 
       $cmd->{ 'on_message' } = $params->{ 'on_message' };
-    }
-  }
-  else {
-
-    if ( defined( $params->{ 'on_exec' } ) ) {
-
-      if ( ref( $params->{ 'on_exec' } ) ne 'CODE' ) {
-        croak '"on_exec" callback must be a CODE reference';
-      }
-
-      $cmd->{ 'on_exec' } = $params->{ 'on_exec' };
     }
   }
 
@@ -274,7 +251,10 @@ sub disconnect {
   }
 
   $self->{ 'handle' } = undef;
-  undef( $self->{ 'transaction_cursor' } );
+  $self->{ 'reconnect_attempt' } = 0;
+  $self->{ 'commands_queue' } = [];
+  $self->{ 'sub_lock' } = undef;
+  $self->{ 'subs' } = {};
 
   return 1;
 }
@@ -309,19 +289,12 @@ sub _connect {
       $self->_attempt_to_reconnect();
     },
 
-    on_read => sub {
-      my $hdl = shift;
-
-      return $self->_on_read( $hdl );
-    }
+    on_read => $self->_prepare_read_cb( 
+      sub { 
+        $self->_prcoess_response( @_ );
+      }
+    )
   );
-
-  my @cmd_q;
-
-  if ( @{ $self->{ 'commands_queue' } } ) {
-    @cmd_q = grep { $_->{ 'failover' } } @{ $self->{ 'commands_queue' } };
-    $self->{ 'commands_queue' } = [];
-  }
 
   if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
     $self->_push_command( {
@@ -337,37 +310,6 @@ sub _connect {
         }
       }
     } );
-  }
-
-  my $watched_keys = $self->{ 'watched_keys' };
-  $self->{ 'watched_keys' } = [];
-
-  if ( @{ $self->{ 'watched_keys' } } ) {
-    $self->_push_command( {
-      name => 'watch',
-      args => $self->{ 'watched_keys' }
-    } );
-  }
-
-  my $subs = $self->{ 'subs' };
-  $self->{ 'subs' } = {};
-
-  foreach my $ch_name ( keys( %{ $subs } ) ) {
-    my $sub = $subs->{ $ch_name };
-
-    my $cmd_name = ( $sub->{ 'sub_type' } == $SUB_GENERIC ) ? 'subscribe' : 'psubscribe';
-
-    $self->_push_command( {
-      name => $cmd_name,
-      args => [ $ch_name ],
-      on_message => $sub->{ 'on_message' },
-      resp_cnt => 1,
-      failover => 1
-    } );
-  }
-
-  foreach my $cmd ( @cmd_q ) {
-    $self->_push_command( $cmd );
   }
 }
 
@@ -422,7 +364,7 @@ sub _serialize_command {
 
   foreach my $tkn ( $cmd->{ 'name' }, @{ $cmd->{ 'args' } } ) {
 
-    if ( $self->{ 'encoding' } && is_utf8( $tkn ) ) {
+    if ( exists( $self->{ 'encoding' } ) && is_utf8( $tkn ) ) {
       $tkn = $self->{ 'encoding' }->encode( $tkn );
     }
 
@@ -439,96 +381,214 @@ sub _serialize_command {
 }
 
 ####
-sub _on_read {
+sub _prepare_read_cb {
   my $self = shift;
-  my $hdl = shift;
+  my $input_cb = shift;
+  my $remaining_items = shift;
 
-  $hdl->push_read(
-    line => $self->_prepare_resp_cb(
-      sub {
-        return $self->_prcoess_response( @_ );
+  my $bulk_len;
+  my $cb;
+  my $read_cb;
+
+  if ( defined( $remaining_items ) ) {
+    $cb = sub {
+      $input_cb->( @_ );
+
+      if ( --$remaining_items == 0 ) {
+        undef( $read_cb );
+          
+        return 1;
       }
-    )
-  );
+
+      return;
+    };
+  }
+  else {
+    $cb = sub {
+      $input_cb->( @_ );
+
+      return;
+    };
+  }
+  
+  $read_cb = sub {
+    my $hdl = shift;
+    
+    local $/ = $EOL;
+
+    while ( 1 ) {
+      
+      if ( defined( $bulk_len ) ) {
+        my $bulk_eol_len += $bulk_len + $EOL_LENGTH;
+
+        if ( length( substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
+          my $bulk_data = substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len, '' );
+          chomp( $bulk_data );
+
+          if ( $self->{ 'encoding' } ) {
+            $bulk_data = $self->{ 'encoding' }->decode( $bulk_data );
+          }
+          
+          undef( $bulk_len );
+
+          $cb->( $bulk_data ) && return 1;
+        }
+        else {
+          last;
+        }
+      }
+
+      my $eol_pos = index( $hdl->{ 'rbuf' }, $EOL );
+
+      if ( $eol_pos >= 0 ) {
+        my $val = substr( $hdl->{ 'rbuf' }, 0, $eol_pos + $EOL_LENGTH, '' );
+        my $type = substr( $val, 0, 1, '' );
+        chomp( $val );
+        
+        if ( $type eq '+' || $type eq ':' ) {
+          $cb->( $val ) && return 1;
+        }
+        elsif ( $type eq '-' ) {
+          $cb->( $val, 1 ) && return 1;
+        }
+        elsif ( $type eq '$' ) {
+
+          if ( $val > 0 ) {
+            $bulk_len = $val;
+          }
+          else {
+            $cb->( $val ) && return 1;
+          }
+        }
+        elsif ( $type eq '*' ) {
+          
+          if ( $val > 0 ) {
+            my @mbulk_data;
+
+            my $mbulk_cb = sub {
+              my $data = shift;
+              my $err_ocurred = shift;
+
+              if ( $err_ocurred ) {
+                $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+
+                return;
+              }
+              
+              push( @mbulk_data, $data );
+
+              if ( scalar( @mbulk_data ) == $val ) {
+                $cb->( \@mbulk_data );
+              }
+            };
+
+            $hdl->push_read( $self->_prepare_read_cb( $mbulk_cb, $val ) );
+
+            if ( defined( $remaining_items ) && $remaining_items > 1 ) {
+              $hdl->push_read( $read_cb );
+            }
+
+            return 1;
+          }
+          elsif ( $val < 0 ) {
+            $cb->() && return 1;
+          }
+          else {
+            $cb->( [] ) && return 1;
+          }
+        }
+        else {
+          $self->{ 'on_error' }->( "Unexpected response type: \"$type\"", $ERR_PROCESS );
+        }
+      }
+      else {
+        last;
+      }
+    }
+    
+    return;
+  };
+
+  return $read_cb;
 }
 
 ####
-sub _prepare_resp_cb {
-  my $self = shift;
-  my $cb = shift;
-
-  return sub {
-    my $hdl = shift;
-    my $str = shift;
-
-    if ( !defined( $str ) || $str eq '' ) {
-      $cb->();
-    }
-
-    my $type = substr( $str, 0, 1 );
-    my $val = substr( $str, 1 );
-
-    if ( $type eq '+' || $type eq ':' ) {
-      $cb->( $val );
-    }
-    elsif ( $type eq '-' ) {
-      $cb->( $val, 1 );
-    }
-    elsif ( $type eq '$' ) {
-      my $bulk_len = $val;
-
-      if ( $bulk_len >= 0 ) {
-        $hdl->unshift_read( chunk => $bulk_len + length( $EOL ), sub {
-          my $data = $_[ 1 ];
-
-          local $/ = $EOL;
-          chomp( $data );
-
-          if ( $self->{ 'encoding' } ) {
-            $data = $self->{ 'encoding' }->decode( $data );
-          }
-
-          $cb->( $data );
-        } );
-      }
-      else {
-        $cb->();
-      }
-    }
-    elsif ( $type eq '*' ) {
-      my $args_num = $val;
-
-      if ( $args_num > 0 ) {
-        my @mbulk_data = ();
-        my $mbulk_len = 0;
-
-        my $arg_cb = sub {
-          my $data = shift;
-
-          push( @mbulk_data, $data );
-
-          if ( ++$mbulk_len == $args_num ) {
-            $cb->( \@mbulk_data );
-          }
-        };
-
-        for ( my $i = 0; $i < $args_num; $i++ ) {
-          $hdl->unshift_read( line => $self->_prepare_resp_cb( $arg_cb ) );
-        }
-      }
-      elsif ( $args_num == 0 ) {
-        $cb->( [] );
-      }
-      else {
-        $cb->();
-      }
-    }
-    else {
-      $self->{ 'on_error' }->( "Unexpected response type: \"$type\"", $ERR_PROCESS );
-      $self->_attempt_to_reconnect();
-    }
-  };
-}
+#sub _prepare_read_cb {
+#  my $self = shift;
+#  my $cb = shift;
+#
+#  return sub {
+#    my $hdl = shift;
+#    my $line = shift;
+#
+#    if ( !defined( $line ) || $line eq '' ) {
+#      $cb->();
+#    }
+#
+#    my $type = substr( $line, 0, 1 );
+#    my $val = substr( $line, 1 );
+#
+#    if ( $type eq '+' || $type eq ':' ) {
+#      $cb->( $val );
+#    }
+#    elsif ( $type eq '-' ) {
+#      $cb->( $val, 1 );
+#    }
+#    elsif ( $type eq '$' ) {
+#      my $bulk_len = $val;
+#
+#      if ( $bulk_len >= 0 ) {
+#        $hdl->unshift_read( chunk => $bulk_len + length( $EOL ), sub {
+#          my $data = $_[ 1 ];
+#
+#          local $/ = $EOL;
+#          chomp( $data );
+#
+#          if ( $self->{ 'encoding' } ) {
+#            $data = $self->{ 'encoding' }->decode( $data );
+#          }
+#
+#          $cb->( $data );
+#        } );
+#      }
+#      else {
+#        $cb->();
+#      }
+#    }
+#    elsif ( $type eq '*' ) {
+#      my $args_num = $val;
+#
+#      if ( $args_num > 0 ) {
+#        my @mbulk_data;
+#        my $mbulk_len = 0;
+#
+#        my $arg_cb = sub {
+#          my $data = shift;
+#
+#          push( @mbulk_data, $data );
+#
+#          if ( ++$mbulk_len == $args_num ) {
+#            $cb->( \@mbulk_data );
+#          }
+#        };
+#
+#        for ( my $i = 0; $i < $args_num; $i++ ) {
+#          $hdl->unshift_read( line => $self->_prepare_read_cb( $arg_cb ) );
+#        }
+#      }
+#      elsif ( $args_num == 0 ) {
+#        $cb->( [] );
+#      }
+#      else {
+#        $cb->();
+#      }
+#    }
+#    else {
+#      $self->{ 'on_error' }->( "Unexpected response type: \"$type\"", $ERR_PROCESS );
+#      $self->_attempt_to_reconnect();
+#    }
+#  };
+#}
 
 ####
 sub _prcoess_response {
@@ -537,18 +597,25 @@ sub _prcoess_response {
   my $err_ocurred = shift;
 
   if ( $err_ocurred ) {
-    return $self->_process_error( $data );
+    $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+
+    shift( @{ $self->{ 'commands_queue' } } );
+
+    return;
   }
 
   if ( %{ $self->{ 'subs' } } ) {
+    my $msg;
 
     if ( $self->_looks_like_sub_msg( $data ) ) {
-      $self->{ 'subs' }->{ $data->[ 1 ] }->{ 'on_message' }->( $data->[ 2 ] );
-
-      return 1;
+      $msg = $data->[ 2 ];
     }
     elsif ( $self->_looks_like_psub_msg( $data ) ) {
-      $self->{ 'subs' }->{ $data->[ 1 ] }->{ 'on_message' }->( $data->[ 3 ] );
+      $msg = $data->[ 3 ];
+    }
+
+    if ( defined( $msg ) ) {
+      $self->{ 'subs' }->{ $data->[ 1 ] }->( $msg );
 
       return 1;
     }
@@ -561,123 +628,29 @@ sub _prcoess_response {
     return;
   }
 
-  my $cmd;
+  my $cmd = $self->{ 'commands_queue' }->[ 0 ];
 
-  if ( defined( $self->{ 'transaction_cursor' } ) ) {
-    $cmd = $self->{ 'commands_queue' }->[ $self->{ 'transaction_cursor' } ];
-  }
-  else {
-    $cmd = $self->{ 'commands_queue' }->[ 0 ];
-  }
-
-  if ( $cmd->{ 'name' } eq 'multi' ) {
-    $self->{ 'transaction_cursor' } = 1;
-
-    if ( exists( $cmd->{ 'cb' } ) ) {
-      $cmd->{ 'cb' }->( $data );
-
-      delete( $cmd->{ 'cb' } );
-    }
-  }
-  elsif ( $cmd->{ 'name' } eq 'exec' ) {
-    $self->_process_exec_cmd( $cmd, $data );
-  }
-  elsif ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe'
+  if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe'
       || $cmd->{ 'name' } eq 'unsubscribe' || $cmd->{ 'name' } eq 'punsubscribe' ) {
 
-    $self->_process_subscr( $cmd, $data );
-  }
-  elsif ( $cmd->{ 'name' } eq 'quit' ) {
-    $self->disconnect();
-  }
-  else {
+    $self->_process_sub( $cmd, $data );
 
-    if ( defined( $self->{ 'transaction_cursor' } ) ) {
-
-      if ( exists( $cmd->{ 'cb' } ) ) {
-        $cmd->{ 'cb' }->( $data );
-
-        delete( $cmd->{ 'cb' } );
-      }
-
-      ++$self->{ 'transaction_cursor' };
-    }
-    else {
-
-      if ( $cmd->{ 'name' } eq 'watch' ) {
-        push( @{ $self->{ 'watched_keys' } }, @{ $cmd->{ 'args' } } );
-      }
-      elsif ( $cmd->{ 'name' } eq 'unwatch' ) {
-        $self->{ 'watched_keys' } = [];
-      }
-
-      if ( exists( $cmd->{ 'cb' } ) ) {
-        $cmd->{ 'cb' }->( $data );
-      }
-
-      shift( @{ $self->{ 'commands_queue' } } );
-    }
-  }
-}
-
-####
-sub _process_error {
-  my $self = shift;
-  my $err_msg = shift;
-
-  if ( defined( $self->{ 'transaction_cursor' } ) ) {
-    splice( @{ $self->{ 'commands_queue' } }, $self->{ 'transaction_cursor' }, 1 );
-  }
-  else {
-    shift( @{ $self->{ 'commands_queue' } } );
-  }
-
-  $self->{ 'on_error' }->( $err_msg, $ERR_COMMAND );
-}
-
-####
-sub _process_exec_cmd {
-  my $self = shift;
-  my $cmd = shift;
-  my $data = shift;
-
-  my $data_cursor = 0;
-
-  while ( my $trn_cmd = shift( @{ $self->{ 'commands_queue' } } ) ) {
-
-    if ( $trn_cmd->{ 'name' } eq 'multi' ) {
-      next;
-    }
-    elsif ( $trn_cmd->{ 'name' } eq 'exec' ) {
-      last;
-    }
-    else {
-
-      if ( $cmd->{ 'name' } eq 'watch' ) {
-        push( @{ $self->{ 'watched_keys' } }, @{ $cmd->{ 'args' } } );
-      }
-      elsif ( $cmd->{ 'name' } eq 'unwatch' ) {
-        $self->{ 'watched_keys' } = [];
-      }
-
-      if ( exists( $trn_cmd->{ 'on_exec' } ) ) {
-        $trn_cmd->{ 'on_exec' }->( $data->[ $data_cursor ] );
-      }
-    }
-
-    ++$data_cursor;
+    return 1;
   }
 
   if ( exists( $cmd->{ 'cb' } ) ) {
     $cmd->{ 'cb' }->( $data );
   }
 
-  undef( $self->{ 'transaction_cursor' } );
-  $self->{ 'watched_keys' } = [];
+  if ( $cmd->{ 'name' } eq 'quit' ) {
+    $self->disconnect();
+  }
+
+  shift( @{ $self->{ 'commands_queue' } } );
 }
 
 ####
-sub _process_subscr {
+sub _process_sub {
   my $self = shift;
   my $cmd = shift;
   my $data = shift;
@@ -691,25 +664,16 @@ sub _process_subscr {
     return;
   }
 
-  if ( $cmd->{ 'name' } eq 'subscribe' ) {
-    $self->{ 'subs' }->{ $data->[ 1 ] } = {
-      sub_type => $SUB_GENERIC,
-      on_message => $cmd->{ 'on_message' }
-    }
-  }
-  elsif ( $cmd->{ 'name' } eq 'psubscribe' ) {
-    $self->{ 'subs' }->{ $data->[ 1 ] } = {
-      sub_type => $SUB_PATTERN,
-      on_message => $cmd->{ 'on_message' }
-    }
+  if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe' ) {
+    $self->{ 'subs' }->{ $data->[ 1 ] } = $cmd->{ 'on_message' };
   }
   else {
     delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
   }
 
-  --$cmd->{ 'resp_cnt' };
+  --$cmd->{ 'resp_remaining' };
 
-  if ( !exists( $cmd->{ 'resp_cnt' } ) || $cmd->{ 'resp_cnt' } == 0 ) {
+  if ( $cmd->{ 'resp_remaining' } == 0 ) {
     shift( @{ $self->{ 'commands_queue' } } );
   }
 
@@ -735,6 +699,7 @@ sub _looks_like_psub_msg {
       && !ref( $data->[ 3 ] );
 }
 
+
 ####
 sub AUTOLOAD {
   our $AUTOLOAD;
@@ -746,7 +711,7 @@ sub AUTOLOAD {
   my $sub = sub {
     my $self = shift;
 
-    return $self->execute_command( $cmd_name, @_ );
+    $self->execute_command( $cmd_name, @_ );
   };
 
   do {
