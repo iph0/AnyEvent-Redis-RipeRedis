@@ -438,6 +438,8 @@ sub _prepare_on_read_cb {
           my @m_data;
 
           if ( $mbulk_len > 0 ) {
+            my $data_remaining = $mbulk_len;
+            
             my $on_read_cb;
 
             my $on_data_cb = sub {
@@ -451,12 +453,12 @@ sub _prepare_on_read_cb {
                 push( @m_data, $data );
               }
 
-              --$mbulk_len;
+              --$data_remaining;
 
-              if ( ref( $data ) eq 'ARRAY' && $mbulk_len > 0 ) {
+              if ( ref( $data ) eq 'ARRAY' && $data_remaining > 0 ) {
                 $hdl->unshift_read( $on_read_cb );
               }
-              elsif ( $mbulk_len == 0 ) {
+              elsif ( $data_remaining == 0 ) {
                 undef( $on_read_cb );
 
                 $cb->( \@m_data );
