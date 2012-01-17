@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300010';
+our $VERSION = '0.300011';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -155,67 +155,6 @@ sub new {
 # Public methods
 
 ####
-sub execute_command {
-  my $self = shift;
-  my $cmd_name = shift;
-
-  my $params = {};
-
-  if ( ref( $_[ -1 ] ) eq 'HASH' ) {
-    $params = pop( @_ );
-  }
-
-  my @args = @_;
-
-  my $cmd = {
-    name => $cmd_name,
-    args => \@args,
-  };
-
-  if ( defined( $params->{ 'cb' } ) ) {
-
-    if ( ref( $params->{ 'cb' } ) ne 'CODE' ) {
-      croak 'Callback must be a CODE reference';
-    }
-
-    $cmd->{ 'cb' } = $params->{ 'cb' };
-  }
-
-  if ( $cmd_name eq 'multi' ) {
-    $self->{ 'sub_lock' } = 1;
-  }
-  elsif ( $cmd_name eq 'exec' ) {
-    undef( $self->{ 'sub_lock' } );
-  }
-  elsif ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe'
-      || $cmd_name eq 'unsubscribe' || $cmd_name eq 'punsubscribe' ) {
-
-    if ( $self->{ 'sub_lock' } ) {
-      croak "Command \"$cmd_name\" not allowed in this context."
-          . " First, the transaction must be completed.";
-    }
-
-    $cmd->{ 'resp_remaining' } = scalar( @args );
-
-    if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
-
-      if ( !defined( $params->{ 'on_message' } ) ) {
-        croak '"on_message" callback must be specified';
-      }
-      elsif ( ref( $params->{ 'on_message' } ) ne 'CODE' ) {
-        croak '"on_message" callback must be a CODE reference';
-      }
-
-      $cmd->{ 'on_message' } = $params->{ 'on_message' };
-    }
-  }
-
-  $self->_push_command( $cmd );
-
-  return 1;
-}
-
-####
 sub reconnect {
   my $self = shift;
 
@@ -288,6 +227,8 @@ sub _connect {
 
     on_read => $self->_prepare_on_read_cb( sub {
       $self->_prcoess_response( @_ );
+
+      return;
     } )
   );
 
@@ -317,6 +258,67 @@ sub _post_connect {
   if ( defined( $self->{ 'on_connect' } ) ) {
     $self->{ 'on_connect' }->( $self->{ 'reconnect_attempt' } );
   }
+}
+
+####
+sub _exec_command {
+  my $self = shift;
+  my $cmd_name = shift;
+
+  my $params = {};
+
+  if ( ref( $_[ -1 ] ) eq 'HASH' ) {
+    $params = pop( @_ );
+  }
+
+  my @args = @_;
+
+  my $cmd = {
+    name => $cmd_name,
+    args => \@args,
+  };
+
+  if ( defined( $params->{ 'cb' } ) ) {
+
+    if ( ref( $params->{ 'cb' } ) ne 'CODE' ) {
+      croak 'Callback must be a CODE reference';
+    }
+
+    $cmd->{ 'cb' } = $params->{ 'cb' };
+  }
+
+  if ( $cmd_name eq 'multi' ) {
+    $self->{ 'sub_lock' } = 1;
+  }
+  elsif ( $cmd_name eq 'exec' ) {
+    undef( $self->{ 'sub_lock' } );
+  }
+  elsif ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe'
+      || $cmd_name eq 'unsubscribe' || $cmd_name eq 'punsubscribe' ) {
+
+    if ( $self->{ 'sub_lock' } ) {
+      croak "Command \"$cmd_name\" not allowed in this context."
+          . " First, the transaction must be completed.";
+    }
+
+    $cmd->{ 'resp_remaining' } = scalar( @args );
+
+    if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
+
+      if ( !defined( $params->{ 'on_message' } ) ) {
+        croak '"on_message" callback must be specified';
+      }
+      elsif ( ref( $params->{ 'on_message' } ) ne 'CODE' ) {
+        croak '"on_message" callback must be a CODE reference';
+      }
+
+      $cmd->{ 'on_message' } = $params->{ 'on_message' };
+    }
+  }
+
+  $self->_push_command( $cmd );
+
+  return 1;
 }
 
 ####
@@ -379,39 +381,10 @@ sub _serialize_command {
 sub _prepare_on_read_cb {
   my $self = shift;
   my $cb = shift;
-  my $mbulk_remaining = shift;
 
   my $bulk_eol_len;
-  my @mbulk_data;
-  my $on_read_cb;
-  my $on_data_cb;
 
-  if ( defined( $mbulk_remaining ) ) {
-    $on_data_cb = sub {
-      my $data = shift;
-
-      push( @mbulk_data, $data );
-
-      if ( --$mbulk_remaining == 0 ) {
-        undef( $on_read_cb );
-
-        $cb->( \@mbulk_data );
-
-        return 1;
-      }
-    }
-  }
-  else {
-    $on_data_cb = sub {
-      my $data = shift;
-
-      $cb->( $data );
-
-      return;
-    }
-  }
-
-  $on_read_cb = sub {
+  return sub {
     my $hdl = shift;
 
     local $/ = $EOL;
@@ -430,9 +403,7 @@ sub _prepare_on_read_cb {
 
           undef( $bulk_eol_len );
 
-          if ( $on_data_cb->( $data ) ) {
-            return 1;
-          }
+          return 1 if $cb->( $data );
         }
         else {
           return;
@@ -442,60 +413,68 @@ sub _prepare_on_read_cb {
       my $eol_pos = index( $hdl->{ 'rbuf' }, $EOL );
 
       if ( $eol_pos >= 0 ) {
-        my $line = substr( $hdl->{ 'rbuf' }, 0, $eol_pos + $EOL_LENGTH, '' );
-        my $type = substr( $line, 0, 1, '' );
-        chomp( $line );
+        my $data = substr( $hdl->{ 'rbuf' }, 0, $eol_pos + $EOL_LENGTH, '' );
+        my $type = substr( $data, 0, 1, '' );
+        chomp( $data );
 
         if ( $type eq '+' || $type eq ':' ) {
-
-          if ( $on_data_cb->( $line ) ) {
-            return 1;
-          }
+          return 1 if $cb->( $data );
         }
         elsif ( $type eq '-' ) {
-          $self->{ 'on_error' }->( $line, $ERR_COMMAND );
-
-          if ( !defined( $mbulk_remaining ) ) {
-            shift( @{ $self->{ 'commands_queue' } } );
-          }
+          return 1 if $cb->( $data, 1 );
         }
         elsif ( $type eq '$' ) {
-          my $bulk_len = $line;
+          my $bulk_len = $data;
 
           if ( $bulk_len > 0 ) {
             $bulk_eol_len = $bulk_len + $EOL_LENGTH;
           }
           else {
-
-            if ( $on_data_cb->() ) {
-              return 1;
-            }
+            return 1 if $cb->();
           }
         }
         elsif ( $type eq '*' ) {
-          my $mbulk_len = $line;
+          my $mbulk_len = $data;
+          my @m_data;
 
           if ( $mbulk_len > 0 ) {
+            my $on_read_cb;
 
-            if ( defined( $mbulk_remaining ) && $mbulk_remaining > 1 ) {
-              $hdl->unshift_read( $on_read_cb );
-            }
+            my $on_data_cb = sub {
+              my $data = shift;
+              my $err = shift;
 
-            $hdl->unshift_read( $self->_prepare_on_read_cb( $on_data_cb, $mbulk_len ) );
+              if ( $err ) {
+                $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+              }
+              else {
+                push( @m_data, $data );
+              }
+
+              --$mbulk_len;
+
+              if ( ref( $data ) eq 'ARRAY' && $mbulk_len > 0 ) {
+                $hdl->unshift_read( $on_read_cb );
+              }
+              elsif ( $mbulk_len == 0 ) {
+                undef( $on_read_cb );
+
+                $cb->( \@m_data );
+
+                return 1;
+              }
+            };
+
+            $on_read_cb = $self->_prepare_on_read_cb( $on_data_cb );
+            $hdl->unshift_read( $on_read_cb );
 
             return 1;
           }
           elsif ( $mbulk_len < 0 ) {
-
-            if ( $on_data_cb->() ) {
-              return 1;
-            }
+            return 1 if $cb->();
           }
           else {
-
-            if ( $on_data_cb->( [] ) ) {
-              return 1;
-            }
+            return 1 if $cb->( [] );
           }
         }
       }
@@ -504,14 +483,21 @@ sub _prepare_on_read_cb {
       }
     }
   };
-
-  return $on_read_cb;
 }
 
 ####
 sub _prcoess_response {
   my $self = shift;
   my $data = shift;
+  my $err = shift;
+
+  if ( $err ) {
+    $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+
+    shift( @{ $self->{ 'commands_queue' } } );
+
+    return;
+  }
 
   if ( %{ $self->{ 'subs' } } ) {
 
@@ -585,7 +571,7 @@ sub AUTOLOAD {
   my $sub = sub {
     my $self = shift;
 
-    $self->execute_command( $cmd_name, @_ );
+    $self->_exec_command( $cmd_name, @_ );
   };
 
   do {
