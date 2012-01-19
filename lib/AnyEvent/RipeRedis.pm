@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300011';
+our $VERSION = '0.300012';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -42,7 +42,7 @@ my $EOL_LENGTH = length( $EOL );
 
 
 # Constructor
-sub new {
+sub connect {
   my $proto = shift;
   my $opts = shift;
 
