@@ -11,6 +11,6 @@ use Test::More tests => 4;
 use_ok( 'AnyEvent::RipeRedis' );
 
 # Test methods
-can_ok( 'AnyEvent::RipeRedis', 'connect' );
+can_ok( 'AnyEvent::RipeRedis', 'new' );
 can_ok( 'AnyEvent::RipeRedis', 'reconnect' );
 can_ok( 'AnyEvent::RipeRedis', 'disconnect' );

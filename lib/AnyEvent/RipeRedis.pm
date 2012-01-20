@@ -42,7 +42,7 @@ my $EOL_LENGTH = length( $EOL );
 
 
 # Constructor
-sub connect {
+sub new {
   my $proto = shift;
   my $params = shift;
 
