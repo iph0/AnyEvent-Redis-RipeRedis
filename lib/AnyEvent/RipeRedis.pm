@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300012';
+our $VERSION = '0.300013';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -44,37 +44,37 @@ my $EOL_LENGTH = length( $EOL );
 # Constructor
 sub connect {
   my $proto = shift;
-  my $opts = shift;
+  my $params = shift;
 
-  if ( ref( $opts ) ne 'HASH' ) {
-    $opts = {};
+  if ( ref( $params ) ne 'HASH' ) {
+    $params = {};
   }
 
   my $class = ref( $proto ) || $proto;
   my $self = fields::new( $class );
 
-  $self->{ 'host' } = $opts->{ 'host' } || 'localhost';
-  $self->{ 'port' } = $opts->{ 'port' } || '6379';
-  $self->{ 'password' } = $opts->{ 'password' };
+  $self->{ 'host' } = $params->{ 'host' } || 'localhost';
+  $self->{ 'port' } = $params->{ 'port' } || '6379';
+  $self->{ 'password' } = $params->{ 'password' };
 
-  if ( defined( $opts->{ 'encoding' } ) ) {
-    $self->{ 'encoding' } = find_encoding( $opts->{ 'encoding' } );
+  if ( defined( $params->{ 'encoding' } ) ) {
+    $self->{ 'encoding' } = find_encoding( $params->{ 'encoding' } );
 
     if ( !defined( $self->{ 'encoding' } ) ) {
-      croak "Encoding \"$opts->{ 'encoding' }\" not found.";
+      croak "Encoding \"$params->{ 'encoding' }\" not found.";
     }
   }
 
-  $self->{ 'reconnect' } = $opts->{ 'reconnect' };
+  $self->{ 'reconnect' } = $params->{ 'reconnect' };
 
   if ( $self->{ 'reconnect' } ) {
 
-    if ( defined( $opts->{ 'reconnect_after' } ) ) {
+    if ( defined( $params->{ 'reconnect_after' } ) ) {
 
-      if ( looks_like_number( $opts->{ 'reconnect_after' } )
-        && $opts->{ 'reconnect_after' } > 0 ) {
+      if ( looks_like_number( $params->{ 'reconnect_after' } )
+        && $params->{ 'reconnect_after' } > 0 ) {
 
-        $self->{ 'reconnect_after' } = $opts->{ 'reconnect_after' };
+        $self->{ 'reconnect_after' } = $params->{ 'reconnect_after' };
       }
       else {
         croak '"reconnect_interval" must be a positive number';
@@ -84,12 +84,12 @@ sub connect {
       $self->{ 'reconnect_after' } = 5;
     }
 
-    if ( defined( $opts->{ 'max_reconnect_attempts' } ) ) {
+    if ( defined( $params->{ 'max_reconnect_attempts' } ) ) {
 
-      if ( looks_like_number( $opts->{ 'max_reconnect_attempts' } )
-        && $opts->{ 'max_reconnect_attempts' } > 0 ) {
+      if ( looks_like_number( $params->{ 'max_reconnect_attempts' } )
+        && $params->{ 'max_reconnect_attempts' } > 0 ) {
 
-        $self->{ 'max_reconnect_attempts' } = $opts->{ 'max_reconnect_attempts' };
+        $self->{ 'max_reconnect_attempts' } = $params->{ 'max_reconnect_attempts' };
       }
       else {
         croak '"max_reconnect_attempts" must be a positive number';
@@ -97,40 +97,40 @@ sub connect {
     }
   }
 
-  if ( defined( $opts->{ 'on_connect' } ) ) {
+  if ( defined( $params->{ 'on_connect' } ) ) {
 
-    if ( ref( $opts->{ 'on_connect' } ) eq 'CODE' ) {
-      $self->{ 'on_connect' } = $opts->{ 'on_connect' };
+    if ( ref( $params->{ 'on_connect' } ) eq 'CODE' ) {
+      $self->{ 'on_connect' } = $params->{ 'on_connect' };
     }
     else {
       croak '"on_connect" callback must be a CODE reference';
     }
   }
 
-  if ( defined( $opts->{ 'on_auth' } ) ) {
+  if ( defined( $params->{ 'on_auth' } ) ) {
 
-    if ( ref( $opts->{ 'on_auth' } ) eq 'CODE' ) {
-      $self->{ 'on_auth' } = $opts->{ 'on_auth' };
+    if ( ref( $params->{ 'on_auth' } ) eq 'CODE' ) {
+      $self->{ 'on_auth' } = $params->{ 'on_auth' };
     }
     else {
       croak '"on_auth" callback must be a CODE reference';
     }
   }
 
-  if ( defined( $opts->{ 'on_stop_reconnect' } ) ) {
+  if ( defined( $params->{ 'on_stop_reconnect' } ) ) {
 
-    if ( ref( $opts->{ 'on_stop_reconnect' } ) eq 'CODE' ) {
-      $self->{ 'on_stop_reconnect' } = $opts->{ 'on_stop_reconnect' };
+    if ( ref( $params->{ 'on_stop_reconnect' } ) eq 'CODE' ) {
+      $self->{ 'on_stop_reconnect' } = $params->{ 'on_stop_reconnect' };
     }
     else {
       croak '"on_stop_reconnect" callback must be a CODE reference';
     }
   }
 
-  if ( defined( $opts->{ 'on_error' } ) ) {
+  if ( defined( $params->{ 'on_error' } ) ) {
 
-    if ( ref( $opts->{ 'on_error' } ) eq 'CODE' ) {
-      $self->{ 'on_error' } = $opts->{ 'on_error' };
+    if ( ref( $params->{ 'on_error' } ) eq 'CODE' ) {
+      $self->{ 'on_error' } = $params->{ 'on_error' };
     }
     else {
       croak '"on_error" callback must be a CODE reference';
