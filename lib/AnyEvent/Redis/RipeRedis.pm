@@ -60,7 +60,7 @@ sub new {
     $self->{ 'encoding' } = find_encoding( $params->{ 'encoding' } );
 
     if ( !defined( $self->{ 'encoding' } ) ) {
-      croak "Encoding \"$params->{ 'encoding' }\" not found.";
+      croak "Encoding \"$params->{ 'encoding' }\" not found";
     }
   }
 
@@ -219,7 +219,7 @@ sub _connect {
   if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
     $self->_push_command( {
       name => 'auth',
-      args => [  $self->{ 'password' } ]
+      args => [ $self->{ 'password' } ]
     } );
   }
 }
