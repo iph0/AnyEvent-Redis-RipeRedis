@@ -1,6 +1,1 @@
-Revision history for Perl extension AnyEvent::RipeRedis.
-
-0.01  Wed Feb  9 13:20:00 2011
-	- original version; created by h2xs 1.23 with options
-		-AX --skip-exporter -n AnyEvent::RipeRedis
-
+Revision history for Perl extension AnyEvent::Redis::RipeRedis.

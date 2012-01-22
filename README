@@ -1,4 +1,4 @@
-AnyEvent-RipeRedis version 0.12.10
+AnyEvent-Redis-RipeRedis version 0.300016
 ======================
 
 INSTALLATION
@@ -10,16 +10,9 @@ To install this module type the following:
    make test
    make install
 
-DEPENDENCIES
-
-This module requires these other modules and libraries:
-
-  blah blah blah
-
 COPYRIGHT AND LICENCE
 
-Copyright (c) 2011, Eugene Ponizovsky. All rights reserved.
+Copyright (c) 2012, Eugene Ponizovsky, <ponizovsky@gmail.com>. All rights reserved.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.10.0 or,
-at your option, any later version of Perl 5 you may have available.
+This module is free software; you can redistribute it and/or modify it under the 
+same terms as Perl itself.

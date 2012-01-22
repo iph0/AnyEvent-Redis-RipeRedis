@@ -1,4 +1,4 @@
-package AnyEvent::RipeRedis;
+package AnyEvent::Redis::RipeRedis;
 
 use 5.010000;
 use strict;
@@ -562,19 +562,19 @@ __END__
 
 =head1 NAME
 
-AnyEvent::RipeRedis - Non-blocking Redis client with self reconnect feature on
+AnyEvent::Redis::RipeRedis - Non-blocking Redis client with self reconnect feature on
 loss connection
 
 =head1 SYNOPSIS
 
-  use AnyEvent::RipeRedis;
+  use AnyEvent::Redis::RipeRedis;
 
 =head1 DESCRIPTION
 
 This module is an AnyEvent user, you need to make sure that you use and run a
 supported event loop.
 
-AnyEvent::RipeRedis is non-blocking Redis client with self reconnect feature on
+AnyEvent::Redis::RipeRedis is non-blocking Redis client with self reconnect feature on
 loss connection. If connection lost or some socket error is occurr, module try
 re-connect, and re-execute not finished commands.
 
