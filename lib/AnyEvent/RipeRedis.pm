@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300013';
+our $VERSION = '0.300015';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -71,14 +71,13 @@ sub new {
 
     if ( defined( $params->{ 'reconnect_after' } ) ) {
 
-      if ( looks_like_number( $params->{ 'reconnect_after' } )
-        && $params->{ 'reconnect_after' } > 0 ) {
+      if ( !looks_like_number( $params->{ 'reconnect_after' } )
+        || $params->{ 'reconnect_after' } <= 0 ) {
 
-        $self->{ 'reconnect_after' } = $params->{ 'reconnect_after' };
-      }
-      else {
         croak '"reconnect_interval" must be a positive number';
       }
+
+      $self->{ 'reconnect_after' } = $params->{ 'reconnect_after' };
     }
     else {
       $self->{ 'reconnect_after' } = 5;
@@ -86,14 +85,13 @@ sub new {
 
     if ( defined( $params->{ 'max_reconnect_attempts' } ) ) {
 
-      if ( looks_like_number( $params->{ 'max_reconnect_attempts' } )
-        && $params->{ 'max_reconnect_attempts' } > 0 ) {
+      if ( !looks_like_number( $params->{ 'reconnect_after' } )
+        || $params->{ 'reconnect_after' } <= 0 ) {
 
-        $self->{ 'max_reconnect_attempts' } = $params->{ 'max_reconnect_attempts' };
-      }
-      else {
         croak '"max_reconnect_attempts" must be a positive number';
       }
+
+      $self->{ 'max_reconnect_attempts' } = int( $params->{ 'max_reconnect_attempts' } );
     }
   }
 
@@ -265,10 +263,10 @@ sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
 
-  my $params = {};
+  my $cb;
 
-  if ( ref( $_[ -1 ] ) eq 'HASH' ) {
-    $params = pop( @_ );
+  if ( ref( $_[ -1 ] ) eq 'CODE' ) {
+    $cb = pop( @_ );
   }
 
   my @args = @_;
@@ -278,13 +276,8 @@ sub _exec_command {
     args => \@args,
   };
 
-  if ( defined( $params->{ 'cb' } ) ) {
-
-    if ( ref( $params->{ 'cb' } ) ne 'CODE' ) {
-      croak 'Callback must be a CODE reference';
-    }
-
-    $cmd->{ 'cb' } = $params->{ 'cb' };
+  if ( defined( $cb ) ) {
+    $cmd->{ 'cb' } = $cb;
   }
 
   if ( $cmd_name eq 'multi' ) {
@@ -302,18 +295,6 @@ sub _exec_command {
     }
 
     $cmd->{ 'resp_remaining' } = scalar( @args );
-
-    if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
-
-      if ( !defined( $params->{ 'on_message' } ) ) {
-        croak '"on_message" callback must be specified';
-      }
-      elsif ( ref( $params->{ 'on_message' } ) ne 'CODE' ) {
-        croak '"on_message" callback must be a CODE reference';
-      }
-
-      $cmd->{ 'on_message' } = $params->{ 'on_message' };
-    }
   }
 
   $self->_push_command( $cmd );
@@ -439,7 +420,7 @@ sub _prepare_on_read_cb {
 
           if ( $mbulk_len > 0 ) {
             my $data_remaining = $mbulk_len;
-            
+
             my $on_read_cb;
 
             my $on_data_cb = sub {
@@ -523,7 +504,16 @@ sub _prcoess_response {
   if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe'
       || $cmd->{ 'name' } eq 'unsubscribe' || $cmd->{ 'name' } eq 'punsubscribe' ) {
 
-    $self->_process_sub( $cmd, $data );
+    if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe' ) {
+      $self->{ 'subs' }->{ $data->[ 1 ] } = $cmd->{ 'cb' };
+    }
+    else {
+      delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
+    }
+
+    if ( --$cmd->{ 'resp_remaining' } == 0 ) {
+      shift( @{ $self->{ 'commands_queue' } } );
+    }
 
     return 1;
   }
@@ -537,28 +527,6 @@ sub _prcoess_response {
   }
 
   shift( @{ $self->{ 'commands_queue' } } );
-}
-
-####
-sub _process_sub {
-  my $self = shift;
-  my $cmd = shift;
-  my $data = shift;
-
-  if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe' ) {
-    $self->{ 'subs' }->{ $data->[ 1 ] } = $cmd->{ 'on_message' };
-  }
-  else {
-    delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
-  }
-
-  if ( --$cmd->{ 'resp_remaining' } == 0 ) {
-    shift( @{ $self->{ 'commands_queue' } } );
-  }
-
-  if ( exists( $cmd->{ 'cb' } ) ) {
-    $cmd->{ 'cb' }->( $data->[ 2 ] );
-  }
 }
 
 
