@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300015';
+our $VERSION = '0.300016';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -97,42 +97,38 @@ sub new {
 
   if ( defined( $params->{ 'on_connect' } ) ) {
 
-    if ( ref( $params->{ 'on_connect' } ) eq 'CODE' ) {
-      $self->{ 'on_connect' } = $params->{ 'on_connect' };
-    }
-    else {
+    if ( ref( $params->{ 'on_connect' } ) ne 'CODE' ) {
       croak '"on_connect" callback must be a CODE reference';
     }
+
+    $self->{ 'on_connect' } = $params->{ 'on_connect' };
   }
 
   if ( defined( $params->{ 'on_auth' } ) ) {
 
-    if ( ref( $params->{ 'on_auth' } ) eq 'CODE' ) {
-      $self->{ 'on_auth' } = $params->{ 'on_auth' };
-    }
-    else {
+    if ( ref( $params->{ 'on_auth' } ) ne 'CODE' ) {
       croak '"on_auth" callback must be a CODE reference';
     }
+
+    $self->{ 'on_auth' } = $params->{ 'on_auth' };
   }
 
   if ( defined( $params->{ 'on_stop_reconnect' } ) ) {
 
-    if ( ref( $params->{ 'on_stop_reconnect' } ) eq 'CODE' ) {
-      $self->{ 'on_stop_reconnect' } = $params->{ 'on_stop_reconnect' };
-    }
-    else {
+    if ( ref( $params->{ 'on_stop_reconnect' } ) ne 'CODE' ) {
       croak '"on_stop_reconnect" callback must be a CODE reference';
     }
+
+    $self->{ 'on_stop_reconnect' } = $params->{ 'on_stop_reconnect' };
   }
 
   if ( defined( $params->{ 'on_error' } ) ) {
 
-    if ( ref( $params->{ 'on_error' } ) eq 'CODE' ) {
-      $self->{ 'on_error' } = $params->{ 'on_error' };
-    }
-    else {
+    if ( ref( $params->{ 'on_error' } ) ne 'CODE' ) {
       croak '"on_error" callback must be a CODE reference';
     }
+
+    $self->{ 'on_error' } = $params->{ 'on_error' };
   }
   else {
     $self->{ 'on_error' } = sub { warn "$_[ 0 ]\n" };
