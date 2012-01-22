@@ -13,7 +13,6 @@ use fields qw(
   reconnect_after
   max_reconnect_attempts
   on_connect
-  on_auth
   on_stop_reconnect
   on_error
   handle
@@ -23,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300016';
+our $VERSION = '0.300017';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -102,15 +101,6 @@ sub new {
     }
 
     $self->{ 'on_connect' } = $params->{ 'on_connect' };
-  }
-
-  if ( defined( $params->{ 'on_auth' } ) ) {
-
-    if ( ref( $params->{ 'on_auth' } ) ne 'CODE' ) {
-      croak '"on_auth" callback must be a CODE reference';
-    }
-
-    $self->{ 'on_auth' } = $params->{ 'on_auth' };
   }
 
   if ( defined( $params->{ 'on_stop_reconnect' } ) ) {
@@ -229,16 +219,7 @@ sub _connect {
   if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
     $self->_push_command( {
       name => 'auth',
-      args => [  $self->{ 'password' } ],
-
-      cb => sub {
-
-        if ( defined( $self->{ 'on_auth' } ) ) {
-          my $data = shift;
-
-          $self->{ 'on_auth' }->( $data );
-        }
-      }
+      args => [  $self->{ 'password' } ]
     } );
   }
 }
