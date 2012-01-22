@@ -596,7 +596,7 @@ Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights reserved.
+Copyright (c) 2012, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights reserved.
 
 This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
