@@ -16,13 +16,13 @@ use fields qw(
   on_stop_reconnect
   on_error
   handle
-  reconnect_attempt
+  connect_attempt
   commands_queue
   sub_lock
   subs
 );
 
-our $VERSION = '0.300017';
+our $VERSION = '0.300100';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -73,7 +73,7 @@ sub new {
       if ( !looks_like_number( $params->{ 'reconnect_after' } )
         || $params->{ 'reconnect_after' } <= 0 ) {
 
-        croak '"reconnect_interval" must be a positive number';
+        croak '"reconnect_after" must be a positive number';
       }
 
       $self->{ 'reconnect_after' } = $params->{ 'reconnect_after' };
@@ -84,8 +84,8 @@ sub new {
 
     if ( defined( $params->{ 'max_reconnect_attempts' } ) ) {
 
-      if ( !looks_like_number( $params->{ 'reconnect_after' } )
-        || $params->{ 'reconnect_after' } <= 0 ) {
+      if ( !looks_like_number( $params->{ 'max_reconnect_attempts' } )
+        || $params->{ 'max_reconnect_attempts' } <= 0 ) {
 
         croak '"max_reconnect_attempts" must be a positive number';
       }
@@ -125,7 +125,7 @@ sub new {
   }
 
   $self->{ 'handle' } = undef;
-  $self->{ 'reconnect_attempt' } = 0;
+  $self->{ 'connect_attempt' } = 0;
   $self->{ 'commands_queue' } = [];
   $self->{ 'sub_lock' } = undef;
   $self->{ 'subs' } = {};
@@ -136,55 +136,13 @@ sub new {
 }
 
 
-# Public methods
-
-####
-sub reconnect {
-  my $self = shift;
-
-  $self->disconnect();
-
-  my $after = ( $self->{ 'reconnect_attempt' } > 0 ) ? $self->{ 'reconnect_after' } : 0;
-
-  my $timer;
-
-  $timer = AnyEvent->timer(
-    after => $after,
-    cb => sub {
-      undef( $timer );
-
-      ++$self->{ 'reconnect_attempt' };
-
-      $self->_connect();
-    }
-  );
-
-  return 1;
-}
-
-####
-sub disconnect {
-  my $self = shift;
-
-  if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
-    $self->{ 'handle' }->destroy();
-  }
-
-  $self->{ 'handle' } = undef;
-  $self->{ 'reconnect_attempt' } = 0;
-  $self->{ 'commands_queue' } = [];
-  $self->{ 'sub_lock' } = undef;
-  $self->{ 'subs' } = {};
-
-  return 1;
-}
-
-
 # Private methods
 
 ####
 sub _connect {
   my $self = shift;
+
+  ++$self->{ 'connect_attempt' };
 
   $self->{ 'handle' } = AnyEvent::Handle->new(
     connect => [ $self->{ 'host' }, $self->{ 'port' } ],
@@ -195,7 +153,9 @@ sub _connect {
     },
 
     on_connect_error => sub {
-      $self->{ 'on_error' }->( $_[ 1 ], $ERR_CONNECT );
+      $self->{ 'on_error' }->( "Connection error $self->{ 'host' }:$self->{ 'port' }; " 
+          . $_[ 1 ], $ERR_CONNECT );
+
       $self->_attempt_to_reconnect();
     },
 
@@ -210,9 +170,7 @@ sub _connect {
     },
 
     on_read => $self->_prepare_on_read_cb( sub {
-      $self->_prcoess_response( @_ );
-
-      return;
+      return $self->_prcoess_response( @_ );
     } )
   );
 
@@ -227,18 +185,22 @@ sub _connect {
 ####
 sub _post_connect {
   my $self = shift;
-
-  $self->{ 'reconnect_attempt' } = 0;
-
+  
   if ( defined( $self->{ 'on_connect' } ) ) {
-    $self->{ 'on_connect' }->( $self->{ 'reconnect_attempt' } );
+    $self->{ 'on_connect' }->( $self->{ 'connect_attempt' } );
   }
+
+  $self->{ 'connect_attempt' } = 0;
 }
 
 ####
 sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
+  
+  if ( !defined( $self->{ 'handle' } ) ) {
+    return;
+  }
 
   my $cb;
 
@@ -289,23 +251,6 @@ sub _push_command {
   if ( defined( $self->{ 'handle' } ) ) {
     my $cmd_str = $self->_serialize_command( $cmd );
     $self->{ 'handle' }->push_write( $cmd_str );
-  }
-}
-
-####
-sub _attempt_to_reconnect {
-  my $self = shift;
-
-  if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_reconnect_attempts' } )
-    || $self->{ 'reconnect_attempt' } < $self->{ 'max_reconnect_attempts' } ) ) {
-
-    $self->reconnect();
-  }
-  else {
-
-    if ( defined( $self->{ 'on_stop_reconnect' } ) ) {
-      $self->{ 'on_stop_reconnect' }->();
-    }
   }
 }
 
@@ -466,12 +411,12 @@ sub _prcoess_response {
       if ( $data->[ 0 ] eq 'message' ) {
         $self->{ 'subs' }->{ $data->[ 1 ] }->( $data->[ 2 ] );
 
-        return 1;
+        return;
       }
       elsif ( $data->[ 0 ] eq 'pmessage' ) {
         $self->{ 'subs' }->{ $data->[ 1 ] }->( $data->[ 3 ] );
 
-        return 1;
+        return;
       }
     }
   }
@@ -492,7 +437,7 @@ sub _prcoess_response {
       shift( @{ $self->{ 'commands_queue' } } );
     }
 
-    return 1;
+    return;
   }
 
   if ( exists( $cmd->{ 'cb' } ) ) {
@@ -500,10 +445,69 @@ sub _prcoess_response {
   }
 
   if ( $cmd->{ 'name' } eq 'quit' ) {
-    $self->disconnect();
+    $self->_disconnect();
+
+    return 1;
   }
 
   shift( @{ $self->{ 'commands_queue' } } );
+
+  return;
+}
+
+####
+sub _attempt_to_reconnect {
+  my $self = shift;
+
+  if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_reconnect_attempts' } )
+    || $self->{ 'connect_attempt' } - 1 < $self->{ 'max_reconnect_attempts' } ) ) {
+
+    $self->_reconnect();
+  }
+  else {
+
+    if ( defined( $self->{ 'on_stop_reconnect' } ) ) {
+      $self->{ 'on_stop_reconnect' }->();
+    }
+  }
+}
+
+####
+sub _reconnect {
+  my $self = shift;
+
+  $self->_disconnect();
+
+  my $after = ( $self->{ 'connect_attempt' } > 1 ) ? $self->{ 'reconnect_after' } : 0;
+  
+  my $timer;
+
+  $timer = AnyEvent->timer(
+    after => $after,
+    cb => sub {
+      undef( $timer );
+
+      $self->_connect();
+    }
+  );
+
+  return 1;
+}
+
+####
+sub _disconnect {
+  my $self = shift;
+
+  if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
+    $self->{ 'handle' }->destroy();
+  }
+
+  $self->{ 'handle' } = undef;
+  $self->{ 'commands_queue' } = [];
+  $self->{ 'sub_lock' } = undef;
+  $self->{ 'subs' } = {};
+
+  return 1;
 }
 
 
@@ -535,7 +539,7 @@ sub AUTOLOAD {
 sub DESTROY {
   my $self = shift;
 
-  $self->disconnect();
+  $self->_disconnect();
 };
 
 1;
