@@ -672,8 +672,7 @@ This module is an AnyEvent user, you need to make sure that you use and run a
 supported event loop.
 
 AnyEvent::Redis::RipeRedis is non-blocking Redis client with self reconnect feature on
-loss connection. If connection lost or some socket error is occurr, module try
-re-connect, and re-execute not finished commands.
+loss connection.
 
 Module requires Redis 1.2 or higher.
 
