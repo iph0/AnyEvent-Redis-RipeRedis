@@ -5,7 +5,6 @@ use strict;
 use warnings;
 
 
-use lib '../lib';
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
