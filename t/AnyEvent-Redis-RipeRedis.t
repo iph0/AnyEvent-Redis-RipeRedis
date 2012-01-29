@@ -98,7 +98,7 @@ my $redis = $t_class->new( {
   encoding => 'utf8',
   reconnect => 1,
   reconnect_after => 1,
-  max_reconnect_attempts => 10,
+  max_connect_attempts => 10,
 
   on_connect => sub { 
     my $attempt = shift;

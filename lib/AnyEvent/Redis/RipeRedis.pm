@@ -11,7 +11,7 @@ use fields qw(
   encoding
   reconnect
   reconnect_after
-  max_reconnect_attempts
+  max_connect_attempts
   on_connect
   on_stop_reconnect
   on_redis_error
@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.400000';
+our $VERSION = '0.400100';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -76,15 +76,15 @@ sub new {
       $self->{ 'reconnect_after' } = 5;
     }
 
-    if ( defined( $params->{ 'max_reconnect_attempts' } ) ) {
+    if ( defined( $params->{ 'max_connect_attempts' } ) ) {
 
-      if ( !looks_like_number( $params->{ 'max_reconnect_attempts' } )
-        || $params->{ 'max_reconnect_attempts' } <= 0 ) {
+      if ( !looks_like_number( $params->{ 'max_connect_attempts' } )
+        || $params->{ 'max_connect_attempts' } <= 0 ) {
 
-        croak '"max_reconnect_attempts" must be a positive number';
+        croak '"max_connect_attempts" must be a positive number';
       }
 
-      $self->{ 'max_reconnect_attempts' } = int( $params->{ 'max_reconnect_attempts' } );
+      $self->{ 'max_connect_attempts' } = int( $params->{ 'max_connect_attempts' } );
     }
   }
 
@@ -570,8 +570,8 @@ sub _prcoess_response {
 sub _attempt_to_reconnect {
   my $self = shift;
 
-  if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_reconnect_attempts' } )
-    || $self->{ 'connect_attempt' } - 1 < $self->{ 'max_reconnect_attempts' } ) ) {
+  if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_connect_attempts' } )
+    || $self->{ 'connect_attempt' } < $self->{ 'max_connect_attempts' } ) ) {
 
     $self->_reconnect();
   }

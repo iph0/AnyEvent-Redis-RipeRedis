@@ -4,7 +4,6 @@ use 5.010000;
 use strict;
 use warnings;
 
-
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
@@ -15,7 +14,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
   encoding => 'utf8',
   reconnect => 1,
   reconnect_after => 5,
-  max_reconnect_attempts => 10,
+  max_connect_attempts => 10,
 
   on_connect => sub { 
     my $attempt = shift;
