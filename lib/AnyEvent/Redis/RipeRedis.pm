@@ -23,7 +23,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.400100';
+our $VERSION = '0.400101';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -404,17 +404,18 @@ sub _prepare_on_read_cb {
         }
         elsif ( $type eq '*' ) {
           my $mbulk_len = $data;
-          my @m_data;
 
           if ( $mbulk_len > 0 ) {
             my $data_remaining = $mbulk_len;
 
+            my @m_data;
             my $on_read_cb;
 
             my $on_data_cb = sub {
               my $data = shift;
               my $err = shift;
-
+              my $is_mbulk = shift;
+              
               if ( $err ) {
 
                 if ( exists( $self->{ 'on_redis_error' } ) ) {
@@ -430,13 +431,13 @@ sub _prepare_on_read_cb {
 
               --$data_remaining;
 
-              if ( ref( $data ) eq 'ARRAY' && $data_remaining > 0 ) {
+              if ( $is_mbulk && $data_remaining > 0 ) {
                 $hdl->unshift_read( $on_read_cb );
               }
               elsif ( $data_remaining == 0 ) {
                 undef( $on_read_cb );
 
-                $cb->( \@m_data );
+                $cb->( \@m_data, undef, 1 );
 
                 return 1;
               }
@@ -503,7 +504,7 @@ sub _prcoess_response {
   }
 
   my $cmd = $self->{ 'commands_queue' }->[ 0 ];
-
+  
   if ( !defined( $cmd ) ) {
     $self->{ 'on_error' }->( 'Unexpected data in response' );
 

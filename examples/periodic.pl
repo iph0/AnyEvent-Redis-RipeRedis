@@ -19,7 +19,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
   on_connect => sub { 
     my $attempt = shift;
 
-    say "Connected $attempt";
+    say "Connected: $attempt";
   },
   
   on_stop_reconnect => sub {
@@ -29,7 +29,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
   on_redis_error => sub {
     my $msg = shift;
 
-    warn "Redis error: $msg";
+    warn "Redis error: $msg\n";
   },
 
   on_error => sub {

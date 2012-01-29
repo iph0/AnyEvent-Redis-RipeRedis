@@ -19,7 +19,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
   on_connect => sub {
     my $attempt = shift;
 
-    say "Connected $attempt";
+    say "Connected: $attempt";
   },
 
   on_stop_reconnect => sub {
@@ -29,7 +29,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
   on_redis_error => sub {
     my $msg = shift;
 
-    warn "Redis error: $msg";
+    warn "Redis error: $msg\n";
   },
 
   on_error => sub {
@@ -50,14 +50,14 @@ my $on_msg_cb = sub {
 
   say "$ch_name: $msg";
 
-  if ( $msg eq 'quit' ) {
+  if ( $msg eq 'unsub' ) {
     $redis->unsubscribe( qw( channel_1 foo bar ) );
   }
 };
 
 $redis->subscribe( 'channel_1', $on_msg_cb );
 
-$redis->subscribe( 'foo', 'bar', {
+$redis->subscribe( qw( foo bar ), {
   on_subscribe =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
@@ -97,7 +97,7 @@ $redis->psubscribe( 'channel_*', {
 
     say "$ch_name ($ch_pattern): $msg";
 
-    if ( $msg eq 'quit' ) {
+    if ( $msg eq 'unsub' ) {
       $redis->punsubscribe( 'channel_*' );
     }
   },
