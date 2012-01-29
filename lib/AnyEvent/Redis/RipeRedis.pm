@@ -14,6 +14,7 @@ use fields qw(
   max_reconnect_attempts
   on_connect
   on_stop_reconnect
+  on_redis_error
   on_error
   handle
   connect_attempt
@@ -22,19 +23,12 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.300100';
+our $VERSION = '0.400000';
 
-use AnyEvent;
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util 'looks_like_number';
-use Carp 'croak';
-
-# Available error codes
-our $ERR_CONNECT = 1;
-our $ERR_HANDLE = 2;
-our $ERR_EOF = 3;
-our $ERR_COMMAND = 4;
+use Carp qw( croak confess );
 
 my $EOL = "\r\n";
 my $EOL_LENGTH = length( $EOL );
@@ -112,6 +106,15 @@ sub new {
     $self->{ 'on_stop_reconnect' } = $params->{ 'on_stop_reconnect' };
   }
 
+  if ( defined( $params->{ 'on_redis_error' } ) ) {
+
+    if ( ref( $params->{ 'on_redis_error' } ) ne 'CODE' ) {
+      croak '"on_redis_error" callback must be a CODE reference';
+    }
+
+    $self->{ 'on_redis_error' } = $params->{ 'on_redis_error' };
+  }
+
   if ( defined( $params->{ 'on_error' } ) ) {
 
     if ( ref( $params->{ 'on_error' } ) ne 'CODE' ) {
@@ -121,7 +124,7 @@ sub new {
     $self->{ 'on_error' } = $params->{ 'on_error' };
   }
   else {
-    $self->{ 'on_error' } = sub { warn "$_[ 0 ]\n" };
+    $self->{ 'on_error' } = sub { confess $_[ 0 ] };
   }
 
   $self->{ 'handle' } = undef;
@@ -153,19 +156,21 @@ sub _connect {
     },
 
     on_connect_error => sub {
-      $self->{ 'on_error' }->( "Connection error $self->{ 'host' }:$self->{ 'port' }; " 
-          . $_[ 1 ], $ERR_CONNECT );
+      $self->{ 'on_error' }->( "Can't connect to $self->{ 'host' }:$self->{ 'port' }; "
+          . $_[ 1 ] );
 
       $self->_attempt_to_reconnect();
     },
 
     on_error => sub {
-      $self->{ 'on_error' }->( $_[ 2 ], $ERR_HANDLE );
+      $self->{ 'on_error' }->( $_[ 2 ] );
+
       $self->_attempt_to_reconnect();
     },
 
     on_eof => sub {
-      $self->{ 'on_error' }->( 'EOF detected', $ERR_EOF );
+      $self->{ 'on_error' }->( 'Connection lost' );
+
       $self->_attempt_to_reconnect();
     },
 
@@ -185,7 +190,7 @@ sub _connect {
 ####
 sub _post_connect {
   my $self = shift;
-  
+
   if ( defined( $self->{ 'on_connect' } ) ) {
     $self->{ 'on_connect' }->( $self->{ 'connect_attempt' } );
   }
@@ -197,15 +202,21 @@ sub _post_connect {
 sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
-  
+
   if ( !defined( $self->{ 'handle' } ) ) {
+    $self->{ 'on_error' }->( "Can't send request. Connection not established" );
+
     return;
   }
 
   my $cb;
+  my $params = {};
 
   if ( ref( $_[ -1 ] ) eq 'CODE' ) {
     $cb = pop( @_ );
+  }
+  elsif ( ref( $_[ -1 ] ) eq 'HASH' ) {
+    $params = pop( @_ );
   }
 
   my @args = @_;
@@ -215,9 +226,59 @@ sub _exec_command {
     args => \@args,
   };
 
-  if ( defined( $cb ) ) {
-    $cmd->{ 'cb' } = $cb;
+  if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe'
+      || $cmd_name eq 'unsubscribe' || $cmd_name eq 'punsubscribe' ) {
+
+    if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
+
+      if ( defined( $cb ) ) {
+        $cmd->{ 'on_message' } = $cb;
+      }
+      else {
+
+        if ( defined( $params->{ 'on_subscribe' } ) ) {
+
+          if ( ref( $params->{ 'on_subscribe' } ) ne 'CODE' ) {
+            croak '""on_subscribe" callback must be a CODE reference"';
+          }
+
+          $cmd->{ 'on_subscribe' } = $params->{ 'on_subscribe' };
+        }
+
+        if ( defined( $params->{ 'on_message' } ) ) {
+
+          if ( ref( $params->{ 'on_message' } ) ne 'CODE' ) {
+            croak '""on_message" callback must be a CODE reference"';
+          }
+
+          $cmd->{ 'on_message' } = $params->{ 'on_message' };
+        }
+
+        if ( defined( $params->{ 'on_unsubscribe' } ) ) {
+
+          if ( ref( $params->{ 'on_unsubscribe' } ) ne 'CODE' ) {
+            croak '""on_unsubscribe" callback must be a CODE reference"';
+          }
+
+          $cmd->{ 'on_unsubscribe' } = $params->{ 'on_unsubscribe' };
+        }
+      }
+    }
   }
+  else {
+
+    if ( defined( $cb ) ) {
+      $cmd->{ 'cb' } = $cb;
+    }
+
+    if ( $cmd_name eq 'multi' ) {
+      $self->{ 'sub_lock' } = 1;
+    }
+    elsif ( $cmd_name eq 'exec' ) {
+      undef( $self->{ 'sub_lock' } );
+    }
+  }
+
 
   if ( $cmd_name eq 'multi' ) {
     $self->{ 'sub_lock' } = 1;
@@ -231,6 +292,11 @@ sub _exec_command {
     if ( $self->{ 'sub_lock' } ) {
       croak "Command \"$cmd_name\" not allowed in this context."
           . " First, the transaction must be completed.";
+    }
+
+    if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
+
+
     }
 
     $cmd->{ 'resp_remaining' } = scalar( @args );
@@ -350,7 +416,13 @@ sub _prepare_on_read_cb {
               my $err = shift;
 
               if ( $err ) {
-                $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+
+                if ( exists( $self->{ 'on_redis_error' } ) ) {
+                  $self->{ 'on_redis_error' }->( $data );
+                }
+                else {
+                  $self->{ 'on_error' }->( $data );
+                }
               }
               else {
                 push( @m_data, $data );
@@ -397,7 +469,13 @@ sub _prcoess_response {
   my $err = shift;
 
   if ( $err ) {
-    $self->{ 'on_error' }->( $data, $ERR_COMMAND );
+
+    if ( exists( $self->{ 'on_redis_error' } ) ) {
+      $self->{ 'on_redis_error' }->( $data );
+    }
+    else {
+      $self->{ 'on_error' }->( $data );
+    }
 
     shift( @{ $self->{ 'commands_queue' } } );
 
@@ -408,14 +486,17 @@ sub _prcoess_response {
 
     if ( ref( $data ) eq 'ARRAY' ) {
 
-      if ( $data->[ 0 ] eq 'message' ) {
-        $self->{ 'subs' }->{ $data->[ 1 ] }->( $data->[ 2 ] );
+      if ( ( $data->[ 0 ] eq 'message' || $data->[ 0 ] eq 'pmessage' )
+        && exists( $self->{ 'subs' }->{ $data->[ 1 ] } ) ) {
 
-        return;
-      }
-      elsif ( $data->[ 0 ] eq 'pmessage' ) {
-        $self->{ 'subs' }->{ $data->[ 1 ] }->( $data->[ 3 ] );
+        my $cb_group = $self->{ 'subs' }->{ $data->[ 1 ] };
 
+        if ( $data->[ 0 ] eq 'message' ) {
+          $cb_group->{ 'on_message' }->( $data->[ 1 ], $data->[ 2 ] );
+        }
+        elsif ( $data->[ 0 ] eq 'pmessage' ) {
+          $cb_group->{ 'on_message' }->( $data->[ 1 ], $data->[ 2 ], $data->[ 3 ] );
+        }
         return;
       }
     }
@@ -423,14 +504,44 @@ sub _prcoess_response {
 
   my $cmd = $self->{ 'commands_queue' }->[ 0 ];
 
+  if ( !defined( $cmd ) ) {
+    $self->{ 'on_error' }->( 'Unexpected data in response' );
+
+    return;
+  }
+
   if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe'
       || $cmd->{ 'name' } eq 'unsubscribe' || $cmd->{ 'name' } eq 'punsubscribe' ) {
 
     if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe' ) {
-      $self->{ 'subs' }->{ $data->[ 1 ] } = $cmd->{ 'cb' };
+      my $cb_group = {};
+
+      if ( exists( $cmd->{ 'on_subscribe' } ) ) {
+        $cb_group->{ 'on_subscribe' } = $cmd->{ 'on_subscribe' };
+        $cb_group->{ 'on_subscribe' }->( $data->[ 1 ], $data->[ 2 ] );
+      }
+
+      if ( exists( $cmd->{ 'on_message' } ) ) {
+        $cb_group->{ 'on_message' } = $cmd->{ 'on_message' };
+      }
+
+      if ( exists( $cmd->{ 'on_unsubscribe' } ) ) {
+        $cb_group->{ 'on_unsubscribe' } = $cmd->{ 'on_unsubscribe' };
+      }
+
+      $self->{ 'subs' }->{ $data->[ 1 ] } = $cb_group;
     }
     else {
-      delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
+
+      if ( exists( $self->{ 'subs' }->{ $data->[ 1 ] } ) ) {
+        my $cb_group = $self->{ 'subs' }->{ $data->[ 1 ] };
+
+        if ( exists( $cb_group->{ 'on_unsubscribe' } ) ) {
+          $cb_group->{ 'on_unsubscribe' }->( $data->[ 1 ], $data->[ 2 ] );
+        }
+
+        delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
+      }
     }
 
     if ( --$cmd->{ 'resp_remaining' } == 0 ) {
@@ -479,7 +590,7 @@ sub _reconnect {
   $self->_disconnect();
 
   my $after = ( $self->{ 'connect_attempt' } > 1 ) ? $self->{ 'reconnect_after' } : 0;
-  
+
   my $timer;
 
   $timer = AnyEvent->timer(
