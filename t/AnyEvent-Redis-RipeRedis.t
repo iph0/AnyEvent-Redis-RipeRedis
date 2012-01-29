@@ -20,7 +20,7 @@ BEGIN {
     new => sub {
       my $proto = shift;
       my %params = @_;
-      
+
       $mock->{ 'on_connect' } = $params{ 'on_connect' };
       $mock->{ 'on_connect_error' } = $params{ 'on_connect_error' };
       $mock->{ 'on_error' } = $params{ 'on_error' };
@@ -30,7 +30,7 @@ BEGIN {
       $mock->{ 'rbuf' } = undef;
       $mock->{ 'read_queue' } = [];
       $mock->{ 'new_data_received' } = undef;
-      
+
       $mock->{ '$proc_timer' } = AnyEvent->timer(
         after => 0,
         cb => sub {
@@ -53,11 +53,11 @@ DATA
           $mock->{ 'new_data_received' } = 1;
 
           $mock->_process();
-          
+
           return;
         }
       );
-      
+
       return $mock;
     }
   );
@@ -67,15 +67,15 @@ DATA
   $mock->mock( 'unshift_read', sub {
     my $self = shift;
     my $cb = shift;
-    
+
     unshift( @{ $self->{ 'read_queue' } }, $cb );
   } );
 
   $mock->mock( '_process', sub {
     my $self = shift;
-    
+
     $self->{ 'on_connect' }->();
-    
+
     if ( $self->{ 'new_data_received' } ) {
       $self->{ 'on_read' }->( $self );
     }
@@ -91,7 +91,7 @@ can_ok( $t_class, 'new' );
 can_ok( $t_class, 'AUTOLOAD' );
 can_ok( $t_class, 'DESTROY' );
 
-my $redis = $t_class->new( { 
+my $redis = $t_class->new( {
   host => 'localhost',
   port => '6379',
   password => 'test_password',
@@ -100,20 +100,20 @@ my $redis = $t_class->new( {
   reconnect_after => 1,
   max_connect_attempts => 10,
 
-  on_connect => sub { 
+  on_connect => sub {
     my $attempt = shift;
-    
+
     is( $attempt, 1, 'on_connect' );
   },
-  
+
   on_stop_reconnect => sub {
 
   },
-  
+
   on_error => sub {
     my $msg = shift;
     my $err_code = shift;
-    
+
     is( $msg, "ERR unknown command 'incrr'", 'on_error' );
     is( $err_code, 4, 'Command error' );
   }
@@ -146,7 +146,7 @@ $redis->get( 'foo', sub {
 
 $redis->lrange( 'list', 0, -1, sub {
   my $data = shift;
-  
+
   my $expected = [ qw( foo bar coo ) ];
 
   is_deeply( $data, $expected, 'lrange (multi-bulk reply)' );

@@ -415,7 +415,7 @@ sub _prepare_on_read_cb {
               my $data = shift;
               my $err = shift;
               my $is_mbulk = shift;
-              
+
               if ( $err ) {
 
                 if ( exists( $self->{ 'on_redis_error' } ) ) {
@@ -504,7 +504,7 @@ sub _prcoess_response {
   }
 
   my $cmd = $self->{ 'commands_queue' }->[ 0 ];
-  
+
   if ( !defined( $cmd ) ) {
     $self->{ 'on_error' }->( 'Unexpected data in response' );
 

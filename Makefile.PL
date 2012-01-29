@@ -6,7 +6,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
   NAME => 'AnyEvent::Redis::RipeRedis',
   VERSION_FROM => 'lib/AnyEvent/Redis/RipeRedis.pm', # finds $VERSION
-  
+
   PREREQ_PM => {
     'AnyEvent' => 5.31,
     'Encode' => 2.23,
