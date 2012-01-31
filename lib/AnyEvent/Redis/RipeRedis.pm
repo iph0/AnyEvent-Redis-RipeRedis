@@ -20,10 +20,10 @@ use fields qw(
   connect_attempt
   commands_queue
   sub_lock
-  subs
+  active_subs
 );
 
-our $VERSION = '0.400101';
+our $VERSION = '0.400200';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -131,7 +131,7 @@ sub new {
   $self->{ 'connect_attempt' } = 0;
   $self->{ 'commands_queue' } = [];
   $self->{ 'sub_lock' } = undef;
-  $self->{ 'subs' } = {};
+  $self->{ 'active_subs' } = {};
 
   $self->_connect();
 
@@ -253,15 +253,12 @@ sub _exec_command {
 
           $cmd->{ 'on_message' } = $params->{ 'on_message' };
         }
+      }
+    }
+    else {
 
-        if ( defined( $params->{ 'on_unsubscribe' } ) ) {
-
-          if ( ref( $params->{ 'on_unsubscribe' } ) ne 'CODE' ) {
-            croak '""on_unsubscribe" callback must be a CODE reference"';
-          }
-
-          $cmd->{ 'on_unsubscribe' } = $params->{ 'on_unsubscribe' };
-        }
+      if ( defined( $cb ) ) {
+        $cmd->{ 'cb' } = $cb;
       }
     }
   }
@@ -483,21 +480,22 @@ sub _prcoess_response {
     return;
   }
 
-  if ( %{ $self->{ 'subs' } } ) {
+  if ( %{ $self->{ 'active_subs' } } ) {
 
     if ( ref( $data ) eq 'ARRAY' ) {
 
       if ( ( $data->[ 0 ] eq 'message' || $data->[ 0 ] eq 'pmessage' )
-        && exists( $self->{ 'subs' }->{ $data->[ 1 ] } ) ) {
+        && exists( $self->{ 'active_subs' }->{ $data->[ 1 ] } ) ) {
 
-        my $cb_group = $self->{ 'subs' }->{ $data->[ 1 ] };
+        my $cb_group = $self->{ 'active_subs' }->{ $data->[ 1 ] };
 
         if ( $data->[ 0 ] eq 'message' ) {
           $cb_group->{ 'on_message' }->( $data->[ 1 ], $data->[ 2 ] );
         }
-        elsif ( $data->[ 0 ] eq 'pmessage' ) {
-          $cb_group->{ 'on_message' }->( $data->[ 1 ], $data->[ 2 ], $data->[ 3 ] );
+        else {
+          $cb_group->{ 'on_message' }->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
         }
+
         return;
       }
     }
@@ -526,22 +524,16 @@ sub _prcoess_response {
         $cb_group->{ 'on_message' } = $cmd->{ 'on_message' };
       }
 
-      if ( exists( $cmd->{ 'on_unsubscribe' } ) ) {
-        $cb_group->{ 'on_unsubscribe' } = $cmd->{ 'on_unsubscribe' };
-      }
-
-      $self->{ 'subs' }->{ $data->[ 1 ] } = $cb_group;
+      $self->{ 'active_subs' }->{ $data->[ 1 ] } = $cb_group;
     }
     else {
 
-      if ( exists( $self->{ 'subs' }->{ $data->[ 1 ] } ) ) {
-        my $cb_group = $self->{ 'subs' }->{ $data->[ 1 ] };
+      if ( exists( $cmd->{ 'cb' } ) ) {
+        $cmd->{ 'cb' }->( $data->[ 1 ], $data->[ 2 ] );
+      }
 
-        if ( exists( $cb_group->{ 'on_unsubscribe' } ) ) {
-          $cb_group->{ 'on_unsubscribe' }->( $data->[ 1 ], $data->[ 2 ] );
-        }
-
-        delete( $self->{ 'subs' }->{ $data->[ 1 ] } );
+      if ( exists( $self->{ 'active_subs' }->{ $data->[ 1 ] } ) ) {
+        delete( $self->{ 'active_subs' }->{ $data->[ 1 ] } );
       }
     }
 
@@ -557,7 +549,7 @@ sub _prcoess_response {
   }
 
   if ( $cmd->{ 'name' } eq 'quit' ) {
-    $self->_disconnect();
+    $self->_destroy();
 
     return 1;
   }
@@ -581,6 +573,8 @@ sub _attempt_to_reconnect {
     if ( defined( $self->{ 'on_stop_reconnect' } ) ) {
       $self->{ 'on_stop_reconnect' }->();
     }
+
+    $self->_destroy();
   }
 }
 
@@ -588,7 +582,7 @@ sub _attempt_to_reconnect {
 sub _reconnect {
   my $self = shift;
 
-  $self->_disconnect();
+  $self->_destroy();
 
   my $after = ( $self->{ 'connect_attempt' } > 1 ) ? $self->{ 'reconnect_after' } : 0;
 
@@ -607,7 +601,7 @@ sub _reconnect {
 }
 
 ####
-sub _disconnect {
+sub _destroy {
   my $self = shift;
 
   if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
@@ -617,7 +611,7 @@ sub _disconnect {
   $self->{ 'handle' } = undef;
   $self->{ 'commands_queue' } = [];
   $self->{ 'sub_lock' } = undef;
-  $self->{ 'subs' } = {};
+  $self->{ 'active_subs' } = {};
 
   return 1;
 }
@@ -651,7 +645,7 @@ sub AUTOLOAD {
 sub DESTROY {
   my $self = shift;
 
-  $self->_disconnect();
+  $self->_destroy();
 };
 
 1;

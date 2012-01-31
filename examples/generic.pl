@@ -43,7 +43,6 @@ my $cv = AnyEvent->condvar();
 
 
 # Increment
-
 $redis->incr( 'foo', sub {
   my $val = shift;
 
@@ -52,7 +51,6 @@ $redis->incr( 'foo', sub {
 
 
 # Set value
-
 $redis->set( 'bar', 'Some string', sub {
   my $resp = shift;
 
@@ -61,7 +59,6 @@ $redis->set( 'bar', 'Some string', sub {
 
 
 # Get value
-
 $redis->get( 'bar', sub {
   my $val = shift;
 
@@ -70,7 +67,6 @@ $redis->get( 'bar', sub {
 
 
 # Push values
-
 for ( my $i = 1; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i", sub {
     my $resp = shift;
@@ -81,7 +77,6 @@ for ( my $i = 1; $i <= 3; $i++ ) {
 
 
 # Get list of values
-
 $redis->lrange( 'list', 0, -1, sub {
   my $list = shift;
 

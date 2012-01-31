@@ -44,74 +44,89 @@ my $cv = AnyEvent->condvar();
 
 # Subscribe to channels by name
 
-my $on_msg_cb = sub {
+$redis->subscribe( qw( ch_1 ch_2 ), sub {
   my $ch_name = shift;
   my $msg = shift;
 
   say "$ch_name: $msg";
 
   if ( $msg eq 'unsub' ) {
-    $redis->unsubscribe( qw( channel_1 foo bar ) );
+    $redis->unsubscribe( qw( ch_1 ch_2 ) );
   }
-};
+} );
 
-$redis->subscribe( 'channel_1', $on_msg_cb );
-
-$redis->subscribe( qw( foo bar ), {
+$redis->subscribe( qw( ch_foo ch_bar ), {
   on_subscribe =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
 
-    say "Subscribed: $ch_name. Active subscriptions: $subs_num";
+    say "Subscribed: $ch_name. Active: $subs_num";
   },
 
-  on_message => $on_msg_cb,
-
-  on_unsubscribe => sub {
+  on_message => sub {
     my $ch_name = shift;
-    my $subs_num = shift;
+    my $msg = shift;
 
-    say "Unsubscribed: $ch_name. Active subscriptions: $subs_num";
+    say "$ch_name: $msg";
 
-    if ( $subs_num == 0 ) {
-      $cv->send();
+    if ( $msg eq 'unsub' ) {
+      $redis->unsubscribe( qw( ch_foo ch_bar ), sub {
+        my $ch_name = shift;
+        my $subs_num = shift;
+
+        say "Unsubscribed: $ch_name. Active: $subs_num";
+
+        if ( $subs_num == 0 ) {
+          $cv->send();
+        }
+      } );
     }
-  }
+  },
 } );
 
 
 # Subscribe to channels by pattern
 
-$redis->psubscribe( 'channel_*', {
+$redis->psubscribe( qw( ch_* alert_* ), sub {
+  my $ch_name = shift;
+  my $msg = shift;
+  my $ch_pattern = shift;
+
+  say "$ch_name ($ch_pattern): $msg";
+
+  if ( $msg eq 'unsub' ) {
+    $redis->punsubscribe( qw( ch_* alert_* ) );
+  }
+} );
+
+$redis->psubscribe( qw( info_* err_* ), {
   on_subscribe =>  sub {
     my $ch_pattern = shift;
     my $subs_num = shift;
 
-    say "Subscribed: $ch_pattern. Active subscriptions: $subs_num";
+    say "Subscribed: $ch_pattern. Active: $subs_num";
   },
 
   on_message => sub {
-    my $ch_pattern = shift;
     my $ch_name = shift;
     my $msg = shift;
+    my $ch_pattern = shift;
 
     say "$ch_name ($ch_pattern): $msg";
 
     if ( $msg eq 'unsub' ) {
-      $redis->punsubscribe( 'channel_*' );
+      $redis->punsubscribe( qw( info_* err_* ), sub {
+        my $ch_pattern = shift;
+        my $subs_num = shift;
+
+        say "Unsubscribed: $ch_pattern. Active: $subs_num";
+
+        if ( $subs_num == 0 ) {
+          $cv->send();
+        }
+      } );
     }
   },
-
-  on_unsubscribe => sub {
-    my $ch_pattern = shift;
-    my $subs_num = shift;
-
-    say "Unsubscribed: $ch_pattern. Active subscriptions: $subs_num";
-
-    if ( $subs_num == 0 ) {
-      $cv->send();
-    }
-  }
 } );
 
 $cv->recv();
