@@ -12,7 +12,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
   port => '/tmp/redis.sock',
   password => 'your_password',
   encoding => 'utf8',
-#  reconnect => 1,
+  reconnect => 1,
   reconnect_after => 5,
   max_connect_attempts => 10,
 

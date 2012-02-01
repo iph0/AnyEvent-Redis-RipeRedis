@@ -23,7 +23,7 @@ use fields qw(
   active_subs
 );
 
-our $VERSION = '0.400200';
+our $VERSION = '0.400201';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -584,7 +584,7 @@ sub _reconnect {
 
   $self->_destroy();
 
-  my $after = ( $self->{ 'connect_attempt' } > 1 ) ? $self->{ 'reconnect_after' } : 0;
+  my $after = ( $self->{ 'connect_attempt' } > 0 ) ? $self->{ 'reconnect_after' } : 0;
 
   my $timer;
 
