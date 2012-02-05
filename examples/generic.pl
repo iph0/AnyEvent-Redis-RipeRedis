@@ -41,14 +41,12 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
 
 my $cv = AnyEvent->condvar();
 
-
 # Increment
 $redis->incr( 'foo', sub {
   my $val = shift;
 
   say $val;
 } );
-
 
 # Set value
 $redis->set( 'bar', 'Some string', sub {
@@ -57,14 +55,12 @@ $redis->set( 'bar', 'Some string', sub {
   say $resp;
 } );
 
-
 # Get value
 $redis->get( 'bar', sub {
   my $val = shift;
 
   say $val;
 } );
-
 
 # Push values
 for ( my $i = 1; $i <= 3; $i++ ) {
@@ -74,7 +70,6 @@ for ( my $i = 1; $i <= 3; $i++ ) {
     say $resp;
   } );
 }
-
 
 # Get list of values
 $redis->lrange( 'list', 0, -1, sub {
@@ -141,8 +136,8 @@ foreach my $key ( qw( foo bar list ) ) {
   } );
 }
 
-# Disconnect
 
+# Disconnect
 $redis->quit( sub {
   my $resp = shift;
 
