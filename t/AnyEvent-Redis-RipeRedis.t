@@ -9,13 +9,13 @@ use Test::More tests => 25;
 use Test::MockObject;
 use AnyEvent;
 
+my $EOL = "\r\n";
+my $EOL_LEN = length( $EOL );
+my $STORAGE = {};
+
 my $t_class;
 
 BEGIN {
-  my $EOL = "\r\n";
-  my $EOL_LEN = length( $EOL );
-  my $STORAGE = {};
-
   my $mock = Test::MockObject->new( {} );
 
   ####
@@ -62,24 +62,24 @@ BEGIN {
   $mock->mock( 'push_write', sub {
     my $self = shift;
     my $cmd_str = shift;
+    
+    my $cmd = _parse_command( $cmd_str );
 
-    my $cmd = _parse_cmd( $cmd_str );
+    if ( ok( defined( $cmd ), 'Parsing command' ) ) {
+      my $method = "_$cmd->{ 'name' }";
 
-    ok( defined( $cmd ), 'Command serialization' );
+      if ( $self->can( $method ) ) {
+        $self->$method( $cmd );
+      }
+      else {
+        my $err_msg = $self->{ 'error_msgs' }->{ 'unknown_command' };
+        $err_msg =~ s/%c/$cmd->{ 'name' }/go;
 
-    my $method = "_$cmd->{ 'name' }";
+        $self->{ 'rbuf' } .= "-ERR $err_msg$EOL";
+      }
 
-    if ( $self->can( $method ) ) {
-      $self->$method( $cmd );
+      $mock->{ 'new_in_rbuf' } = 1;
     }
-    else {
-      my $err_msg = $self->{ 'error_msgs' }->{ 'unknown_command' };
-      $err_msg =~ s/%c/$cmd->{ 'name' }/go;
-
-      $self->{ 'rbuf' } .= "-ERR $err_msg$EOL";
-    }
-
-    $mock->{ 'new_in_rbuf' } = 1;
   } );
 
   ####
@@ -301,79 +301,6 @@ BEGIN {
     $self->{ 'rbuf' } .= "+OK$EOL";
   } );
 
-  ####
-  sub _parse_cmd {
-    my $cmd_str = shift;
-
-    if ( !defined( $cmd_str ) || $cmd_str eq '' ) {
-      return;
-    }
-
-    my $eol_pos = index( $cmd_str, $EOL );
-
-    if ( $eol_pos <= 0 ) {
-      return;
-    }
-
-    local $/ = $EOL;
-
-    my $tkn = substr( $cmd_str, 0, $eol_pos + $EOL_LEN, '' );
-    my $type = substr( $tkn, 0, 1, '' );
-    chomp( $tkn );
-
-    if ( $type ne '*' ) {
-      return;
-    }
-
-    my $mbulk_len = $tkn;
-
-    if ( $mbulk_len =~ m/\D/o || $mbulk_len == 0 ) {
-      return;
-    }
-
-    my $args_remaining = $mbulk_len;
-
-    my @args;
-    my $bulk_eol_len;
-
-    while ( $args_remaining ) {
-
-      if ( $bulk_eol_len ) {
-        my $arg = substr( $cmd_str, 0, $bulk_eol_len, '' );
-        chomp( $arg );
-
-        push( @args, $arg );
-
-        undef( $bulk_eol_len );
-        --$args_remaining;
-      }
-      else {
-        my $eol_pos = index( $cmd_str, $EOL );
-
-        if ( $eol_pos <= 0 ) {
-          return;
-        }
-
-        my $tkn = substr( $cmd_str, 0, $eol_pos + $EOL_LEN, '' );
-        my $type = substr( $tkn, 0, 1, '' );
-        chomp( $tkn );
-
-        if ( $type ne '$' ) {
-          return;
-        }
-
-        $bulk_eol_len = $tkn + $EOL_LEN;
-      }
-    }
-
-    my $cmd = {
-      name => shift( @args ),
-      args => \@args
-    };
-
-    return $cmd;
-  }
-
 
   $t_class = 'AnyEvent::Redis::RipeRedis';
 
@@ -483,4 +410,91 @@ $redis->lrange( 'list', 0, -1, sub {
   is_deeply( $list, $expected, 'lrange (multi-bulk reply)' );
 } );
 
+my $timeout_timer;
+
+$timeout_timer = AnyEvent->timer( 
+  after => 3,
+  cb => sub {
+    undef( $timeout_timer );
+
+    $cv->send();
+  }
+);
+
 $cv->recv();
+
+
+# Subroutines
+
+####
+sub _parse_command {
+  my $cmd_str = shift;
+
+  if ( !defined( $cmd_str ) || $cmd_str eq '' ) {
+    return;
+  }
+
+  local $/ = $EOL;
+
+  my $eol_pos = index( $cmd_str, $EOL );
+
+  if ( $eol_pos <= 0 ) {
+    return;
+  }
+
+  my $token = substr( $cmd_str, 0, $eol_pos + $EOL_LEN, '' );
+  my $type = substr( $token, 0, 1, '' );
+  chomp( $token );
+
+  if ( $type ne '*' ) {
+    return;
+  }
+
+  my $mbulk_len = $token;
+
+  if ( $mbulk_len =~ m/\D/o || $mbulk_len == 0 ) {
+    return;
+  }
+
+  my $args_remaining = $mbulk_len;
+
+  my @args;
+  my $bulk_eol_len;
+
+  while ( $args_remaining ) {
+
+    if ( $bulk_eol_len ) {
+      my $arg = substr( $cmd_str, 0, $bulk_eol_len, '' );
+      chomp( $arg );
+
+      push( @args, $arg );
+
+      undef( $bulk_eol_len );
+      --$args_remaining;
+    }
+    else {
+      my $eol_pos = index( $cmd_str, $EOL );
+
+      if ( $eol_pos <= 0 ) {
+        return;
+      }
+
+      my $token = substr( $cmd_str, 0, $eol_pos + $EOL_LEN, '' );
+      my $type = substr( $token, 0, 1, '' );
+      chomp( $token );
+
+      if ( $type ne '$' ) {
+        return;
+      }
+
+      $bulk_eol_len = $token + $EOL_LEN;
+    }
+  }
+
+  my $cmd = {
+    name => shift( @args ),
+    args => \@args
+  };
+
+  return $cmd;
+}

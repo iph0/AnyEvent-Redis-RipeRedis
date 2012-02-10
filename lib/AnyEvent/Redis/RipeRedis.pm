@@ -23,7 +23,7 @@ use fields qw(
   active_subs
 );
 
-our $VERSION = '0.400201';
+our $VERSION = '0.400202';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -348,26 +348,27 @@ sub _prepare_on_read_cb {
   my $self = shift;
   my $cb = shift;
 
-  my $bulk_eol_len;
+  my $bulk_len;
 
   return sub {
     my $hdl = shift;
 
-    local $/ = $EOL;
-
     while ( 1 ) {
 
-      if ( defined( $bulk_eol_len ) ) {
+      if ( defined( $bulk_len ) ) {
+        my $bulk_eol_len = $bulk_len + $EOL_LENGTH;
 
         if ( length( substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
-          my $data = substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len, '' );
+          my $data = substr( $hdl->{ 'rbuf' }, 0, $bulk_len, '' );
+          substr( $hdl->{ 'rbuf' }, 0, $EOL_LENGTH, '' );
+
           chomp( $data );
 
           if ( $self->{ 'encoding' } ) {
             $data = $self->{ 'encoding' }->decode( $data );
           }
 
-          undef( $bulk_eol_len );
+          undef( $bulk_len );
 
           return 1 if $cb->( $data );
         }
@@ -379,9 +380,9 @@ sub _prepare_on_read_cb {
       my $eol_pos = index( $hdl->{ 'rbuf' }, $EOL );
 
       if ( $eol_pos >= 0 ) {
-        my $data = substr( $hdl->{ 'rbuf' }, 0, $eol_pos + $EOL_LENGTH, '' );
+        my $data = substr( $hdl->{ 'rbuf' }, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
-        chomp( $data );
+        substr( $hdl->{ 'rbuf' }, 0, $EOL_LENGTH, '' );
 
         if ( $type eq '+' || $type eq ':' ) {
           return 1 if $cb->( $data );
@@ -390,12 +391,9 @@ sub _prepare_on_read_cb {
           return 1 if $cb->( $data, 1 );
         }
         elsif ( $type eq '$' ) {
-          my $bulk_len = $data;
+          $bulk_len = $data;
 
-          if ( $bulk_len > 0 ) {
-            $bulk_eol_len = $bulk_len + $EOL_LENGTH;
-          }
-          else {
+          if ( $bulk_len <= 0 ) {
             return 1 if $cb->();
           }
         }
