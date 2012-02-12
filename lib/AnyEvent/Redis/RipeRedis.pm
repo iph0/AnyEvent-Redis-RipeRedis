@@ -23,7 +23,7 @@ use fields qw(
   active_subs
 );
 
-our $VERSION = '0.400202';
+our $VERSION = '0.400203';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -391,9 +391,11 @@ sub _prepare_on_read_cb {
           return 1 if $cb->( $data, 1 );
         }
         elsif ( $type eq '$' ) {
-          $bulk_len = $data;
 
-          if ( $bulk_len <= 0 ) {
+          if ( $data > 0 ) {
+            $bulk_len = $data;
+          }
+          else {
             return 1 if $cb->();
           }
         }
