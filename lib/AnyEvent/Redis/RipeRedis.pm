@@ -23,12 +23,18 @@ use fields qw(
   active_subs
 );
 
-our $VERSION = '0.400203';
+our $VERSION = '0.400300';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util 'looks_like_number';
 use Carp qw( croak confess );
+
+my $DEFAULT = {
+  host => 'localhost',
+  port => '6379',
+  reconnect_after => 5,
+};
 
 my $EOL = "\r\n";
 my $EOL_LENGTH = length( $EOL );
@@ -46,92 +52,92 @@ sub new {
   my $class = ref( $proto ) || $proto;
   my $self = fields::new( $class );
 
-  $self->{ 'host' } = $params->{ 'host' } || 'localhost';
-  $self->{ 'port' } = $params->{ 'port' } || '6379';
-  $self->{ 'password' } = $params->{ 'password' };
+  $self->{ host } = $params->{ host } || $DEFAULT->{ host };
+  $self->{ port } = $params->{ port } || $DEFAULT->{ port };
+  $self->{ password } = $params->{ password };
 
-  if ( defined( $params->{ 'encoding' } ) ) {
-    $self->{ 'encoding' } = find_encoding( $params->{ 'encoding' } );
+  if ( defined( $params->{ encoding } ) ) {
+    $self->{ encoding } = find_encoding( $params->{ encoding } );
 
-    if ( !defined( $self->{ 'encoding' } ) ) {
-      croak "Encoding \"$params->{ 'encoding' }\" not found";
+    if ( !defined( $self->{ encoding } ) ) {
+      croak "Encoding \"$params->{ encoding }\" not found";
     }
   }
 
-  $self->{ 'reconnect' } = $params->{ 'reconnect' };
+  $self->{ reconnect } = $params->{ reconnect };
 
-  if ( $self->{ 'reconnect' } ) {
+  if ( $self->{ reconnect } ) {
 
-    if ( defined( $params->{ 'reconnect_after' } ) ) {
+    if ( defined( $params->{ reconnect_after } ) ) {
 
-      if ( !looks_like_number( $params->{ 'reconnect_after' } )
-        || $params->{ 'reconnect_after' } <= 0 ) {
+      if ( !looks_like_number( $params->{ reconnect_after } )
+        || $params->{ reconnect_after } <= 0 ) {
 
         croak '"reconnect_after" must be a positive number';
       }
 
-      $self->{ 'reconnect_after' } = $params->{ 'reconnect_after' };
+      $self->{ reconnect_after } = $params->{ reconnect_after };
     }
     else {
-      $self->{ 'reconnect_after' } = 5;
+      $self->{ reconnect_after } = $DEFAULT->{ reconnect_after };
     }
 
-    if ( defined( $params->{ 'max_connect_attempts' } ) ) {
+    if ( defined( $params->{ max_connect_attempts } ) ) {
 
-      if ( !looks_like_number( $params->{ 'max_connect_attempts' } )
-        || $params->{ 'max_connect_attempts' } <= 0 ) {
+      if ( $params->{ max_connect_attempts } =~ m/[^0-9]/o
+        || $params->{ max_connect_attempts } <= 0 ) {
 
-        croak '"max_connect_attempts" must be a positive number';
+        croak '"max_connect_attempts" must be a positive integer number';
       }
 
-      $self->{ 'max_connect_attempts' } = int( $params->{ 'max_connect_attempts' } );
+      $self->{ max_connect_attempts } = $params->{ max_connect_attempts };
     }
   }
 
-  if ( defined( $params->{ 'on_connect' } ) ) {
+  if ( defined( $params->{ on_connect } ) ) {
 
-    if ( ref( $params->{ 'on_connect' } ) ne 'CODE' ) {
+    if ( ref( $params->{ on_connect } ) ne 'CODE' ) {
       croak '"on_connect" callback must be a CODE reference';
     }
 
-    $self->{ 'on_connect' } = $params->{ 'on_connect' };
+    $self->{ on_connect } = $params->{ on_connect };
   }
 
-  if ( defined( $params->{ 'on_stop_reconnect' } ) ) {
+  if ( defined( $params->{ on_stop_reconnect } ) ) {
 
-    if ( ref( $params->{ 'on_stop_reconnect' } ) ne 'CODE' ) {
+    if ( ref( $params->{ on_stop_reconnect } ) ne 'CODE' ) {
       croak '"on_stop_reconnect" callback must be a CODE reference';
     }
 
-    $self->{ 'on_stop_reconnect' } = $params->{ 'on_stop_reconnect' };
+    $self->{ on_stop_reconnect } = $params->{ on_stop_reconnect };
   }
 
-  if ( defined( $params->{ 'on_redis_error' } ) ) {
+  if ( defined( $params->{ on_redis_error } ) ) {
 
-    if ( ref( $params->{ 'on_redis_error' } ) ne 'CODE' ) {
+    if ( ref( $params->{ on_redis_error } ) ne 'CODE' ) {
       croak '"on_redis_error" callback must be a CODE reference';
     }
 
-    $self->{ 'on_redis_error' } = $params->{ 'on_redis_error' };
+    $self->{ on_redis_error } = $params->{ on_redis_error };
   }
 
-  if ( defined( $params->{ 'on_error' } ) ) {
+  if ( defined( $params->{ on_error } ) ) {
 
-    if ( ref( $params->{ 'on_error' } ) ne 'CODE' ) {
+    if ( ref( $params->{ on_error } ) ne 'CODE' ) {
       croak '"on_error" callback must be a CODE reference';
     }
 
-    $self->{ 'on_error' } = $params->{ 'on_error' };
+    $self->{ on_error } = $params->{ on_error };
   }
   else {
-    $self->{ 'on_error' } = sub { confess $_[ 0 ] };
+    $self->{ on_error } = sub { confess $_[ 0 ] };
   }
 
-  $self->{ 'handle' } = undef;
-  $self->{ 'connect_attempt' } = 0;
-  $self->{ 'commands_queue' } = [];
-  $self->{ 'sub_lock' } = undef;
-  $self->{ 'active_subs' } = {};
+  $self->{ handle } = undef;
+  $self->{ connect_attempt } = 0;
+  $self->{ commands_queue } = [];
+  $self->{ sub_lock } = undef;
+  $self->{ active_subs } = {};
 
   $self->_connect();
 
@@ -145,10 +151,10 @@ sub new {
 sub _connect {
   my $self = shift;
 
-  ++$self->{ 'connect_attempt' };
+  ++$self->{ connect_attempt };
 
-  $self->{ 'handle' } = AnyEvent::Handle->new(
-    connect => [ $self->{ 'host' }, $self->{ 'port' } ],
+  $self->{ handle } = AnyEvent::Handle->new(
+    connect => [ $self->{ host }, $self->{ port } ],
     keepalive => 1,
 
     on_connect => sub {
@@ -156,20 +162,20 @@ sub _connect {
     },
 
     on_connect_error => sub {
-      $self->{ 'on_error' }->( "Can't connect to $self->{ 'host' }:$self->{ 'port' }; "
+      $self->{ on_error }->( "Can't connect to $self->{ host }:$self->{ port }; "
           . $_[ 1 ] );
 
       $self->_attempt_to_reconnect();
     },
 
     on_error => sub {
-      $self->{ 'on_error' }->( $_[ 2 ] );
+      $self->{ on_error }->( $_[ 2 ] );
 
       $self->_attempt_to_reconnect();
     },
 
     on_eof => sub {
-      $self->{ 'on_error' }->( 'Connection lost' );
+      $self->{ on_error }->( 'Connection lost' );
 
       $self->_attempt_to_reconnect();
     },
@@ -179,23 +185,27 @@ sub _connect {
     } )
   );
 
-  if ( defined( $self->{ 'password' } ) && $self->{ 'password' } ne '' ) {
+  if ( defined( $self->{ password } ) && $self->{ password } ne '' ) {
     $self->_push_command( {
       name => 'auth',
-      args => [ $self->{ 'password' } ]
+      args => [ $self->{ password } ]
     } );
   }
+
+  return;
 }
 
 ####
 sub _post_connect {
   my $self = shift;
 
-  if ( defined( $self->{ 'on_connect' } ) ) {
-    $self->{ 'on_connect' }->( $self->{ 'connect_attempt' } );
+  if ( defined( $self->{ on_connect } ) ) {
+    $self->{ on_connect }->( $self->{ connect_attempt } );
   }
 
-  $self->{ 'connect_attempt' } = 0;
+  $self->{ connect_attempt } = 0;
+
+  return;
 }
 
 ####
@@ -203,8 +213,9 @@ sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
 
-  if ( !defined( $self->{ 'handle' } ) ) {
-    $self->{ 'on_error' }->( "Can't send request. Connection not established" );
+  if ( !defined( $self->{ handle } ) ) {
+    $self->{ on_error }->( "Can't execute command \"$cmd_name\". "
+        . "Connection not established" );
 
     return;
   }
@@ -213,10 +224,10 @@ sub _exec_command {
   my $params = {};
 
   if ( ref( $_[ -1 ] ) eq 'CODE' ) {
-    $cb = pop( @_ );
+    $cb = pop;
   }
   elsif ( ref( $_[ -1 ] ) eq 'HASH' ) {
-    $params = pop( @_ );
+    $params = pop;
   }
 
   my @args = @_;
@@ -232,61 +243,61 @@ sub _exec_command {
     if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
 
       if ( defined( $cb ) ) {
-        $cmd->{ 'on_message' } = $cb;
+        $cmd->{ on_message } = $cb;
       }
       else {
 
-        if ( defined( $params->{ 'on_subscribe' } ) ) {
+        if ( defined( $params->{ on_subscribe } ) ) {
 
-          if ( ref( $params->{ 'on_subscribe' } ) ne 'CODE' ) {
+          if ( ref( $params->{ on_subscribe } ) ne 'CODE' ) {
             croak '""on_subscribe" callback must be a CODE reference"';
           }
 
-          $cmd->{ 'on_subscribe' } = $params->{ 'on_subscribe' };
+          $cmd->{ on_subscribe } = $params->{ on_subscribe };
         }
 
-        if ( defined( $params->{ 'on_message' } ) ) {
+        if ( defined( $params->{ on_message } ) ) {
 
-          if ( ref( $params->{ 'on_message' } ) ne 'CODE' ) {
+          if ( ref( $params->{ on_message } ) ne 'CODE' ) {
             croak '""on_message" callback must be a CODE reference"';
           }
 
-          $cmd->{ 'on_message' } = $params->{ 'on_message' };
+          $cmd->{ on_message } = $params->{ on_message };
         }
       }
     }
     else {
 
       if ( defined( $cb ) ) {
-        $cmd->{ 'cb' } = $cb;
+        $cmd->{ cb } = $cb;
       }
     }
   }
   else {
 
     if ( defined( $cb ) ) {
-      $cmd->{ 'cb' } = $cb;
+      $cmd->{ cb } = $cb;
     }
 
     if ( $cmd_name eq 'multi' ) {
-      $self->{ 'sub_lock' } = 1;
+      $self->{ sub_lock } = 1;
     }
     elsif ( $cmd_name eq 'exec' ) {
-      undef( $self->{ 'sub_lock' } );
+      undef( $self->{ sub_lock } );
     }
   }
 
 
   if ( $cmd_name eq 'multi' ) {
-    $self->{ 'sub_lock' } = 1;
+    $self->{ sub_lock } = 1;
   }
   elsif ( $cmd_name eq 'exec' ) {
-    undef( $self->{ 'sub_lock' } );
+    undef( $self->{ sub_lock } );
   }
   elsif ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe'
       || $cmd_name eq 'unsubscribe' || $cmd_name eq 'punsubscribe' ) {
 
-    if ( $self->{ 'sub_lock' } ) {
+    if ( $self->{ sub_lock } ) {
       croak "Command \"$cmd_name\" not allowed in this context."
           . " First, the transaction must be completed.";
     }
@@ -296,7 +307,7 @@ sub _exec_command {
 
     }
 
-    $cmd->{ 'resp_remaining' } = scalar( @args );
+    $cmd->{ resp_remaining } = scalar( @args );
   }
 
   $self->_push_command( $cmd );
@@ -309,12 +320,14 @@ sub _push_command {
   my $self = shift;
   my $cmd = shift;
 
-  push( @{ $self->{ 'commands_queue' } }, $cmd );
+  push( @{ $self->{ commands_queue } }, $cmd );
 
-  if ( defined( $self->{ 'handle' } ) ) {
+  if ( defined( $self->{ handle } ) ) {
     my $cmd_str = $self->_serialize_command( $cmd );
-    $self->{ 'handle' }->push_write( $cmd_str );
+    $self->{ handle }->push_write( $cmd_str );
   }
+
+  return;
 }
 
 ####
@@ -322,13 +335,13 @@ sub _serialize_command {
   my $self = shift;
   my $cmd = shift;
 
-  my $bulk_len = scalar( @{ $cmd->{ 'args' } } ) + 1;
+  my $bulk_len = scalar( @{ $cmd->{ args } } ) + 1;
   my $cmd_str = "*$bulk_len$EOL";
 
-  foreach my $tkn ( $cmd->{ 'name' }, @{ $cmd->{ 'args' } } ) {
+  foreach my $tkn ( $cmd->{ name }, @{ $cmd->{ args } } ) {
 
-    if ( exists( $self->{ 'encoding' } ) && is_utf8( $tkn ) ) {
-      $tkn = $self->{ 'encoding' }->encode( $tkn );
+    if ( exists( $self->{ encoding } ) && is_utf8( $tkn ) ) {
+      $tkn = $self->{ encoding }->encode( $tkn );
     }
 
     if ( defined( $tkn ) ) {
@@ -358,14 +371,14 @@ sub _prepare_on_read_cb {
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + $EOL_LENGTH;
 
-        if ( length( substr( $hdl->{ 'rbuf' }, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
-          my $data = substr( $hdl->{ 'rbuf' }, 0, $bulk_len, '' );
-          substr( $hdl->{ 'rbuf' }, 0, $EOL_LENGTH, '' );
+        if ( length( substr( $hdl->{ rbuf }, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
+          my $data = substr( $hdl->{ rbuf }, 0, $bulk_len, '' );
+          substr( $hdl->{ rbuf }, 0, $EOL_LENGTH, '' );
 
           chomp( $data );
 
-          if ( $self->{ 'encoding' } ) {
-            $data = $self->{ 'encoding' }->decode( $data );
+          if ( $self->{ encoding } ) {
+            $data = $self->{ encoding }->decode( $data );
           }
 
           undef( $bulk_len );
@@ -377,12 +390,12 @@ sub _prepare_on_read_cb {
         }
       }
 
-      my $eol_pos = index( $hdl->{ 'rbuf' }, $EOL );
+      my $eol_pos = index( $hdl->{ rbuf }, $EOL );
 
       if ( $eol_pos >= 0 ) {
-        my $data = substr( $hdl->{ 'rbuf' }, 0, $eol_pos, '' );
+        my $data = substr( $hdl->{ rbuf }, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
-        substr( $hdl->{ 'rbuf' }, 0, $EOL_LENGTH, '' );
+        substr( $hdl->{ rbuf }, 0, $EOL_LENGTH, '' );
 
         if ( $type eq '+' || $type eq ':' ) {
           return 1 if $cb->( $data );
@@ -405,36 +418,29 @@ sub _prepare_on_read_cb {
           if ( $mbulk_len > 0 ) {
             my $data_remaining = $mbulk_len;
 
-            my @m_data;
+            my @data_list;
             my $on_read_cb;
 
             my $on_data_cb = sub {
-              my $data = shift;
-              my $err = shift;
-              my $is_mbulk = shift;
+              my $data_el = shift;
+              my $is_err = shift;
 
-              if ( $err ) {
-
-                if ( exists( $self->{ 'on_redis_error' } ) ) {
-                  $self->{ 'on_redis_error' }->( $data );
-                }
-                else {
-                  $self->{ 'on_error' }->( $data );
-                }
+              if ( $is_err ) {
+                $self->on_command_error( $data );
               }
               else {
-                push( @m_data, $data );
+                push( @data_list, $data_el );
               }
 
               --$data_remaining;
 
-              if ( $is_mbulk && $data_remaining > 0 ) {
+              if ( ref( $data_el ) eq 'ARRAY' && @{ $data_el } && $data_remaining > 0 ) {
                 $hdl->unshift_read( $on_read_cb );
               }
               elsif ( $data_remaining == 0 ) {
                 undef( $on_read_cb );
 
-                $cb->( \@m_data, undef, 1 );
+                $cb->( \@data_list );
 
                 return 1;
               }
@@ -464,36 +470,30 @@ sub _prepare_on_read_cb {
 sub _prcoess_response {
   my $self = shift;
   my $data = shift;
-  my $err = shift;
+  my $is_err = shift;
 
-  if ( $err ) {
+  if ( $is_err ) {
+    $self->on_command_error( $data );
 
-    if ( exists( $self->{ 'on_redis_error' } ) ) {
-      $self->{ 'on_redis_error' }->( $data );
-    }
-    else {
-      $self->{ 'on_error' }->( $data );
-    }
-
-    shift( @{ $self->{ 'commands_queue' } } );
+    shift( @{ $self->{ commands_queue } } );
 
     return;
   }
 
-  if ( %{ $self->{ 'active_subs' } } ) {
+  if ( %{ $self->{ active_subs } } ) {
 
     if ( ref( $data ) eq 'ARRAY' ) {
 
       if ( ( $data->[ 0 ] eq 'message' || $data->[ 0 ] eq 'pmessage' )
-        && exists( $self->{ 'active_subs' }->{ $data->[ 1 ] } ) ) {
+        && exists( $self->{ active_subs }->{ $data->[ 1 ] } ) ) {
 
-        my $cb_group = $self->{ 'active_subs' }->{ $data->[ 1 ] };
+        my $cb_group = $self->{ active_subs }->{ $data->[ 1 ] };
 
         if ( $data->[ 0 ] eq 'message' ) {
-          $cb_group->{ 'on_message' }->( $data->[ 1 ], $data->[ 2 ] );
+          $cb_group->{ on_message }->( $data->[ 1 ], $data->[ 2 ] );
         }
         else {
-          $cb_group->{ 'on_message' }->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
+          $cb_group->{ on_message }->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
         }
 
         return;
@@ -501,60 +501,75 @@ sub _prcoess_response {
     }
   }
 
-  my $cmd = $self->{ 'commands_queue' }->[ 0 ];
+  my $cmd = $self->{ commands_queue }->[ 0 ];
 
   if ( !defined( $cmd ) ) {
-    $self->{ 'on_error' }->( 'Unexpected data in response' );
+    $self->{ on_error }->( 'Unexpected data in response' );
 
     return;
   }
 
-  if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe'
-      || $cmd->{ 'name' } eq 'unsubscribe' || $cmd->{ 'name' } eq 'punsubscribe' ) {
+  if ( $cmd->{ name } eq 'subscribe' || $cmd->{ name } eq 'psubscribe'
+      || $cmd->{ name } eq 'unsubscribe' || $cmd->{ name } eq 'punsubscribe' ) {
 
-    if ( $cmd->{ 'name' } eq 'subscribe' || $cmd->{ 'name' } eq 'psubscribe' ) {
+    if ( $cmd->{ name } eq 'subscribe' || $cmd->{ name } eq 'psubscribe' ) {
       my $cb_group = {};
 
-      if ( exists( $cmd->{ 'on_subscribe' } ) ) {
-        $cb_group->{ 'on_subscribe' } = $cmd->{ 'on_subscribe' };
-        $cb_group->{ 'on_subscribe' }->( $data->[ 1 ], $data->[ 2 ] );
+      if ( exists( $cmd->{ on_subscribe } ) ) {
+        $cb_group->{ on_subscribe } = $cmd->{ on_subscribe };
+        $cb_group->{ on_subscribe }->( $data->[ 1 ], $data->[ 2 ] );
       }
 
-      if ( exists( $cmd->{ 'on_message' } ) ) {
-        $cb_group->{ 'on_message' } = $cmd->{ 'on_message' };
+      if ( exists( $cmd->{ on_message } ) ) {
+        $cb_group->{ on_message } = $cmd->{ on_message };
       }
 
-      $self->{ 'active_subs' }->{ $data->[ 1 ] } = $cb_group;
+      $self->{ active_subs }->{ $data->[ 1 ] } = $cb_group;
     }
     else {
 
-      if ( exists( $cmd->{ 'cb' } ) ) {
-        $cmd->{ 'cb' }->( $data->[ 1 ], $data->[ 2 ] );
+      if ( exists( $cmd->{ cb } ) ) {
+        $cmd->{ cb }->( $data->[ 1 ], $data->[ 2 ] );
       }
 
-      if ( exists( $self->{ 'active_subs' }->{ $data->[ 1 ] } ) ) {
-        delete( $self->{ 'active_subs' }->{ $data->[ 1 ] } );
+      if ( exists( $self->{ active_subs }->{ $data->[ 1 ] } ) ) {
+        delete( $self->{ active_subs }->{ $data->[ 1 ] } );
       }
     }
 
-    if ( --$cmd->{ 'resp_remaining' } == 0 ) {
-      shift( @{ $self->{ 'commands_queue' } } );
+    if ( --$cmd->{ resp_remaining } == 0 ) {
+      shift( @{ $self->{ commands_queue } } );
     }
 
     return;
   }
 
-  if ( exists( $cmd->{ 'cb' } ) ) {
-    $cmd->{ 'cb' }->( $data );
+  if ( exists( $cmd->{ cb } ) ) {
+    $cmd->{ cb }->( $data );
   }
 
-  if ( $cmd->{ 'name' } eq 'quit' ) {
+  if ( $cmd->{ name } eq 'quit' ) {
     $self->_destroy();
 
     return 1;
   }
 
-  shift( @{ $self->{ 'commands_queue' } } );
+  shift( @{ $self->{ commands_queue } } );
+
+  return;
+}
+
+####
+sub on_command_error {
+  my $self = shift;
+  my $msg = shift;
+
+  if ( exists( $self->{ on_redis_error } ) ) {
+    $self->{ on_redis_error }->( $msg );
+  }
+  else {
+    $self->{ on_error }->( $msg );
+  }
 
   return;
 }
@@ -563,19 +578,21 @@ sub _prcoess_response {
 sub _attempt_to_reconnect {
   my $self = shift;
 
-  if ( $self->{ 'reconnect' } && ( !defined( $self->{ 'max_connect_attempts' } )
-    || $self->{ 'connect_attempt' } < $self->{ 'max_connect_attempts' } ) ) {
+  if ( $self->{ reconnect } && ( !defined( $self->{ max_connect_attempts } )
+    || $self->{ connect_attempt } < $self->{ max_connect_attempts } ) ) {
 
     $self->_reconnect();
   }
   else {
 
-    if ( defined( $self->{ 'on_stop_reconnect' } ) ) {
-      $self->{ 'on_stop_reconnect' }->();
+    if ( defined( $self->{ on_stop_reconnect } ) ) {
+      $self->{ on_stop_reconnect }->();
     }
 
     $self->_destroy();
   }
+
+  return;
 }
 
 ####
@@ -584,7 +601,7 @@ sub _reconnect {
 
   $self->_destroy();
 
-  my $after = ( $self->{ 'connect_attempt' } > 0 ) ? $self->{ 'reconnect_after' } : 0;
+  my $after = ( $self->{ connect_attempt } > 0 ) ? $self->{ reconnect_after } : 0;
 
   my $timer;
 
@@ -604,14 +621,14 @@ sub _reconnect {
 sub _destroy {
   my $self = shift;
 
-  if ( defined( $self->{ 'handle' } ) && !$self->{ 'handle' }->destroyed() ) {
-    $self->{ 'handle' }->destroy();
+  if ( defined( $self->{ handle } ) && !$self->{ handle }->destroyed() ) {
+    $self->{ handle }->destroy();
   }
 
-  $self->{ 'handle' } = undef;
-  $self->{ 'commands_queue' } = [];
-  $self->{ 'sub_lock' } = undef;
-  $self->{ 'active_subs' } = {};
+  $self->{ handle } = undef;
+  $self->{ commands_queue } = [];
+  $self->{ sub_lock } = undef;
+  $self->{ active_subs } = {};
 
   return 1;
 }
@@ -646,6 +663,8 @@ sub DESTROY {
   my $self = shift;
 
   $self->_destroy();
+
+  return;
 };
 
 1;

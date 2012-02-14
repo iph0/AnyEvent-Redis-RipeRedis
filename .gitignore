@@ -20,4 +20,6 @@ pod2htm*.tmp
 tmp/
 Debian_CPANTS.txt
 META.yml
+MYMETA.json
+MYMETA.yml
 inc/

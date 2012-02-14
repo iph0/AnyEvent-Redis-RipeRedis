@@ -48,6 +48,13 @@ $redis->incr( 'foo', sub {
   say $val;
 } );
 
+# Invalid command
+$redis->incrr( 'foo', sub {
+  my $val = shift;
+
+  say $val;
+} );
+
 # Set value
 $redis->set( 'bar', 'Some string', sub {
   my $resp = shift;
@@ -90,6 +97,20 @@ $redis->multi( sub {
 } );
 
 $redis->incr( 'foo', sub {
+  my $val = shift;
+
+  say $val;
+} );
+
+# Invalid command
+$redis->incrr( 'foo', sub {
+  my $val = shift;
+
+  say $val;
+} );
+
+# Invalid value type
+$redis->incr( 'list', sub {
   my $val = shift;
 
   say $val;
