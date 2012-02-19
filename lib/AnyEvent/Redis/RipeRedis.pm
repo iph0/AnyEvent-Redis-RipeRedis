@@ -23,7 +23,7 @@ use fields qw(
   active_subs
 );
 
-our $VERSION = '0.400300';
+our $VERSION = '0.400301';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -426,7 +426,7 @@ sub _prepare_on_read_cb {
               my $is_err = shift;
 
               if ( $is_err ) {
-                $self->on_command_error( $data );
+                $self->_on_command_error( $data_el );
               }
               else {
                 push( @data_list, $data_el );
@@ -473,7 +473,7 @@ sub _prcoess_response {
   my $is_err = shift;
 
   if ( $is_err ) {
-    $self->on_command_error( $data );
+    $self->_on_command_error( $data );
 
     shift( @{ $self->{ commands_queue } } );
 
@@ -560,7 +560,7 @@ sub _prcoess_response {
 }
 
 ####
-sub on_command_error {
+sub _on_command_error {
   my $self = shift;
   my $msg = shift;
 
