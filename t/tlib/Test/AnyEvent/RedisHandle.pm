@@ -14,60 +14,59 @@ our $VERSION = '0.0200001';
 
 use Test::MockObject;
 use AnyEvent;
-use Scalar::Util 'looks_like_number';
 
 my $PASSWORD = 'test';
 
 my %COMMANDS = (
   auth => {
-    validate => '_validate_auth',
-    exec => '_exec_auth'
+    validate => *_validate_auth,
+    exec => *_exec_auth
   },
 
   ping => {
-    exec => '_exec_ping'
+    exec => *_exec_ping
   },
 
   incr => {
-    validate => '_validate_incr',
-    exec => '_exec_incr'
+    validate => *_validate_incr,
+    exec => *_exec_incr
   },
 
   set => {
-    validate => '_validate_set',
-    exec => '_exec_set'
+    validate => *_validate_set,
+    exec => *_exec_set
   },
 
   get => {
-    validate => '_validate_get',
-    exec => '_exec_get'
+    validate => *_validate_get,
+    exec => *_exec_get
   },
 
   rpush => {
-    validate => '_validate_rpush',
-    exec => '_exec_rpush'
+    validate => *_validate_rpush,
+    exec => *_exec_rpush
   },
 
   lpush => {
-    validate => '_validate_lpush',
-    exec => '_exec_lpush'
+    validate => *_validate_lpush,
+    exec => *_exec_lpush
   },
 
   lrange => {
-    validate => '_validate_lrange',
-    exec => '_exec_lrange'
+    validate => *_validate_lrange,
+    exec => *_exec_lrange
   },
 
   multi => {
-    exec => '_exec_multi'
+    exec => *_exec_multi
   },
 
   exec => {
-    exec => '_exec_exec'
+    exec => *_exec_exec
   },
 
   quit => {
-    exec => '_exec_quit'
+    exec => *_exec_quit
   },
 );
 
@@ -356,8 +355,7 @@ sub _exec_command {
   my $cmd_h = $COMMANDS{ $cmd->{ name } };
 
   if ( exists( $cmd_h->{ validate } ) ) {
-    my $vld_m = $cmd_h->{ validate };
-    $self->$vld_m( $cmd );
+    $cmd_h->{ validate }->( $self, $cmd );
   }
 
   if ( $self->{ transaction_began } && $cmd->{ name } ne 'exec' ) {
@@ -369,9 +367,7 @@ sub _exec_command {
     };
   }
 
-  my $exec_m = $cmd_h->{ exec };
-
-  return $self->$exec_m( $cmd );
+  return $cmd_h->{ exec }->( $self, $cmd );
 }
 
 ####
@@ -784,8 +780,7 @@ sub _exec_exec {
   if ( @{ $self->{ commands_queue } } ) {
 
     while ( my $cmd = shift( @{ $self->{ commands_queue } } ) ) {
-      my $exec_m = $COMMANDS{ $cmd->{ name } }->{ exec };
-      my $resp = $self->$exec_m( $cmd );
+      my $resp = $COMMANDS{ $cmd->{ name } }->{ exec }->( $self, $cmd );
 
       push( @data_list, $resp );
     }
