@@ -55,7 +55,7 @@ $timer = AnyEvent->timer(
   }
 );
 
-my $signal_cb = sub {
+my $sig_cb = sub {
   say 'Stopped';
 
   $cv->send();
@@ -63,12 +63,12 @@ my $signal_cb = sub {
 
 my $int_watcher = AnyEvent->signal(
   signal => 'INT',
-  cb => $signal_cb
+  cb => $sig_cb
 );
 
 my $term_watcher = AnyEvent->signal(
   signal => 'TERM',
-  cb => $signal_cb
+  cb => $sig_cb
 );
 
 $cv->recv();

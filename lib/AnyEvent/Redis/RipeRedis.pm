@@ -20,10 +20,10 @@ use fields qw(
   connect_attempt
   commands_queue
   sub_lock
-  active_subs
+  subs
 );
 
-our $VERSION = '0.400301';
+our $VERSION = '0.400302';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -137,7 +137,7 @@ sub new {
   $self->{ connect_attempt } = 0;
   $self->{ commands_queue } = [];
   $self->{ sub_lock } = undef;
-  $self->{ active_subs } = {};
+  $self->{ subs } = {};
 
   $self->_connect();
 
@@ -250,7 +250,7 @@ sub _exec_command {
         if ( defined( $params->{ on_subscribe } ) ) {
 
           if ( ref( $params->{ on_subscribe } ) ne 'CODE' ) {
-            croak '""on_subscribe" callback must be a CODE reference"';
+            croak '"on_subscribe" callback must be a CODE reference';
           }
 
           $cmd->{ on_subscribe } = $params->{ on_subscribe };
@@ -259,7 +259,7 @@ sub _exec_command {
         if ( defined( $params->{ on_message } ) ) {
 
           if ( ref( $params->{ on_message } ) ne 'CODE' ) {
-            croak '""on_message" callback must be a CODE reference"';
+            croak '"on_message" callback must be a CODE reference';
           }
 
           $cmd->{ on_message } = $params->{ on_message };
@@ -323,8 +323,8 @@ sub _push_command {
   push( @{ $self->{ commands_queue } }, $cmd );
 
   if ( defined( $self->{ handle } ) ) {
-    my $cmd_str = $self->_serialize_command( $cmd );
-    $self->{ handle }->push_write( $cmd_str );
+    my $cmd_szd = $self->_serialize_command( $cmd );
+    $self->{ handle }->push_write( $cmd_szd );
   }
 
   return;
@@ -336,7 +336,7 @@ sub _serialize_command {
   my $cmd = shift;
 
   my $bulk_len = scalar( @{ $cmd->{ args } } ) + 1;
-  my $cmd_str = "*$bulk_len$EOL";
+  my $cmd_szd = "*$bulk_len$EOL";
 
   foreach my $tkn ( $cmd->{ name }, @{ $cmd->{ args } } ) {
 
@@ -346,14 +346,14 @@ sub _serialize_command {
 
     if ( defined( $tkn ) ) {
       my $tkn_len =  length( $tkn );
-      $cmd_str .= "\$$tkn_len$EOL$tkn$EOL";
+      $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
     }
     else {
-      $cmd_str .= "\$-1$EOL";
+      $cmd_szd .= "\$-1$EOL";
     }
   }
 
-  return $cmd_str;
+  return $cmd_szd;
 }
 
 ####
@@ -480,14 +480,14 @@ sub _prcoess_response {
     return;
   }
 
-  if ( %{ $self->{ active_subs } } ) {
+  if ( %{ $self->{ subs } } ) {
 
     if ( ref( $data ) eq 'ARRAY' ) {
 
       if ( ( $data->[ 0 ] eq 'message' || $data->[ 0 ] eq 'pmessage' )
-        && exists( $self->{ active_subs }->{ $data->[ 1 ] } ) ) {
+        && exists( $self->{ subs }->{ $data->[ 1 ] } ) ) {
 
-        my $cb_group = $self->{ active_subs }->{ $data->[ 1 ] };
+        my $cb_group = $self->{ subs }->{ $data->[ 1 ] };
 
         if ( $data->[ 0 ] eq 'message' ) {
           $cb_group->{ on_message }->( $data->[ 1 ], $data->[ 2 ] );
@@ -524,7 +524,7 @@ sub _prcoess_response {
         $cb_group->{ on_message } = $cmd->{ on_message };
       }
 
-      $self->{ active_subs }->{ $data->[ 1 ] } = $cb_group;
+      $self->{ subs }->{ $data->[ 1 ] } = $cb_group;
     }
     else {
 
@@ -532,8 +532,8 @@ sub _prcoess_response {
         $cmd->{ cb }->( $data->[ 1 ], $data->[ 2 ] );
       }
 
-      if ( exists( $self->{ active_subs }->{ $data->[ 1 ] } ) ) {
-        delete( $self->{ active_subs }->{ $data->[ 1 ] } );
+      if ( exists( $self->{ subs }->{ $data->[ 1 ] } ) ) {
+        delete( $self->{ subs }->{ $data->[ 1 ] } );
       }
     }
 
@@ -628,7 +628,7 @@ sub _destroy {
   $self->{ handle } = undef;
   $self->{ commands_queue } = [];
   $self->{ sub_lock } = undef;
-  $self->{ active_subs } = {};
+  $self->{ subs } = {};
 
   return 1;
 }

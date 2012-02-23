@@ -22,10 +22,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
     say "Connected: $attempt";
   },
 
-  on_stop_reconnect => sub {
-    say 'Stop reconnecting';
-  },
-
   on_redis_error => sub {
     my $msg = shift;
 
@@ -97,23 +93,23 @@ $redis->multi( sub {
 } );
 
 $redis->incr( 'foo', sub {
-  my $val = shift;
+  my $resp = shift;
 
-  say $val;
+  say $resp;
 } );
 
 # Invalid command
 $redis->incrr( 'foo', sub {
-  my $val = shift;
+  my $resp = shift;
 
-  say $val;
+  say $resp;
 } );
 
 # Invalid value type
 $redis->incr( 'list', sub {
-  my $val = shift;
+  my $resp = shift;
 
-  say $val;
+  say $resp;
 } );
 
 $redis->lrange( 'list', 0, -1, sub {
@@ -123,9 +119,9 @@ $redis->lrange( 'list', 0, -1, sub {
 } );
 
 $redis->get( 'bar', sub {
-  my $val = shift;
+  my $resp = shift;
 
-  say $val;
+  say $resp;
 } );
 
 $redis->exec( sub {

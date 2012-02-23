@@ -22,10 +22,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
     say "Connected: $attempt";
   },
 
-  on_stop_reconnect => sub {
-    say 'Stop reconnecting';
-  },
-
   on_redis_error => sub {
     my $msg = shift;
 
@@ -49,10 +45,6 @@ $redis->subscribe( qw( ch_1 ch_2 ), sub {
   my $msg = shift;
 
   say "$ch_name: $msg";
-
-  if ( $msg eq 'unsub' ) {
-    $redis->unsubscribe( qw( ch_1 ch_2 ) );
-  }
 } );
 
 $redis->subscribe( qw( ch_foo ch_bar ), {
@@ -68,35 +60,18 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
     my $msg = shift;
 
     say "$ch_name: $msg";
-
-    if ( $msg eq 'unsub' ) {
-      $redis->unsubscribe( qw( ch_foo ch_bar ), sub {
-        my $ch_name = shift;
-        my $subs_num = shift;
-
-        say "Unsubscribed: $ch_name. Active: $subs_num";
-
-        if ( $subs_num == 0 ) {
-          $cv->send();
-        }
-      } );
-    }
-  },
+  }
 } );
 
 
 # Subscribe to channels by pattern
 
-$redis->psubscribe( qw( ch_* alert_* ), sub {
+$redis->psubscribe( qw( chan_* alert_* ), sub {
   my $ch_name = shift;
   my $msg = shift;
   my $ch_pattern = shift;
 
   say "$ch_name ($ch_pattern): $msg";
-
-  if ( $msg eq 'unsub' ) {
-    $redis->punsubscribe( qw( ch_* alert_* ) );
-  }
 } );
 
 $redis->psubscribe( qw( info_* err_* ), {
@@ -113,20 +88,43 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $ch_pattern = shift;
 
     say "$ch_name ($ch_pattern): $msg";
-
-    if ( $msg eq 'unsub' ) {
-      $redis->punsubscribe( qw( info_* err_* ), sub {
-        my $ch_pattern = shift;
-        my $subs_num = shift;
-
-        say "Unsubscribed: $ch_pattern. Active: $subs_num";
-
-        if ( $subs_num == 0 ) {
-          $cv->send();
-        }
-      } );
-    }
-  },
+  }
 } );
+
+my $sig_cb = sub {
+  say 'Stopped';
+
+  $redis->unsubscribe( qw( ch_1 ch_2 ) );
+
+  $redis->unsubscribe( qw( ch_foo ch_bar ), sub {
+    my $ch_name = shift;
+    my $subs_num = shift;
+
+    say "Unsubscribed: $ch_name. Active: $subs_num";
+  } );
+
+  $redis->punsubscribe( qw( chan_* alert_* ) );
+
+  $redis->punsubscribe( qw( info_* err_* ), sub {
+    my $ch_pattern = shift;
+    my $subs_num = shift;
+
+    say "Unsubscribed: $ch_pattern. Active: $subs_num";
+    
+    if ( $subs_num == 0 ) {
+      $cv->send();
+    }
+  } );
+};
+
+my $int_watcher = AnyEvent->signal(
+  signal => 'INT',
+  cb => $sig_cb
+);
+
+my $term_watcher = AnyEvent->signal(
+  signal => 'TERM',
+  cb => $sig_cb
+);
 
 $cv->recv();

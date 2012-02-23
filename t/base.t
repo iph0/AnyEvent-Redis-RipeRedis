@@ -1,12 +1,9 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl AnyEvent-Redis-RipeRedis.t'
-
 use 5.010000;
 use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 22;
+use Test::More tests => 25;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -27,7 +24,7 @@ my $cv = AnyEvent->condvar();
 my $timeout;
 
 $timeout = AnyEvent->timer(
-  after => 3,
+  after => 5,
   cb => sub {
     undef( $timeout );
 
@@ -35,9 +32,9 @@ $timeout = AnyEvent->timer(
   }
 );
 
-my $redis;
+my @errors;
 
-$redis = $t_class->new( {
+my $redis = new_ok( $t_class, [ {
   host => 'localhost',
   port => '6379',
   password => 'test',
@@ -52,24 +49,19 @@ $redis = $t_class->new( {
     is( $attempt, 1, 'on_connect' );
   },
 
-  on_stop_reconnect => sub {
-    # TODO
-  },
-
   on_redis_error => sub {
     my $msg = shift;
 
-    ok( $msg =~ m/^ERR/o, $msg );
+    push( @errors, $msg );
   },
 
   on_error => sub {
     my $msg = shift;
 
-    # TODO
+    diag( $msg );
   }
-} );
+} ] );
 
-isa_ok( $redis, $t_class );
 
 # Ping
 $redis->ping( sub {
@@ -83,6 +75,13 @@ $redis->incr( 'foo', sub {
   my $val = shift;
 
   is( $val, 1, 'incr (numeric reply)' );
+} );
+
+# Invalid command
+$redis->incrr( 'foo', sub {
+  my $val = shift;
+
+  say $val;
 } );
 
 # Set value
@@ -128,13 +127,13 @@ $redis->lpush( 'list', "element_1", sub {
 $redis->lrange( 'list', 0, -1, sub {
   my $list = shift;
 
-  my $expected = [ qw(
+  my $exp = [ qw(
     element_1
     element_2
     element_3
   ) ];
 
-  is_deeply( $list, $expected, 'lrange (multi-bulk reply)' );
+  is_deeply( $list, $exp, 'lrange (multi-bulk reply)' );
 } );
 
 # Get non existent list
@@ -144,6 +143,12 @@ $redis->lrange( 'non_existent', 0, -1, sub {
   is_deeply( $list, [], 'lrange (non existent key)' );
 } );
 
+# Get
+$redis->brpop( 'non_existent', '3', sub {
+  my $val = shift;
+
+  is( $val, undef, 'brpop (non existent key)' );
+} );
 
 # Transaction
 
@@ -157,6 +162,16 @@ $redis->incr( 'foo', sub {
   my $val = shift;
 
   is( $val, 'QUEUED', 'incr (queued)' );
+} );
+
+# Invalid command
+$redis->incrr( 'foo' );
+
+# Invalid value type
+$redis->incr( 'list', sub {
+  my $val = shift;
+
+  is( $val, 'QUEUED', 'Invalid value type' );
 } );
 
 $redis->lrange( 'list', 0, -1, sub {
@@ -174,7 +189,7 @@ $redis->get( 'bar', sub {
 $redis->exec( sub {
   my $data_list = shift;
 
-  my $expected = [
+  my $exp = [
     2,
     [ qw(
       element_1
@@ -184,12 +199,20 @@ $redis->exec( sub {
     'Some string'
   ];
 
-  is_deeply( $data_list, $expected, 'exec (nested multi-bulk reply)' );
+  is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
 
   $redis->quit( sub {
     my $resp = shift;
 
     is( $resp, 'OK', 'quit (status reply)' );
+
+    my $exp = [
+      "ERR unknown command 'incrr'",
+      "ERR unknown command 'incrr'",
+      'ERR Operation against a key holding the wrong kind of value'
+    ];
+
+    is_deeply( \@errors, $exp, 'on_redis_error' );
 
     $cv->send();
   } );
