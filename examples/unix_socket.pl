@@ -26,6 +26,13 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
     say 'Stop reconnecting';
   },
 
+  on_connect_error => sub {
+    my $msg = shift;
+    my $attempt = shift;
+
+    warn "$msg; $attempt\n";
+  },
+
   on_redis_error => sub {
     my $msg = shift;
 

@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 14;
+use Test::More tests => 15;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -116,6 +116,21 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_stop_reconnect" callback must be a CODE reference';
+
+  ok( index( $@, $exp_msg ) == 0, $exp_msg );
+}
+
+
+# Test invalid "on_connect_error"
+
+eval {
+  $redis = $t_class->new( {
+    on_connect_error => 1
+  } );
+};
+
+if ( $@ ) {
+  my $exp_msg = '"on_connect_error" callback must be a CODE reference';
 
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }

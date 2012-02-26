@@ -14,6 +14,7 @@ use fields qw(
   max_connect_attempts
   on_connect
   on_stop_reconnect
+  on_connect_error
   on_redis_error
   on_error
   handle
@@ -23,7 +24,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.400302';
+our $VERSION = '0.410000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -94,43 +95,23 @@ sub new {
     }
   }
 
-  if ( defined( $params->{ on_connect } ) ) {
+  my @cb_names = qw( on_connect on_stop_reconnect on_connect_error
+      on_redis_error on_error );
 
-    if ( ref( $params->{ on_connect } ) ne 'CODE' ) {
-      croak '"on_connect" callback must be a CODE reference';
+  foreach my $cb_name ( @cb_names ) {
+
+    if ( defined( $params->{ $cb_name } ) ) {
+
+      if ( ref( $params->{ $cb_name } ) ne 'CODE' ) {
+        croak "\"$cb_name\" callback must be a CODE reference";
+      }
+
+      $self->{ $cb_name } = $params->{ $cb_name };
     }
-
-    $self->{ on_connect } = $params->{ on_connect };
   }
 
-  if ( defined( $params->{ on_stop_reconnect } ) ) {
-
-    if ( ref( $params->{ on_stop_reconnect } ) ne 'CODE' ) {
-      croak '"on_stop_reconnect" callback must be a CODE reference';
-    }
-
-    $self->{ on_stop_reconnect } = $params->{ on_stop_reconnect };
-  }
-
-  if ( defined( $params->{ on_redis_error } ) ) {
-
-    if ( ref( $params->{ on_redis_error } ) ne 'CODE' ) {
-      croak '"on_redis_error" callback must be a CODE reference';
-    }
-
-    $self->{ on_redis_error } = $params->{ on_redis_error };
-  }
-
-  if ( defined( $params->{ on_error } ) ) {
-
-    if ( ref( $params->{ on_error } ) ne 'CODE' ) {
-      croak '"on_error" callback must be a CODE reference';
-    }
-
-    $self->{ on_error } = $params->{ on_error };
-  }
-  else {
-    $self->{ on_error } = sub { confess $_[ 0 ] };
+  if ( !defined( $self->{ on_error } ) ) {
+    $self->{ on_error } = sub { confess shift };
   }
 
   $self->{ handle } = undef;
@@ -158,18 +139,33 @@ sub _connect {
     keepalive => 1,
 
     on_connect => sub {
-      return $self->_post_connect();
+
+      if ( exists( $self->{ on_connect } ) ) {
+        $self->{ on_connect }->( $self->{ connect_attempt } );
+      }
+
+      $self->{ connect_attempt } = 0;
     },
 
     on_connect_error => sub {
-      $self->{ on_error }->( "Can't connect to $self->{ host }:$self->{ port }; "
-          . $_[ 1 ] );
+      my $msg = pop;
+
+      $msg = "Can't connect to $self->{ host }:$self->{ port }; $msg";
+
+      if ( exists( $self->{ on_connect_error } ) ) {
+        $self->{ on_connect_error }->( $msg, $self->{ connect_attempt } );
+      }
+      else {
+        $self->{ on_error }->( $msg );
+      }
 
       $self->_attempt_to_reconnect();
     },
 
     on_error => sub {
-      $self->{ on_error }->( $_[ 2 ] );
+      my $msg = pop;
+
+      $self->{ on_error }->( $msg );
 
       $self->_attempt_to_reconnect();
     },
@@ -191,19 +187,6 @@ sub _connect {
       args => [ $self->{ password } ]
     } );
   }
-
-  return;
-}
-
-####
-sub _post_connect {
-  my $self = shift;
-
-  if ( defined( $self->{ on_connect } ) ) {
-    $self->{ on_connect }->( $self->{ connect_attempt } );
-  }
-
-  $self->{ connect_attempt } = 0;
 
   return;
 }
@@ -426,7 +409,7 @@ sub _prepare_on_read_cb {
               my $is_err = shift;
 
               if ( $is_err ) {
-                $self->_on_command_error( $data_el );
+                $self->_on_redis_error( $data_el );
               }
               else {
                 push( @data_list, $data_el );
@@ -473,7 +456,7 @@ sub _prcoess_response {
   my $is_err = shift;
 
   if ( $is_err ) {
-    $self->_on_command_error( $data );
+    $self->_on_redis_error( $data );
 
     shift( @{ $self->{ commands_queue } } );
 
@@ -560,7 +543,7 @@ sub _prcoess_response {
 }
 
 ####
-sub _on_command_error {
+sub _on_redis_error {
   my $self = shift;
   my $msg = shift;
 
@@ -601,18 +584,21 @@ sub _reconnect {
 
   $self->_destroy();
 
-  my $after = ( $self->{ connect_attempt } > 0 ) ? $self->{ reconnect_after } : 0;
+  if ( $self->{ connect_attempt } > 0 ) {
+    my $timer;
 
-  my $timer;
+    $timer = AnyEvent->timer(
+      after => $self->{ reconnect_after },
+      cb => sub {
+        undef( $timer );
 
-  $timer = AnyEvent->timer(
-    after => $after,
-    cb => sub {
-      undef( $timer );
-
-      $self->_connect();
-    }
-  );
+        $self->_connect();
+      }
+    );
+  }
+  else {
+    $self->_connect();
+  }
 
   return 1;
 }
