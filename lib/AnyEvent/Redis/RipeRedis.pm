@@ -47,7 +47,7 @@ sub new {
 
   my %params;
 
-  if ( defined( $_[ 0 ] ) && ref( $_[ 0 ] ) eq 'HASH' ) {
+  if ( ref( $_[ 0 ] ) eq 'HASH' ) {
     %params = %{ shift() };
   }
   else {
