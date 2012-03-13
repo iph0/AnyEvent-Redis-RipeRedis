@@ -137,7 +137,7 @@ my $unsub_timeout;
 
 $unsub_timeout = AnyEvent->timer(
   after => 0.001,
-  
+
   cb => sub {
     undef( $unsub_timeout );
 
@@ -146,8 +146,8 @@ $unsub_timeout = AnyEvent->timer(
     $redis->unsubscribe( qw( ch_foo ch_bar ), sub {
       my $ch_name = shift;
       my $subs_num = shift;
-      
-      push( @unsub_data, { 
+
+      push( @unsub_data, {
         ch_name => $ch_name,
         subs_num => $subs_num
       } );
@@ -159,11 +159,11 @@ $unsub_timeout = AnyEvent->timer(
       my $ch_pattern = shift;
       my $subs_num = shift;
 
-      push( @punsub_data, { 
+      push( @punsub_data, {
         ch_pattern => $ch_pattern,
         subs_num => $subs_num
       } );
-      
+
       if ( $subs_num == 0 ) {
         $cv->send();
       }

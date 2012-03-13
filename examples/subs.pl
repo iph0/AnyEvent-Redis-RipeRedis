@@ -110,7 +110,7 @@ my $sig_cb = sub {
     my $subs_num = shift;
 
     say "Unsubscribed: $ch_pattern. Active: $subs_num";
-    
+
     if ( $subs_num == 0 ) {
       $cv->send();
     }
