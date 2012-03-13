@@ -1,7 +1,4 @@
 Changes
-dev/bench.pl
-dev/bench.txt
-dev/test.pl
 examples/generic.pl
 examples/subs.pl
 examples/unix_socket.pl
@@ -12,4 +9,5 @@ README
 t/base.t
 t/exeptions.t
 t/subs.t
+t/tlib/Test/AnyEvent/RedisEmulator.pm
 t/tlib/Test/AnyEvent/RedisHandle.pm

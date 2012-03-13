@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 25;
+use Test::More tests => 26;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -32,16 +32,21 @@ $timeout = AnyEvent->timer(
   }
 );
 
-my @errors;
-
-my $redis = new_ok( $t_class, [ {
+my %GENERIC_PARAMS = (
   host => 'localhost',
   port => '6379',
   password => 'test',
   encoding => 'utf8',
-  reconnect => 1,
-  reconnect_after => 1,
-  max_connect_attempts => 10,
+);
+
+# Parameters pass to constructor as hash reference
+new_ok( $t_class, [ \%GENERIC_PARAMS ] );
+
+my @errors;
+
+# Parameters pass to constructor as hash
+my $redis = new_ok( $t_class, [
+  %GENERIC_PARAMS,
 
   on_connect => sub {
     my $attempt = shift;
@@ -60,7 +65,7 @@ my $redis = new_ok( $t_class, [ {
 
     diag( $msg );
   }
-} ] );
+] );
 
 
 # Ping

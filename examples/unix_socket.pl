@@ -7,7 +7,7 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $redis = AnyEvent::Redis::RipeRedis->new( {
+my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
   password => 'your_password',
@@ -44,7 +44,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new( {
 
     warn "$msg\n";
   }
-} );
+);
 
 my $cv = AnyEvent->condvar();
 

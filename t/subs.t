@@ -28,14 +28,11 @@ $timeout = AnyEvent->timer(
   }
 );
 
-my $redis = new_ok( $t_class, [ {
+my $redis = new_ok( $t_class, [
   host => 'localhost',
   port => '6379',
   password => 'test',
   encoding => 'utf8',
-  reconnect => 1,
-  reconnect_after => 1,
-  max_connect_attempts => 10,
 
   on_connect => sub {
     my $attempt = shift;
@@ -43,18 +40,12 @@ my $redis = new_ok( $t_class, [ {
     is( $attempt, 1, 'on_connect' );
   },
 
-  on_redis_error => sub {
-    my $msg = shift;
-
-    diag( $msg );
-  },
-
   on_error => sub {
     my $msg = shift;
 
     diag( $msg );
   }
-} ] );
+] );
 
 
 # Subscribe to channels by name
@@ -145,7 +136,8 @@ my @punsub_data;
 my $unsub_timeout;
 
 $unsub_timeout = AnyEvent->timer(
-  after => 0.0001,
+  after => 0.001,
+  
   cb => sub {
     undef( $unsub_timeout );
 

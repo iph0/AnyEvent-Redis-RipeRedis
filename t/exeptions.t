@@ -18,12 +18,12 @@ BEGIN {
 my $redis;
 
 
-# Test invalid encoding
+# Invalid encoding
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     encoding => 'invalid_enc'
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -33,13 +33,13 @@ if ( $@ ) {
 }
 
 
-# Test invalid "reconnect_after"
+# Invalid "reconnect_after"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     reconnect => 1,
     reconnect_after => '10_invalid'
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -49,10 +49,10 @@ if ( $@ ) {
 }
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     reconnect => 1,
     reconnect_after => -10
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -62,13 +62,13 @@ if ( $@ ) {
 }
 
 
-# Test invalid "max_connect_attempts"
+# Invalid "max_connect_attempts"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     reconnect => 1,
     max_connect_attempts => '10_invalid'
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -78,10 +78,10 @@ if ( $@ ) {
 }
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     reconnect => 1,
     max_connect_attempts => -10
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -91,12 +91,12 @@ if ( $@ ) {
 }
 
 
-# Test invalid "on_connect"
+# Invalid "on_connect"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     on_connect => 'invalid'
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -106,12 +106,12 @@ if ( $@ ) {
 }
 
 
-# Test invalid "on_stop_reconnect"
+# Invalid "on_stop_reconnect"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     on_stop_reconnect => {}
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -121,12 +121,12 @@ if ( $@ ) {
 }
 
 
-# Test invalid "on_connect_error"
+# Invalid "on_connect_error"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     on_connect_error => 1
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -136,12 +136,12 @@ if ( $@ ) {
 }
 
 
-# Test invalid "on_redis_error"
+# Invalid "on_redis_error"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     on_redis_error => ''
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -151,12 +151,12 @@ if ( $@ ) {
 }
 
 
-# Test invalid "on_error"
+# Invalid "on_error"
 
 eval {
-  $redis = $t_class->new( {
+  $redis = $t_class->new(
     on_error => []
-  } );
+  );
 };
 
 if ( $@ ) {
@@ -169,7 +169,7 @@ if ( $@ ) {
 $redis = new_ok( $t_class );
 
 
-# Test invalid "on_subscribe"
+# Invalid "on_subscribe"
 
 eval {
   $redis->subscribe( 'channel', {
@@ -196,7 +196,7 @@ if ( $@ ) {
 }
 
 
-# Test subscription in transactional context
+# Subscription in transactional context
 
 $redis->multi();
 

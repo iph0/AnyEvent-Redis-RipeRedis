@@ -3,118 +3,14 @@ package Test::AnyEvent::RedisHandle;
 use strict;
 use warnings;
 
-use fields qw(
-  storage
-  is_auth
-  transaction_began
-  commands_queue
-  subs
-  subs_num
-);
-
-our $VERSION = '0.0200001';
+our $VERSION = '0.0300000';
 
 use Test::MockObject;
+use Test::AnyEvent::RedisEmulator;
 use AnyEvent;
 
-my $PASSWORD = 'test';
-
-my %COMMANDS = (
-  auth => {
-    validate => *_validate_auth,
-    exec => *_exec_auth
-  },
-
-  ping => {
-    exec => *_exec_ping
-  },
-
-  incr => {
-    validate => *_validate_incr,
-    exec => *_exec_incr
-  },
-
-  set => {
-    validate => *_validate_set,
-    exec => *_exec_set
-  },
-
-  get => {
-    validate => *_validate_get,
-    exec => *_exec_get
-  },
-
-  rpush => {
-    validate => *_validate_push,
-    exec => *_exec_push
-  },
-
-  lpush => {
-    validate => *_validate_push,
-    exec => *_exec_push
-  },
-
-  brpop => {
-    validate => *_validate_bpop,
-    exec => *_exec_bpop
-  },
-
-  blpop => {
-    validate => *_validate_bpop,
-    exec => *_exec_bpop
-  },
-
-  lrange => {
-    validate => *_validate_lrange,
-    exec => *_exec_lrange
-  },
-
-  multi => {
-    exec => *_exec_multi
-  },
-
-  exec => {
-    exec => *_exec_exec
-  },
-
-  subscribe => {
-    validate => *_validate_sub,
-    exec => *_exec_sub
-  },
-
-  psubscribe => {
-    validate => *_validate_sub,
-    exec => *_exec_sub
-  },
-
-  unsubscribe => {
-    validate => *_validate_sub,
-    exec => *_exec_unsub
-  },
-
-  punsubscribe => {
-    validate => *_validate_sub,
-    exec => *_exec_unsub
-  },
-
-  quit => {
-    exec => *_exec_quit
-  },
-);
-
-my %ERR_MESSAGES = (
-  protocol_error => 'Protocol error',
-  invalid_pass => 'invalid password',
-  not_permitted => 'operation not permitted',
-  wrong_args => "wrong number of arguments for '\%c' command",
-  unknown_cmd => "unknown command '\%c'",
-  not_integer => 'value is not an integer or out of range',
-  wrong_value => 'Operation against a key holding the wrong kind of value',
-  invalid_timeout => 'timeout is not an integer or out of range'
-);
-
-my $EOL = "\r\n";
-my $EOL_LENGTH = length( $EOL );
+my $REDIS_IS_DOWN = 0;
+my $CONN_IS_BROKEN = 0;
 
 
 # Create mock object
@@ -129,25 +25,28 @@ $mock->fake_module(
     my $proto = shift;
     my %params = @_;
 
-    $mock->{ on_connect } = $params{ on_connect };
-    $mock->{ on_connect_error } = $params{ on_connect_error };
-    $mock->{ on_error } = $params{ on_error };
-    $mock->{ on_eof } = $params{ on_eof };
-    $mock->{ on_read } = $params{ on_read };
+    $mock->{on_connect} = $params{on_connect};
+    $mock->{on_connect_error} = $params{on_connect_error};
+    $mock->{on_error} = $params{on_error};
+    $mock->{on_eof} = $params{on_eof};
+    $mock->{on_read} = $params{on_read};
 
-    $mock->{ rbuf } = '';
-    $mock->{ continue_read } = undef;
-    $mock->{ read_queue } = [];
-    $mock->{ destroyed } = undef;
+    $mock->{rbuf} = '';
 
-    $mock->{ redis_h } = Test::AnyEvent::RedisHandle->new();
+    $mock->{_redis_emu} = undef;
 
-    $mock->{ _start } = AnyEvent->timer(
+    $mock->{_write_queue} = [];
+    $mock->{_read_queue} = [];
+    $mock->{_continue_read} = undef;
+    $mock->{_curr_on_read} = undef;
+    $mock->{_destroyed} = undef;
+
+    $mock->{_start} = AnyEvent->timer(
       after => 0,
       cb => sub {
         $mock->_connect();
 
-        undef( $mock->{ _start } );
+        undef( $mock->{_start} );
       }
     );
 
@@ -160,13 +59,7 @@ $mock->mock( 'push_write', sub {
   my $self = shift;
   my $cmd_szd = shift;
 
-  my $resp_str = $self->{ redis_h }->process_command( $cmd_szd );
-
-  $self->{ rbuf } .= $resp_str;
-
-  if ( !$self->{ continue_read } ) {
-    $self->{ continue_read } = 1;
-  }
+  push( @{ $self->{_write_queue} }, $cmd_szd );
 
   return;
 } );
@@ -176,9 +69,9 @@ $mock->mock( 'unshift_read', sub {
   my $self = shift;
   my $cb = shift;
 
-  unshift( @{ $self->{ read_queue } }, $cb );
+  unshift( @{ $self->{_read_queue} }, $cb );
 
-  $self->{ continue_read } = 1;
+  $self->{_continue_read} = 1;
 
   return;
 } );
@@ -187,14 +80,14 @@ $mock->mock( 'unshift_read', sub {
 $mock->mock( 'destroyed', sub {
   my $self = shift;
 
-  return $self->{ destroyed };
+  return $self->{_destroyed};
 } );
 
 ####
 $mock->mock( 'destroy', sub {
   my $self = shift;
 
-  $self->{ destroyed } = undef;
+  $self->{_destroyed} = undef;
 
   return;
 } );
@@ -203,35 +96,46 @@ $mock->mock( 'destroy', sub {
 $mock->mock( '_connect', sub {
   my $self = shift;
 
-  $self->{ on_connect }->();
+  if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+    my $msg = 'Some connection error';
 
-  my $curr_on_read_cb;
+    if ( exists( $self->{on_connect_error} ) ) {
+      $self->{on_connect_error}->( $self, $msg );
+    }
+    else {
+      $self->{on_error}->( $self, $msg );
+    }
 
-  $self->{ read } = AnyEvent->timer(
-    after => 0,
-    interval => 0.0001,
+    return;
+  }
+
+  $self->{_redis_emu} = Test::AnyEvent::RedisEmulator->new();
+
+  $self->{on_connect}->();
+
+  my $after = 0;
+  my $interval = 0.001;
+
+  $self->{_write_timer} = AnyEvent->timer(
+    after => $after,
+    interval => $interval,
+
     cb => sub {
 
-      if ( $self->{ continue_read } ) {
+      if ( @{ $self->{_write_queue} } ) {
+        $self->_write();
+      }
+    }
+  );
 
-        if ( @{ $self->{ read_queue } } && !defined( $curr_on_read_cb ) ) {
-          $curr_on_read_cb = shift( @{ $self->{ read_queue } } );
-        }
+  $self->{_read_timer} = AnyEvent->timer(
+    after => $after,
+    interval => $interval,
 
-        if ( defined( $curr_on_read_cb ) ) {
+    cb => sub {
 
-          if ( !$curr_on_read_cb->( $self ) ) {
-            $self->{ continue_read } = undef;
-
-            return;
-          }
-
-          $curr_on_read_cb = undef;
-        }
-        else {
-          $self->{ continue_read } = undef;
-          $self->{ on_read }->( $self );
-        }
+      if ( $self->{_continue_read} ) {
+        $self->_read();
       }
     }
   );
@@ -239,783 +143,79 @@ $mock->mock( '_connect', sub {
   return;
 } );
 
+####
+$mock->mock( '_write', sub {
+  my $self = shift;
 
-# Constructro
-sub new {
-  my $proto = shift;
+  if ( !defined( $self->{_redis_emu} ) ) {
+    return;
+  }
 
-  my $class = ref( $proto ) || $proto;
-  my $self = fields::new( $class );
+  if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+    $self->{on_error}->( $self, 'Some error on socket' );
 
-  $self->{ storage } = {};
-  $self->{ is_auth } = 0;
-  $self->{ transaction_began } = undef;
-  $self->{ commands_queue } = [];
-  $self->{ subs } = {};
-  $self->{ subs_num } = 0;
+    return;
+  }
 
-  return $self;
-}
+  my $cmd_szd = shift( @{ $self->{_write_queue} } );
+  my $resp_str = $self->{_redis_emu}->process_command( $cmd_szd );
+  $self->{rbuf} .= $resp_str;
+
+  if ( !$self->{_continue_read} ) {
+    $self->{_continue_read} = 1;
+  }
+
+  return;
+} );
+
+####
+$mock->mock( '_read', sub {
+  my $self = shift;
+
+  if ( @{ $self->{_read_queue} } && !defined( $self->{_curr_on_read} ) ) {
+    $self->{_curr_on_read} = shift( @{ $self->{_read_queue} } );
+  }
+
+  if ( defined( $self->{_curr_on_read} ) ) {
+
+    if ( !$self->{_curr_on_read}->( $self ) ) {
+      $self->{_continue_read} = undef;
+
+      return;
+    }
+
+    $self->{_curr_on_read} = undef;
+  }
+  else {
+    $self->{_continue_read} = undef;
+
+    $self->{on_read}->( $self );
+  }
+
+  return;
+} );
 
 
 # Public methods
 
 ####
-sub process_command {
-  my $self = shift;
-  my $cmd_szd = shift;
-
-  my $cmd = $self->_parse_command( $cmd_szd );
-
-  my $resp;
-
-  if ( defined( $cmd ) ) {
-
-    if ( exists( $COMMANDS{ $cmd->{ name } } ) ) {
-
-      $resp = eval {
-        $self->_exec_command( $cmd );
-      };
-
-      if ( $@ ) {
-        $resp = $@;
-      }
-    }
-    else {
-      ( my $msg = $ERR_MESSAGES{ unknown_cmd } ) =~ s/%c/$cmd->{ name }/go;
-
-      $resp = {
-        type => '-',
-        data => $msg
-      };
-    }
-  }
-  else {
-    $resp = {
-      type => '-',
-      data => $ERR_MESSAGES{ protocol_error }
-    };
-  }
-
-
-  if ( ref( $resp ) ne 'ARRAY' ) {
-    return $self->_serialize_response( $resp );
-  }
-
-  my $resp_szd = '';
-
-  foreach my $resp_el ( @{ $resp } ) {
-    $resp_szd .= $self->_serialize_response( $resp_el );
-  }
-
-  return $resp_szd;
-}
-
-
-# Private methods
-
-####
-sub _parse_command {
-  my $self = shift;
-  my $cmd_szd = shift;
-
-  if ( !defined( $cmd_szd ) || $cmd_szd eq '' ) {
-    return;
-  }
-
-  my $eol_pos = index( $cmd_szd, $EOL );
-
-  if ( $eol_pos <= 0 ) {
-    return;
-  }
-
-  my $token = substr( $cmd_szd, 0, $eol_pos, '' );
-  my $type = substr( $token, 0, 1, '' );
-  substr( $cmd_szd, 0, $EOL_LENGTH, '' );
-
-  if ( $type ne '*' ) {
-    return;
-  }
-
-  my $mbulk_len = $token;
-
-  if ( $mbulk_len =~ m/[^0-9]/o || $mbulk_len == 0 ) {
-    return;
-  }
-
-  my $args = $self->_parse_mbulk( $cmd_szd, $mbulk_len );
-
-  my $cmd = {
-    name => shift( @{ $args } ),
-    args => $args
-  };
-
-  return $cmd;
+sub redis_down {
+  $REDIS_IS_DOWN = 1;
 }
 
 ####
-sub _parse_mbulk {
-  my $mbulk_len = pop;
-  my $cmd_szd = pop;
-
-  my @args;
-  my $bulk_len;
-
-  my $args_remaining = $mbulk_len;
-
-  while ( $args_remaining ) {
-
-    if ( $bulk_len ) {
-      my $arg = substr( $cmd_szd, 0, $bulk_len, '' );
-      substr( $cmd_szd, 0, $EOL_LENGTH, '' );
-
-      push( @args, $arg );
-
-      undef( $bulk_len );
-      --$args_remaining;
-    }
-    else {
-      my $eol_pos = index( $cmd_szd, $EOL );
-
-      if ( $eol_pos <= 0 ) {
-        return;
-      }
-
-      my $token = substr( $cmd_szd, 0, $eol_pos, '' );
-      my $type = substr( $token, 0, 1, '' );
-      substr( $cmd_szd, 0, $EOL_LENGTH, '' );
-
-      if ( $type ne '$' ) {
-        return;
-      }
-
-      $bulk_len = $token;
-    }
-  }
-
-  return \@args;
+sub redis_up {
+  $REDIS_IS_DOWN = 0;
 }
 
 ####
-sub _exec_command {
-  my $self = shift;
-  my $cmd = shift;
-
-  if ( !$self->{ is_auth } && $cmd->{ name } ne 'auth' ) {
-    return {
-      type => '-',
-      data => $ERR_MESSAGES{ not_permitted }
-    };
-  }
-
-  my $cmd_h = $COMMANDS{ $cmd->{ name } };
-
-  if ( exists( $cmd_h->{ validate } ) ) {
-    $cmd_h->{ validate }->( $self, $cmd );
-  }
-
-  if ( $self->{ transaction_began } && $cmd->{ name } ne 'exec' ) {
-    push( @{ $self->{ commands_queue } }, $cmd );
-
-    return {
-      type => '+',
-      data => 'QUEUED'
-    };
-  }
-
-  return $cmd_h->{ exec }->( $self, $cmd );
+sub break_connection {
+  $CONN_IS_BROKEN = 1;
 }
 
 ####
-sub _serialize_response {
-  my $self = shift;
-  my $resp = shift;
-
-  if ( $resp->{ type } eq '+' || $resp->{ type } eq ':' ) {
-    return "$resp->{ type }$resp->{ data }$EOL";
-  }
-  elsif ( $resp->{ type } eq '-' ) {
-    return "$resp->{ type }ERR $resp->{ data }$EOL";
-  }
-  elsif ( $resp->{ type } eq '$' ) {
-
-    if ( defined( $resp->{ data } ) && $resp->{ data } ne ''  ){
-      my $bulk_len = length( $resp->{ data } );
-
-      return "$resp->{ type }$bulk_len$EOL$resp->{ data }$EOL";
-    }
-
-    return "$resp->{ type }-1$EOL";
-  }
-  elsif ( $resp->{ type } eq '*' ) {
-
-    if ( !defined( $resp->{ data } ) || $resp->{ data } eq '' ) {
-      return "*-1$EOL";
-    }
-
-    my $mbulk_len = scalar( @{ $resp->{ data } } );
-
-    if ( $mbulk_len > 0 ) {
-      my $data_szd = "*$mbulk_len$EOL";
-
-      foreach my $val ( @{ $resp->{ data } } ) {
-
-        if ( ref( $val ) eq 'HASH' ) {
-          $data_szd .= $self->_serialize_response( $val );
-        }
-        else {
-          my $bulk_len = length( $val );
-          $data_szd .= "\$$bulk_len$EOL$val$EOL";
-        }
-      }
-
-      return $data_szd;
-    }
-
-    return "*0$EOL";
-  }
-}
-
-
-# Command methods
-
-####
-sub _validate_auth {
-  my $cmd = pop;
-
-  my @args = @{ $cmd->{ args } };
-  my $pass = shift( @args );
-
-  if ( !defined( $pass ) || $pass eq '' ) {
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_auth {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $pass = shift( @args );
-
-  if ( $pass ne $PASSWORD ) {
-    return {
-      type => '-',
-      data => $ERR_MESSAGES{ invalid_pass }
-    };
-  }
-
-  $self->{ is_auth } = 1;
-
-  return {
-    type => '+',
-    data => 'OK'
-  };
-}
-
-####
-sub _exec_ping {
-  return {
-    type => '+',
-    data => 'PONG'
-  };
-}
-
-####
-sub _validate_incr {
-  my $cmd = pop;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-
-  if ( !defined( $key ) || $key eq '' ) {
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_incr {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-
-  my $storage = $self->{ storage };
-
-  if ( defined( $storage->{ $key } ) ) {
-
-    if ( ref( $storage->{ $key } ) ) {
-      return {
-        type => '-',
-        data => $ERR_MESSAGES{ wrong_value }
-      };
-    }
-    elsif ( $storage->{ $key } =~ m/[^0-9]/o ) {
-      return {
-        type => '-',
-        data => $ERR_MESSAGES{ not_integer }
-      };
-    }
-  }
-  else {
-    $storage->{ $key } = 0;
-  }
-
-  ++$storage->{ $key };
-
-  return {
-    type => ':',
-    data => $storage->{ $key }
-  };
-}
-
-####
-sub _validate_set {
-  my $cmd = pop;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-  my $val = shift( @args );
-
-  if ( !defined( $key ) || $key eq ''
-    || !defined( $val ) || $val eq '' ) {
-
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_set {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-  my $val = shift( @args );
-
-  $self->{ storage }->{ $key } = $val;
-
-  return {
-    type => '+',
-    data => 'OK'
-  };
-}
-
-####
-sub _validate_get {
-  my $cmd = pop;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-
-  if ( !defined( $key ) || $key eq '' ) {
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_get {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-
-  my $storage = $self->{ storage };
-
-  if ( !defined( $storage->{ $key } ) ) {
-    return {
-      type => '$',
-      data => undef
-    };
-  }
-  elsif ( ref( $storage->{ $key } ) ) {
-    return {
-      type => '-',
-      data => $ERR_MESSAGES{ wrong_value }
-    };
-  }
-
-  return {
-    type => '$',
-    data => $storage->{ $key }
-  };
-}
-
-####
-sub _validate_push {
-  my $cmd = pop;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-  my $val = shift( @args );
-
-  if ( !defined( $key ) || $key eq ''
-    || !defined( $val ) || $val eq '' ) {
-
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_push {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-  my $val = shift( @args );
-
-  my $storage = $self->{ storage };
-
-  if ( defined( $storage->{ $key } ) ) {
-
-    if ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
-      return {
-        type => '-',
-        data => $ERR_MESSAGES{ wrong_value }
-      };
-    }
-  }
-  else {
-    $storage->{ $key } = [];
-  }
-
-  if ( index( $cmd->{ name }, 'r' ) == 0 ) {
-    push( @{ $storage->{ $key } }, $val );
-  }
-  else {
-    unshift( @{ $storage->{ $key } }, $val );
-  }
-
-  return {
-    type => '+',
-    data => 'OK'
-  };
-}
-
-####
-sub _validate_bpop {
-  my $cmd = pop;
-
-  my @args = @{ $cmd->{ args } };
-  my $timeout = pop( @args );
-  my @keys = @args;
-
-  if ( scalar( @keys ) == 0
-    || !defined( $timeout ) || $timeout eq '' ) {
-
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-  elsif ( $timeout =~ m/[^0-9]/o ) {
-    die {
-      type => '-',
-      data => $ERR_MESSAGES{ invalid_timeout }
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_bpop {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $timeout = pop( @args ); # Timeout will be ignored
-  my @keys = @args;
-
-  my $storage = $self->{ storage };
-
-  foreach my $key ( @keys ) {
-
-    if ( !defined( $storage->{ $key } ) ) {
-      next;
-    }
-    elsif ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
-      return {
-        type => '-',
-        data => $ERR_MESSAGES{ wrong_value }
-      };
-    }
-
-    my $val;
-
-    if ( index( $cmd->{ name }, 'br' ) == 0 ) {
-      $val = pop( @{ $storage->{ $key } } );
-    }
-    else {
-      $val = shift( @{ $storage->{ $key } } );
-    }
-
-    return {
-      type => '$',
-      data => $val
-    };
-  }
-
-  return {
-    type => '*',
-    data => undef
-  };
-}
-
-####
-sub _validate_lrange {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-  my $start = shift( @args );
-  my $stop = shift( @args );
-
-  if ( !defined( $key ) || $key eq ''
-    || !defined( $start ) || $start eq ''
-    || !defined( $stop ) || $stop eq '' ) {
-
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_lrange {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @args = @{ $cmd->{ args } };
-  my $key = shift( @args );
-  my $start = shift( @args );
-  my $stop = shift( @args );
-
-  if ( $start !~ m/^\-?[0-9]+$/o ) {
-    $start = 0;
-  }
-
-  if ( $stop !~ m/^\-?[0-9]+$/o ) {
-    $stop = 0;
-  }
-
-  my $storage = $self->{ storage };
-
-  if ( !defined( $storage->{ $key } ) ) {
-    return {
-      type => '*',
-      data => []
-    };
-  }
-  elsif ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
-    return {
-      type => '-',
-      data => $ERR_MESSAGES{ wrong_value }
-    };
-  }
-
-  if ( $stop < 0 ) {
-    $stop = scalar( @{ $storage->{ $key } } ) + $stop;
-  }
-
-  my @list = @{ $storage->{ $key } }[ $start .. $stop ];
-
-  return {
-    type => '*',
-    data => \@list
-  };
-}
-
-####
-sub _exec_multi {
-  my $self = shift;
-
-  $self->{ transaction_began } = 1;
-
-  return {
-    type => '+',
-    data => 'OK'
-  };
-}
-
-sub _exec_exec {
-  my $self = shift;
-
-  my @data_list;
-
-  if ( @{ $self->{ commands_queue } } ) {
-
-    while ( my $cmd = shift( @{ $self->{ commands_queue } } ) ) {
-      my $resp = $COMMANDS{ $cmd->{ name } }->{ exec }->( $self, $cmd );
-
-      push( @data_list, $resp );
-    }
-  }
-
-  $self->{ transaction_began } = 0;
-
-  return {
-    type => '*',
-    data => \@data_list
-  };
-}
-
-####
-sub _validate_sub {
-  my $cmd = pop;
-
-  my @ch_proto = @{ $cmd->{ args } };
-
-  if ( scalar( @ch_proto ) == 0 ) {
-    ( my $msg = $ERR_MESSAGES{ wrong_args } ) =~ s/%c/$cmd->{ name }/go;
-
-    die {
-      type => '-',
-      data => $msg
-    };
-  }
-
-  return 1;
-}
-
-####
-sub _exec_sub {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @ch_proto = @{ $cmd->{ args } };
-
-  my @data;
-
-  foreach my $ch_proto ( @ch_proto ) {
-
-    if ( !exists( $self->{ subs }->{ $ch_proto } ) ) {
-      $self->{ subs }->{ $ch_proto } = 1;
-      ++$self->{ subs_num };
-    }
-
-    push( @data, {
-      type => '*',
-      data => [
-        $cmd->{ name },
-        $ch_proto,
-        $self->{ subs_num }
-      ]
-    } );
-
-    # Send message to channels
-    my $msg = 'test';
-
-    if ( index( $cmd->{ name }, 'p' ) == 0 ) {
-      ( my $ch_name = $ch_proto ) =~ s/\*$/some/o;
-
-      push( @data, {
-        type => '*',
-        data => [
-          'pmessage',
-          $ch_proto,
-          $ch_name,
-          $msg
-        ]
-      } );
-    }
-    else {
-      push( @data, {
-        type => '*',
-        data => [
-          'message',
-          $ch_proto,
-          $msg
-        ]
-      } );
-    }
-  }
-
-  return \@data;
-}
-
-####
-sub _exec_unsub {
-  my $self = shift;
-  my $cmd = shift;
-
-  my @ch_proto = @{ $cmd->{ args } };
-
-  my @data;
-
-  foreach my $ch_proto ( @ch_proto ) {
-
-    if ( exists( $self->{ subs }->{ $ch_proto } ) ) {
-      delete( $self->{ subs }->{ $ch_proto } );
-      --$self->{ subs_num };
-    }
-
-    push( @data, {
-      type => '*',
-      data => [
-        $cmd->{ name },
-        $ch_proto,
-        $self->{ subs_num }
-      ]
-    } );
-  }
-
-  return \@data;
-}
-
-####
-sub _exec_quit {
-  return {
-    type => '+',
-    data => 'OK'
-  };
+sub restore_connection {
+  $CONN_IS_BROKEN = 0;
 }
 
 1;
