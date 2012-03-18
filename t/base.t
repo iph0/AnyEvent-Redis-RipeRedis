@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 26;
+use Test::More tests => 25;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -17,7 +17,6 @@ BEGIN {
 
 can_ok( $t_class, 'new' );
 can_ok( $t_class, 'AUTOLOAD' );
-can_ok( $t_class, 'DESTROY' );
 
 my $cv = AnyEvent->condvar();
 

@@ -28,7 +28,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = 'Encoding "invalid_enc" not found';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -44,7 +43,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"reconnect_after" must be a positive number';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -57,7 +55,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"reconnect_after" must be a positive number';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -73,7 +70,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"max_connect_attempts" must be a positive integer number';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -86,7 +82,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"max_connect_attempts" must be a positive integer number';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -101,7 +96,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_connect" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -116,7 +110,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_stop_reconnect" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -131,7 +124,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_connect_error" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -146,7 +138,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_redis_error" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -161,7 +152,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_error" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -179,7 +169,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_subscribe" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
@@ -191,7 +180,6 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_message" callback must be a CODE reference';
-
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 

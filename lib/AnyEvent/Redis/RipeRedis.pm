@@ -24,7 +24,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.410002';
+our $VERSION = '0.500000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -154,6 +154,8 @@ sub _connect {
     on_connect_error => sub {
       my $msg = pop;
 
+      $self->_clean();
+
       $msg = "Can't connect to $self->{host}:$self->{port}; $msg";
 
       if ( exists( $self->{on_connect_error} ) ) {
@@ -169,14 +171,15 @@ sub _connect {
     on_error => sub {
       my $msg = pop;
 
+      $self->_clean();
       $self->{on_error}->( $msg );
-
       $self->_attempt_to_reconnect();
     },
 
     on_eof => sub {
       $self->{on_error}->( 'Connection lost' );
 
+      $self->_clean();
       $self->_attempt_to_reconnect();
     },
 
@@ -299,7 +302,7 @@ sub _exec_command {
 
   $self->_push_command( $cmd );
 
-  return 1;
+  return;
 }
 
 ####
@@ -536,9 +539,9 @@ sub _prcoess_response {
   }
 
   if ( $cmd->{name} eq 'quit' ) {
-    $self->_destroy();
+    $self->_clean();
 
-    return 1;
+    return;
   }
 
   shift( @{ $self->{commands_queue} } );
@@ -575,8 +578,6 @@ sub _attempt_to_reconnect {
     if ( defined( $self->{on_stop_reconnect} ) ) {
       $self->{on_stop_reconnect}->();
     }
-
-    $self->_destroy();
   }
 
   return;
@@ -585,8 +586,6 @@ sub _attempt_to_reconnect {
 ####
 sub _reconnect {
   my $self = shift;
-
-  $self->_destroy();
 
   if ( $self->{connect_attempt} > 0 ) {
     my $timer;
@@ -604,23 +603,19 @@ sub _reconnect {
     $self->_connect();
   }
 
-  return 1;
+  return;
 }
 
 ####
-sub _destroy {
+sub _clean {
   my $self = shift;
 
-  if ( defined( $self->{handle} ) && !$self->{handle}->destroyed() ) {
-    $self->{handle}->destroy();
-  }
-
-  $self->{handle} = undef;
+  undef( $self->{handle} );
   $self->{commands_queue} = [];
-  $self->{sub_lock} = undef;
+  undef( $self->{sub_lock} );
   $self->{subs} = {};
 
-  return 1;
+  return;
 }
 
 
@@ -652,10 +647,10 @@ sub AUTOLOAD {
 sub DESTROY {
   my $self = shift;
 
-  $self->_destroy();
+  $self->_clean();
 
   return;
-};
+}
 
 1;
 __END__

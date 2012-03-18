@@ -24,7 +24,7 @@ $mock->fake_module(
   new => sub {
     my $proto = shift;
     my %params = @_;
-
+
     $mock->{on_connect} = $params{on_connect};
     $mock->{on_connect_error} = $params{on_connect_error};
     $mock->{on_error} = $params{on_error};
@@ -39,9 +39,8 @@ $mock->fake_module(
     $mock->{_read_queue} = [];
     $mock->{_continue_read} = undef;
     $mock->{_curr_on_read} = undef;
-    $mock->{_destroyed} = undef;
 
-    $mock->{_start} = AnyEvent->timer(
+    $mock->{_start_timer} = AnyEvent->timer(
       after => 0,
       cb => sub {
         $mock->_connect();
@@ -49,6 +48,8 @@ $mock->fake_module(
         undef( $mock->{_start} );
       }
     );
+
+    $mock->{_process_timer} = undef;
 
     return $mock;
   }
@@ -77,22 +78,6 @@ $mock->mock( 'unshift_read', sub {
 } );
 
 ####
-$mock->mock( 'destroyed', sub {
-  my $self = shift;
-
-  return $self->{_destroyed};
-} );
-
-####
-$mock->mock( 'destroy', sub {
-  my $self = shift;
-
-  $self->{_destroyed} = undef;
-
-  return;
-} );
-
-####
 $mock->mock( '_connect', sub {
   my $self = shift;
 
@@ -116,7 +101,7 @@ $mock->mock( '_connect', sub {
   my $after = 0;
   my $interval = 0.001;
 
-  $self->{_write_timer} = AnyEvent->timer(
+  $self->{_process_timer} = AnyEvent->timer(
     after => $after,
     interval => $interval,
 
@@ -125,17 +110,17 @@ $mock->mock( '_connect', sub {
       if ( @{ $self->{_write_queue} } ) {
         $self->_write();
       }
-    }
-  );
-
-  $self->{_read_timer} = AnyEvent->timer(
-    after => $after,
-    interval => $interval,
-
-    cb => sub {
+      
 
       if ( $self->{_continue_read} ) {
         $self->_read();
+      }  
+
+      if ( $REDIS_IS_DOWN 
+        && !@{ $self->{_write_queue} } 
+        && !$self->{_continue_read} ) {
+        
+        $self->{on_eof}->();
       }
     }
   );
@@ -147,10 +132,6 @@ $mock->mock( '_connect', sub {
 $mock->mock( '_write', sub {
   my $self = shift;
 
-  if ( !defined( $self->{_redis_emu} ) ) {
-    return;
-  }
-
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
     $self->{on_error}->( $self, 'Some error on socket' );
 
@@ -158,8 +139,7 @@ $mock->mock( '_write', sub {
   }
 
   my $cmd_szd = shift( @{ $self->{_write_queue} } );
-  my $resp_str = $self->{_redis_emu}->process_command( $cmd_szd );
-  $self->{rbuf} .= $resp_str;
+  $self->{rbuf} .= $self->{_redis_emu}->process_command( $cmd_szd );
 
   if ( !$self->{_continue_read} ) {
     $self->{_continue_read} = 1;
@@ -171,6 +151,12 @@ $mock->mock( '_write', sub {
 ####
 $mock->mock( '_read', sub {
   my $self = shift;
+
+  if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+    $self->{on_error}->( $self, 'Some error on socket' );
+
+    return;
+  }
 
   if ( @{ $self->{_read_queue} } && !defined( $self->{_curr_on_read} ) ) {
     $self->{_curr_on_read} = shift( @{ $self->{_read_queue} } );
