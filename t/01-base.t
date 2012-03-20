@@ -18,25 +18,14 @@ BEGIN {
 can_ok( $t_class, 'new' );
 can_ok( $t_class, 'AUTOLOAD' );
 
-my $cv = AnyEvent->condvar();
-
-my $timeout;
-
-$timeout = AnyEvent->timer(
-  after => 5,
-  cb => sub {
-    undef( $timeout );
-
-    $cv->send();
-  }
-);
-
 my %GENERIC_PARAMS = (
   host => 'localhost',
   port => '6379',
   password => 'test',
   encoding => 'utf8',
 );
+
+my $cv = AnyEvent->condvar();
 
 # Parameters pass to constructor as hash reference
 new_ok( $t_class, [ \%GENERIC_PARAMS ] );
@@ -221,5 +210,16 @@ $redis->exec( sub {
     $cv->send();
   } );
 } );
+
+my $timeout;
+
+$timeout = AnyEvent->timer(
+  after => 5,
+  cb => sub {
+    undef( $timeout );
+
+    exit 0; # Emergency exit
+  }
+);
 
 $cv->recv();

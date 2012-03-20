@@ -10,7 +10,7 @@ use AnyEvent::Redis::RipeRedis;
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
-  password => 'your_password',
+#  password => 'your_password',
   encoding => 'utf8',
   reconnect => 1,
   reconnect_after => 5,
@@ -22,12 +22,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
     say "Connected: $attempt";
   },
 
-  on_redis_error => sub {
-    my $msg = shift;
-
-    warn "Redis error: $msg\n";
-  },
-
   on_error => sub {
     my $msg = shift;
 
@@ -36,6 +30,8 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 );
 
 my $cv = AnyEvent->condvar();
+
+$redis->auth( 'your_password' );
 
 # Increment
 $redis->incr( 'foo', sub {

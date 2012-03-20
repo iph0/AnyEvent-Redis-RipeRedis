@@ -3,32 +3,16 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 9;
+use Test::More tests => 7;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
+use AnyEvent::Redis::RipeRedis;
 
-my $t_class;
-
-BEGIN {
-  $t_class = 'AnyEvent::Redis::RipeRedis';
-
-  use_ok( $t_class );
-}
+my $t_class = 'AnyEvent::Redis::RipeRedis';
 
 my $cv = AnyEvent->condvar();
 
-my $timeout;
-
-$timeout = AnyEvent->timer(
-  after => 5,
-  cb => sub {
-    undef( $timeout );
-
-    $cv->send();
-  }
-);
-
-my $redis = new_ok( $t_class, [
+my $redis = $t_class->new(
   host => 'localhost',
   port => '6379',
   password => 'test',
@@ -45,7 +29,7 @@ my $redis = new_ok( $t_class, [
 
     diag( $msg );
   }
-] );
+);
 
 
 # Subscribe to channels by name
@@ -168,6 +152,17 @@ $unsub_timeout = AnyEvent->timer(
         $cv->send();
       }
     } );
+  }
+);
+
+my $timeout;
+
+$timeout = AnyEvent->timer(
+  after => 5,
+  cb => sub {
+    undef( $timeout );
+
+    exit 0; # Emergency exit
   }
 );
 

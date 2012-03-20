@@ -82,7 +82,7 @@ $mock->mock( '_connect', sub {
   my $self = shift;
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
-    my $msg = 'Some connection error';
+    my $msg = 'Connection error';
 
     if ( exists( $self->{on_connect_error} ) ) {
       $self->{on_connect_error}->( $self, $msg );
@@ -133,7 +133,7 @@ $mock->mock( '_write', sub {
   my $self = shift;
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
-    $self->{on_error}->( $self, 'Some error on socket' );
+    $self->{on_error}->( $self, 'Error writing to socket' );
 
     return;
   }
@@ -153,7 +153,7 @@ $mock->mock( '_read', sub {
   my $self = shift;
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
-    $self->{on_error}->( $self, 'Some error on socket' );
+    $self->{on_error}->( $self, 'Error reading from socket' );
 
     return;
   }
@@ -192,16 +192,12 @@ sub redis_down {
 ####
 sub redis_up {
   $REDIS_IS_DOWN = 0;
+  $CONN_IS_BROKEN = 0;
 }
 
 ####
 sub break_connection {
   $CONN_IS_BROKEN = 1;
-}
-
-####
-sub restore_connection {
-  $CONN_IS_BROKEN = 0;
 }
 
 1;

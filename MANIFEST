@@ -6,8 +6,9 @@ lib/AnyEvent/Redis/RipeRedis.pm
 Makefile.PL
 MANIFEST
 README
-t/base.t
-t/exeptions.t
-t/subs.t
+t/01-base.t
+t/02-subs.t
+t/03-errors.t
+t/04-exeptions.t
 t/tlib/Test/AnyEvent/RedisEmulator.pm
 t/tlib/Test/AnyEvent/RedisHandle.pm

@@ -3,20 +3,14 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 15;
+use Test::More tests => 14;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
+use AnyEvent::Redis::RipeRedis;
 
-my $t_class;
-
-BEGIN {
-  $t_class = 'AnyEvent::Redis::RipeRedis';
-
-  use_ok( $t_class );
-}
+my $t_class = 'AnyEvent::Redis::RipeRedis';
 
 my $redis;
-
 
 # Invalid encoding
 
