@@ -27,7 +27,7 @@ my $redis = $t_class->new(
     my $msg = shift;
 
     diag( $msg );
-  }
+  },
 );
 
 # Authenticate
@@ -45,7 +45,7 @@ $redis->subscribe( qw( ch_1 ch_2 ), sub {
 
   push( @sub_msgs, {
     ch_name => $ch_name,
-    message => $msg
+    message => $msg,
   } );
 } );
 
@@ -56,7 +56,7 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
 
     push( @sub_data, {
       ch_name => $ch_name,
-      subs_num => $subs_num
+      subs_num => $subs_num,
     } )
   },
 
@@ -66,7 +66,7 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
 
     push( @sub_msgs, {
       ch_name => $ch_name,
-      message => $msg
+      message => $msg,
     } );
   }
 } );
@@ -85,7 +85,7 @@ $redis->psubscribe( qw( chan_* alert_* ), sub {
   push( @psub_msgs, {
     ch_name => $ch_name,
     message => $msg,
-    ch_pattern => $ch_pattern
+    ch_pattern => $ch_pattern,
   } );
 } );
 
@@ -96,7 +96,7 @@ $redis->psubscribe( qw( info_* err_* ), {
 
     push( @psub_data, {
       ch_pattern => $ch_pattern,
-      subs_num => $subs_num
+      subs_num => $subs_num,
     } )
   },
 
@@ -108,7 +108,7 @@ $redis->psubscribe( qw( info_* err_* ), {
     push( @psub_msgs, {
       ch_name => $ch_name,
       message => $msg,
-      ch_pattern => $ch_pattern
+      ch_pattern => $ch_pattern,
     } );
   }
 } );
@@ -135,7 +135,7 @@ $unsub_timeout = AnyEvent->timer(
 
       push( @unsub_data, {
         ch_name => $ch_name,
-        subs_num => $subs_num
+        subs_num => $subs_num,
       } );
     } );
 
@@ -147,7 +147,7 @@ $unsub_timeout = AnyEvent->timer(
 
       push( @punsub_data, {
         ch_pattern => $ch_pattern,
-        subs_num => $subs_num
+        subs_num => $subs_num,
       } );
 
       if ( $subs_num == 0 ) {
@@ -165,7 +165,7 @@ $timeout = AnyEvent->timer(
     undef( $timeout );
 
     exit 0; # Emergency exit
-  }
+  },
 );
 
 $cv->recv();
@@ -173,12 +173,12 @@ $cv->recv();
 my $exp_sub_data = [
   {
     ch_name => 'ch_foo',
-    subs_num => 3
+    subs_num => 3,
   },
   {
     ch_name => 'ch_bar',
-    subs_num => 4
-  }
+    subs_num => 4,
+  },
 ];
 
 is_deeply( \@sub_data, $exp_sub_data, 'subscribe (on_done)' );
@@ -186,20 +186,20 @@ is_deeply( \@sub_data, $exp_sub_data, 'subscribe (on_done)' );
 my $exp_sub_msgs = [
   {
     ch_name => 'ch_1',
-    message => 'test'
+    message => 'test',
   },
   {
     ch_name => 'ch_2',
-    message => 'test'
+    message => 'test',
   },
   {
     ch_name => 'ch_foo',
-    message => 'test'
+    message => 'test',
   },
   {
     ch_name => 'ch_bar',
-    message => 'test'
-  }
+    message => 'test',
+  },
 ];
 
 is_deeply( \@sub_msgs, $exp_sub_msgs, 'message' );
@@ -207,12 +207,12 @@ is_deeply( \@sub_msgs, $exp_sub_msgs, 'message' );
 my $exp_unsub_data = [
   {
     ch_name => 'ch_foo',
-    subs_num => 5
+    subs_num => 5,
   },
   {
     ch_name => 'ch_bar',
-    subs_num => 4
-  }
+    subs_num => 4,
+  },
 ];
 
 is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
@@ -220,11 +220,11 @@ is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
 my $exp_psub_data = [
   {
     ch_pattern => 'info_*',
-    subs_num => 7
+    subs_num => 7,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 8
+    subs_num => 8,
   }
 ];
 
@@ -234,23 +234,23 @@ my $exp_psub_msgs = [
   {
     ch_name => 'chan_some',
     message => 'test',
-    ch_pattern => 'chan_*'
+    ch_pattern => 'chan_*',
   },
   {
     ch_name => 'alert_some',
     message => 'test',
-    ch_pattern => 'alert_*'
+    ch_pattern => 'alert_*',
   },
   {
     ch_name => 'info_some',
     message => 'test',
-    ch_pattern => 'info_*'
+    ch_pattern => 'info_*',
   },
   {
     ch_name => 'err_some',
     message => 'test',
-    ch_pattern => 'err_*'
-  }
+    ch_pattern => 'err_*',
+  },
 ];
 
 is_deeply( \@psub_msgs, $exp_psub_msgs, 'pmessage' );
@@ -258,12 +258,12 @@ is_deeply( \@psub_msgs, $exp_psub_msgs, 'pmessage' );
 my $exp_punsub_data = [
   {
     ch_pattern => 'info_*',
-    subs_num => 1
+    subs_num => 1,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 0
-  }
+    subs_num => 0,
+  },
 ];
 
 is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe' );

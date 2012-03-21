@@ -24,7 +24,7 @@ $timeout = AnyEvent->timer(
     undef( $timeout );
 
     exit 0; # Emergency exit
-  }
+  },
 );
 
 # TODO
@@ -65,7 +65,7 @@ sub t_can_not_connect {
       my $msg = shift;
 
       diag( $msg );
-    }
+    },
   );
 
   $cv->recv();
@@ -81,7 +81,7 @@ sub t_can_not_connect {
       push( @data, $msg );
 
       $cv->send();
-    }
+    },
   );
 
   $cv->recv();
@@ -100,7 +100,7 @@ sub t_can_not_connect {
   my @exp_data = (
     [ $exp_msg_conn_err, 1 ],
     $exp_msg_conn_err,
-    $exp_msg_cmd_err
+    $exp_msg_cmd_err,
   );
 
   is_deeply( \@data, \@exp_data, 'No connection, reconnection off' );
@@ -142,7 +142,7 @@ sub t_reconnect_n_times {
       my $msg = shift;
 
       diag( $msg );
-    }
+    },
   );
 
   $cv->recv();
@@ -183,7 +183,7 @@ sub t_reconnect_n_times {
     $exp_msg,
     $exp_msg,
     $exp_msg,
-    'stopped'
+    'stopped',
   );
 
   is_deeply( \@data, \@exp_data, 'No connection, reconnect <N> times' );
@@ -231,7 +231,7 @@ sub t_reconnect_until_success {
       my $msg = shift;
 
       diag( $msg );
-    }
+    },
   );
 
   $cv->recv();
@@ -265,7 +265,7 @@ sub t_reconnect_until_success {
       if ( ++$attempt == 3 ) {
         Test::AnyEvent::RedisHandle->redis_up();
       }
-    }
+    },
   );
 
   $cv->recv();
@@ -280,7 +280,7 @@ sub t_reconnect_until_success {
     $exp_msg,
     $exp_msg,
     $exp_msg,
-    '4'
+    '4',
   );
 
   is_deeply( \@data, \@exp_data, 'No connection, reconnect until success' );
@@ -348,7 +348,7 @@ sub t_connection_lost {
     [ $exp_msg, 1 ],
     [ $exp_msg, 2 ],
     [ $exp_msg, 3 ],
-    4
+    4,
   );
 
   is_deeply( \@data, \@exp_data, 'Connection lost, reconnect until success' );
@@ -399,7 +399,7 @@ sub t_broken_connection {
       my $msg = shift;
 
       push( @data, $msg );
-    }
+    },
   );
 
   $redis->auth( 'test', sub {
@@ -423,7 +423,7 @@ sub t_broken_connection {
     [ $exp_msg, 1 ],
     [ $exp_msg, 2 ],
     [ $exp_msg, 3 ],
-    4
+    4,
   );
 
   is_deeply( \@data, \@exp_data, 'Broken connection, reconnect until success' );
@@ -442,7 +442,7 @@ sub t_on_error {
       my $msg = shift;
 
       diag( $msg );
-    }
+    },
   );
 
   # Authenticate
@@ -453,7 +453,7 @@ sub t_on_error {
       is( $resp, 'ERR invalid password', 'on_error (parameter of the method)' );
 
       $cv->send();
-    }
+    },
   } );
 
   $cv->recv();

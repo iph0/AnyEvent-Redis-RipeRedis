@@ -22,7 +22,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
     my $msg = shift;
 
     warn "$msg\n";
-  }
+  },
 );
 
 my $cv = AnyEvent->condvar();
@@ -39,7 +39,7 @@ $redis->auth( 'your_password', {
     my $msg = shift;
 
     warn "Authentication failed; $msg\n";
-  }
+  },
 } );
 
 
@@ -65,7 +65,7 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
     my $msg = shift;
 
     say "$ch_name: $msg";
-  }
+  },
 } );
 
 
@@ -93,7 +93,7 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $ch_pattern = shift;
 
     say "$ch_name ($ch_pattern): $msg";
-  }
+  },
 } );
 
 my $sig_cb = sub {
@@ -124,12 +124,12 @@ my $sig_cb = sub {
 
 my $int_watcher = AnyEvent->signal(
   signal => 'INT',
-  cb => $sig_cb
+  cb => $sig_cb,
 );
 
 my $term_watcher = AnyEvent->signal(
   signal => 'TERM',
-  cb => $sig_cb
+  cb => $sig_cb,
 );
 
 $cv->recv();

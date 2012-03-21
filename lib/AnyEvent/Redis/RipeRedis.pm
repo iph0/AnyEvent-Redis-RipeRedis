@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.600011';
+our $VERSION = '0.600012';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -39,12 +39,12 @@ my %SUB_UNSUB_COMMANDS = (
   subscribe => 1,
   psubscribe => 1,
   unsubscribe => 1,
-  punsubscribe => 1
+  punsubscribe => 1,
 );
 
 my %SUB_COMMANDS = (
   subscribe => 1,
-  psubscribe => 1
+  psubscribe => 1,
 );
 
 my $EOL = "\r\n";
@@ -193,7 +193,7 @@ sub _connect {
 
     on_read => $self->_prepare_on_read_cb( sub {
       return $self->_prcoess_response( @_ );
-    } )
+    } ),
   );
 
   return;
@@ -449,7 +449,6 @@ sub _unshift_read {
         return 1;
       }
 
-
       $cb->( \@data_list );
 
       return 1;
@@ -492,18 +491,18 @@ sub _prcoess_response {
   if ( exists( $SUB_UNSUB_COMMANDS{ $cmd->{name} } ) ) {
 
     if ( exists( $SUB_COMMANDS{ $cmd->{name} } ) ) {
-      my $cb_group = {};
+      my $sub = {};
 
       if ( exists( $cmd->{on_done} ) ) {
-        $cb_group->{on_done} = $cmd->{on_done};
-        $cb_group->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
+        $sub->{on_done} = $cmd->{on_done};
+        $sub->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
       }
 
       if ( exists( $cmd->{on_message} ) ) {
-        $cb_group->{on_message} = $cmd->{on_message};
+        $sub->{on_message} = $cmd->{on_message};
       }
 
-      $self->{subs}{ $data->[ 1 ] } = $cb_group;
+      $self->{subs}{ $data->[ 1 ] } = $sub;
     }
     else {
 
@@ -541,13 +540,13 @@ sub _process_message {
   my $self = shift;
   my $data = shift;
 
-  my $cb_group = $self->{subs}{ $data->[ 1 ] };
+  my $sub = $self->{subs}{ $data->[ 1 ] };
 
   if ( $data->[ 0 ] eq 'message' ) {
-    $cb_group->{on_message}->( $data->[ 1 ], $data->[ 2 ] );
+    $sub->{on_message}->( $data->[ 1 ], $data->[ 2 ] );
   }
   else {
-    $cb_group->{on_message}->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
+    $sub->{on_message}->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
   }
 
   return;
@@ -596,14 +595,14 @@ sub _clean {
 sub _attempt_to_reconnect {
   my $self = shift;
 
-  if ( $self->{reconnect} && ( !defined( $self->{max_connect_attempts} )
+  if ( $self->{reconnect} && ( !exists( $self->{max_connect_attempts} )
     || $self->{connect_attempt} < $self->{max_connect_attempts} ) ) {
 
     $self->_reconnect();
   }
   else {
 
-    if ( defined( $self->{on_stop_reconnect} ) ) {
+    if ( exists( $self->{on_stop_reconnect} ) ) {
       $self->{on_stop_reconnect}->();
     }
   }
@@ -624,7 +623,7 @@ sub _reconnect {
         undef( $timer );
 
         $self->_connect();
-      }
+      },
     );
   }
   else {

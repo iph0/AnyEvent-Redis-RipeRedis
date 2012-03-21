@@ -16,7 +16,7 @@ my $redis;
 
 eval {
   $redis = $t_class->new(
-    encoding => 'invalid_enc'
+    encoding => 'invalid_enc',
   );
 };
 
@@ -31,7 +31,7 @@ if ( $@ ) {
 eval {
   $redis = $t_class->new(
     reconnect => 1,
-    reconnect_after => '10_invalid'
+    reconnect_after => '10_invalid',
   );
 };
 
@@ -43,7 +43,7 @@ if ( $@ ) {
 eval {
   $redis = $t_class->new(
     reconnect => 1,
-    reconnect_after => -10
+    reconnect_after => -10,
   );
 };
 
@@ -58,7 +58,7 @@ if ( $@ ) {
 eval {
   $redis = $t_class->new(
     reconnect => 1,
-    max_connect_attempts => '10_invalid'
+    max_connect_attempts => '10_invalid',
   );
 };
 
@@ -70,7 +70,7 @@ if ( $@ ) {
 eval {
   $redis = $t_class->new(
     reconnect => 1,
-    max_connect_attempts => -10
+    max_connect_attempts => -10,
   );
 };
 
@@ -84,7 +84,7 @@ if ( $@ ) {
 
 eval {
   $redis = $t_class->new(
-    on_connect => 'invalid'
+    on_connect => 'invalid',
   );
 };
 
@@ -98,7 +98,7 @@ if ( $@ ) {
 
 eval {
   $redis = $t_class->new(
-    on_stop_reconnect => {}
+    on_stop_reconnect => {},
   );
 };
 
@@ -112,7 +112,7 @@ if ( $@ ) {
 
 eval {
   $redis = $t_class->new(
-    on_connect_error => 1
+    on_connect_error => 1,
   );
 };
 
@@ -126,7 +126,7 @@ if ( $@ ) {
 
 eval {
   $redis = $t_class->new(
-    on_error => []
+    on_error => [],
   );
 };
 
@@ -143,7 +143,7 @@ $redis = $t_class->new();
 
 eval {
   $redis->incr( 'foo', {
-    on_done => {}
+    on_done => {},
   } );
 };
 
@@ -157,7 +157,7 @@ if ( $@ ) {
 
 eval {
   $redis->incr( 'foo', {
-    on_error => []
+    on_error => [],
   } );
 };
 
@@ -171,7 +171,7 @@ if ( $@ ) {
 
 eval {
   $redis->subscribe( 'channel', {
-    on_message => 'invalid'
+    on_message => 'invalid',
   } );
 };
 

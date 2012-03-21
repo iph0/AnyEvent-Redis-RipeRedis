@@ -46,13 +46,13 @@ $mock->fake_module(
         $mock->_connect();
 
         undef( $mock->{_start} );
-      }
+      },
     );
 
     $mock->{_process_timer} = undef;
 
     return $mock;
-  }
+  },
 );
 
 ####
@@ -104,7 +104,6 @@ $mock->mock( '_connect', sub {
   $self->{_process_timer} = AnyEvent->timer(
     after => $after,
     interval => $interval,
-
     cb => sub {
 
       if ( @{ $self->{_write_queue} } ) {
@@ -122,7 +121,7 @@ $mock->mock( '_connect', sub {
         
         $self->{on_eof}->();
       }
-    }
+    },
   );
 
   return;

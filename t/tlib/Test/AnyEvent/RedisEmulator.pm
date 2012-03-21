@@ -19,83 +19,83 @@ my $PASSWORD = 'test';
 my %COMMANDS = (
   auth => {
     validate => *_validate_auth,
-    exec => *_exec_auth
+    exec => *_exec_auth,
   },
 
   ping => {
-    exec => *_exec_ping
+    exec => *_exec_ping,
   },
 
   incr => {
     validate => *_validate_incr,
-    exec => *_exec_incr
+    exec => *_exec_incr,
   },
 
   set => {
     validate => *_validate_set,
-    exec => *_exec_set
+    exec => *_exec_set,
   },
 
   get => {
     validate => *_validate_get,
-    exec => *_exec_get
+    exec => *_exec_get,
   },
 
   rpush => {
     validate => *_validate_push,
-    exec => *_exec_push
+    exec => *_exec_push,
   },
 
   lpush => {
     validate => *_validate_push,
-    exec => *_exec_push
+    exec => *_exec_push,
   },
 
   brpop => {
     validate => *_validate_bpop,
-    exec => *_exec_bpop
+    exec => *_exec_bpop,
   },
 
   blpop => {
     validate => *_validate_bpop,
-    exec => *_exec_bpop
+    exec => *_exec_bpop,
   },
 
   lrange => {
     validate => *_validate_lrange,
-    exec => *_exec_lrange
+    exec => *_exec_lrange,
   },
 
   multi => {
-    exec => *_exec_multi
+    exec => *_exec_multi,
   },
 
   exec => {
-    exec => *_exec_exec
+    exec => *_exec_exec,
   },
 
   subscribe => {
     validate => *_validate_sub,
-    exec => *_exec_sub
+    exec => *_exec_sub,
   },
 
   psubscribe => {
     validate => *_validate_sub,
-    exec => *_exec_sub
+    exec => *_exec_sub,
   },
 
   unsubscribe => {
     validate => *_validate_sub,
-    exec => *_exec_unsub
+    exec => *_exec_unsub,
   },
 
   punsubscribe => {
     validate => *_validate_sub,
-    exec => *_exec_unsub
+    exec => *_exec_unsub,
   },
 
   quit => {
-    exec => *_exec_quit
+    exec => *_exec_quit,
   },
 );
 
@@ -107,7 +107,7 @@ my %ERR_MESSAGES = (
   unknown_cmd => "unknown command '\%c'",
   not_integer => 'value is not an integer or out of range',
   wrong_value => 'Operation against a key holding the wrong kind of value',
-  invalid_timeout => 'timeout is not an integer or out of range'
+  invalid_timeout => 'timeout is not an integer or out of range',
 );
 
 my $EOL = "\r\n";
@@ -160,14 +160,14 @@ sub process_command {
 
       $resp = {
         type => '-',
-        data => $msg
+        data => $msg,
       };
     }
   }
   else {
     $resp = {
       type => '-',
-      data => $ERR_MESSAGES{protocol_error}
+      data => $ERR_MESSAGES{protocol_error},
     };
   }
 
@@ -221,7 +221,7 @@ sub _parse_command {
 
   my $cmd = {
     name => shift( @{ $args } ),
-    args => $args
+    args => $args,
   };
 
   return $cmd;
@@ -278,7 +278,7 @@ sub _exec_command {
   if ( !$self->{is_auth} && $cmd->{name} ne 'auth' ) {
     return {
       type => '-',
-      data => $ERR_MESSAGES{not_permitted}
+      data => $ERR_MESSAGES{not_permitted},
     };
   }
 
@@ -293,7 +293,7 @@ sub _exec_command {
 
     return {
       type => '+',
-      data => 'QUEUED'
+      data => 'QUEUED',
     };
   }
 
@@ -365,7 +365,7 @@ sub _validate_auth {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -383,7 +383,7 @@ sub _exec_auth {
   if ( $pass ne $PASSWORD ) {
     return {
       type => '-',
-      data => $ERR_MESSAGES{invalid_pass}
+      data => $ERR_MESSAGES{invalid_pass},
     };
   }
 
@@ -391,7 +391,7 @@ sub _exec_auth {
 
   return {
     type => '+',
-    data => 'OK'
+    data => 'OK',
   };
 }
 
@@ -399,7 +399,7 @@ sub _exec_auth {
 sub _exec_ping {
   return {
     type => '+',
-    data => 'PONG'
+    data => 'PONG',
   };
 }
 
@@ -415,7 +415,7 @@ sub _validate_incr {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -437,13 +437,13 @@ sub _exec_incr {
     if ( ref( $storage->{ $key } ) ) {
       return {
         type => '-',
-        data => $ERR_MESSAGES{wrong_value}
+        data => $ERR_MESSAGES{wrong_value},
       };
     }
     elsif ( $storage->{ $key } =~ m/[^0-9]/o ) {
       return {
         type => '-',
-        data => $ERR_MESSAGES{not_integer}
+        data => $ERR_MESSAGES{not_integer},
       };
     }
   }
@@ -455,7 +455,7 @@ sub _exec_incr {
 
   return {
     type => ':',
-    data => $storage->{ $key }
+    data => $storage->{ $key },
   };
 }
 
@@ -474,7 +474,7 @@ sub _validate_set {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -494,7 +494,7 @@ sub _exec_set {
 
   return {
     type => '+',
-    data => 'OK'
+    data => 'OK',
   };
 }
 
@@ -510,7 +510,7 @@ sub _validate_get {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -530,19 +530,19 @@ sub _exec_get {
   if ( !defined( $storage->{ $key } ) ) {
     return {
       type => '$',
-      data => undef
+      data => undef,
     };
   }
   elsif ( ref( $storage->{ $key } ) ) {
     return {
       type => '-',
-      data => $ERR_MESSAGES{wrong_value}
+      data => $ERR_MESSAGES{wrong_value},
     };
   }
 
   return {
     type => '$',
-    data => $storage->{ $key }
+    data => $storage->{ $key },
   };
 }
 
@@ -561,7 +561,7 @@ sub _validate_push {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -584,7 +584,7 @@ sub _exec_push {
     if ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
       return {
         type => '-',
-        data => $ERR_MESSAGES{wrong_value}
+        data => $ERR_MESSAGES{wrong_value},
       };
     }
   }
@@ -601,7 +601,7 @@ sub _exec_push {
 
   return {
     type => '+',
-    data => 'OK'
+    data => 'OK',
   };
 }
 
@@ -620,13 +620,13 @@ sub _validate_bpop {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
   elsif ( $timeout =~ m/[^0-9]/o ) {
     die {
       type => '-',
-      data => $ERR_MESSAGES{invalid_timeout}
+      data => $ERR_MESSAGES{invalid_timeout},
     };
   }
 
@@ -652,7 +652,7 @@ sub _exec_bpop {
     elsif ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
       return {
         type => '-',
-        data => $ERR_MESSAGES{wrong_value}
+        data => $ERR_MESSAGES{wrong_value},
       };
     }
 
@@ -667,13 +667,13 @@ sub _exec_bpop {
 
     return {
       type => '$',
-      data => $val
+      data => $val,
     };
   }
 
   return {
     type => '*',
-    data => undef
+    data => undef,
   };
 }
 
@@ -695,7 +695,7 @@ sub _validate_lrange {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -725,13 +725,13 @@ sub _exec_lrange {
   if ( !defined( $storage->{ $key } ) ) {
     return {
       type => '*',
-      data => []
+      data => [],
     };
   }
   elsif ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
     return {
       type => '-',
-      data => $ERR_MESSAGES{wrong_value}
+      data => $ERR_MESSAGES{wrong_value},
     };
   }
 
@@ -743,7 +743,7 @@ sub _exec_lrange {
 
   return {
     type => '*',
-    data => \@list
+    data => \@list,
   };
 }
 
@@ -755,7 +755,7 @@ sub _exec_multi {
 
   return {
     type => '+',
-    data => 'OK'
+    data => 'OK',
   };
 }
 
@@ -777,7 +777,7 @@ sub _exec_exec {
 
   return {
     type => '*',
-    data => \@data_list
+    data => \@data_list,
   };
 }
 
@@ -792,7 +792,7 @@ sub _validate_sub {
 
     die {
       type => '-',
-      data => $msg
+      data => $msg,
     };
   }
 
@@ -820,8 +820,8 @@ sub _exec_sub {
       data => [
         $cmd->{name},
         $ch_proto,
-        $self->{subs_num}
-      ]
+        $self->{subs_num},
+      ],
     } );
 
     # Send message to channels
@@ -836,8 +836,8 @@ sub _exec_sub {
           'pmessage',
           $ch_proto,
           $ch_name,
-          $msg
-        ]
+          $msg,
+        ],
       } );
     }
     else {
@@ -846,8 +846,8 @@ sub _exec_sub {
         data => [
           'message',
           $ch_proto,
-          $msg
-        ]
+          $msg,
+        ],
       } );
     }
   }
@@ -876,8 +876,8 @@ sub _exec_unsub {
       data => [
         $cmd->{name},
         $ch_proto,
-        $self->{subs_num}
-      ]
+        $self->{subs_num},
+      ],
     } );
   }
 
@@ -888,7 +888,7 @@ sub _exec_unsub {
 sub _exec_quit {
   return {
     type => '+',
-    data => 'OK'
+    data => 'OK',
   };
 }
 

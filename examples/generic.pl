@@ -22,7 +22,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
     my $msg = shift;
 
     warn "$msg\n";
-  }
+  },
 );
 
 my $cv = AnyEvent->condvar();
@@ -39,7 +39,7 @@ $redis->auth( 'your_password', {
     my $msg = shift;
 
     warn "Authentication failed; $msg\n";
-  }
+  },
 } );
 
 # Increment

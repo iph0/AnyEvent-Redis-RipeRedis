@@ -8,6 +8,7 @@ use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
 my $redis;
+my $timer;
 
 $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
@@ -21,6 +22,33 @@ $redis = AnyEvent::Redis::RipeRedis->new(
     my $attempt = shift;
 
     say "Connected: $attempt";
+    
+    # Authenticate
+    $redis->auth( 'your_password', {
+      on_done => sub {
+        my $resp = shift;
+
+        say $resp;
+      },
+
+      on_error => sub {
+        my $msg = shift;
+
+        warn "Authentication failed; $msg\n";
+      },
+    } );
+
+    $timer = AnyEvent->timer(
+      after => 0,
+      interval => 1,
+      cb => sub {
+        $redis->incr( 'foo', sub {
+          my $val = shift;
+
+          say $val;
+        } );
+      },
+    );
   },
 
   on_stop_reconnect => sub {
@@ -38,39 +66,10 @@ $redis = AnyEvent::Redis::RipeRedis->new(
     my $msg = shift;
 
     warn "$msg\n";
-  }
+  },
 );
 
 my $cv = AnyEvent->condvar();
-
-# Authenticate
-$redis->auth( 'your_password', {
-  on_done => sub {
-    my $resp = shift;
-
-    say $resp;
-  },
-
-  on_error => sub {
-    my $msg = shift;
-
-    warn "Authentication failed; $msg\n";
-  }
-} );
-
-my $timer;
-
-$timer = AnyEvent->timer(
-  after => 0,
-  interval => 1,
-  cb => sub {
-    $redis->incr( 'foo', sub {
-      my $val = shift;
-
-      say $val;
-    } );
-  }
-);
 
 my $sig_cb = sub {
   say 'Stopped';
@@ -80,12 +79,12 @@ my $sig_cb = sub {
 
 my $int_watcher = AnyEvent->signal(
   signal => 'INT',
-  cb => $sig_cb
+  cb => $sig_cb,
 );
 
 my $term_watcher = AnyEvent->signal(
   signal => 'TERM',
-  cb => $sig_cb
+  cb => $sig_cb,
 );
 
 $cv->recv();

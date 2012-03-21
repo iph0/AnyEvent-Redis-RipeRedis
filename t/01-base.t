@@ -43,7 +43,7 @@ my $redis = new_ok( $t_class, [
     my $msg = shift;
 
     diag( $msg );
-  }
+  },
 ] );
 
 # Authenticate
@@ -164,7 +164,7 @@ $redis->exec( sub {
       element_2
       element_3
     ) ],
-    'Some string'
+    'Some string',
   ];
 
   is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
@@ -186,7 +186,7 @@ $timeout = AnyEvent->timer(
     undef( $timeout );
 
     exit 0; # Emergency exit
-  }
+  },
 );
 
 $cv->recv();

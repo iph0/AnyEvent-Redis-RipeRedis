@@ -13,7 +13,7 @@ WriteMakefile(
     'Scalar::Util' => 1.23,
     'Carp' => 0,
     'Test::More' => 0,
-    'Test::MockObject' => 1.09
+    'Test::MockObject' => 1.09,
   },
 
   ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
