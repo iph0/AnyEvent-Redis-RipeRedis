@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.600013';
+our $VERSION = '0.600014';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -172,7 +172,7 @@ sub _connect {
       }
 
       $self->_abort_all_commands();
-      $self->_attempt_to_reconnect();
+      $self->_try_to_reconnect();
     },
 
     on_error => sub {
@@ -181,14 +181,14 @@ sub _connect {
       $self->_clean();
       $self->{on_error}->( $err );
       $self->_abort_all_commands();
-      $self->_attempt_to_reconnect();
+      $self->_try_to_reconnect();
     },
 
     on_eof => sub {
       $self->_clean();
       $self->{on_error}->( 'Connection lost' );
       $self->_abort_all_commands();
-      $self->_attempt_to_reconnect();
+      $self->_try_to_reconnect();
     },
 
     on_read => $self->_prepare_on_read_cb( sub {
@@ -295,11 +295,8 @@ sub _push_command {
   my $cmd = shift;
 
   push( @{ $self->{commands_queue} }, $cmd );
-
-  if ( defined( $self->{handle} ) ) {
-    my $cmd_szd = $self->_serialize_command( $cmd );
-    $self->{handle}->push_write( $cmd_szd );
-  }
+  my $cmd_szd = $self->_serialize_command( $cmd );
+  $self->{handle}->push_write( $cmd_szd );
 
   return;
 }
@@ -456,7 +453,6 @@ sub _unshift_read {
   };
 
   $on_read_cb = $self->_prepare_on_read_cb( $cb_wrap );
-
   $hdl->unshift_read( $on_read_cb );
 
   return;
@@ -593,7 +589,7 @@ sub _clean {
 }
 
 ####
-sub _attempt_to_reconnect {
+sub _try_to_reconnect {
   my $self = shift;
 
   if ( $self->{reconnect} && ( !exists( $self->{max_connect_attempts} )
