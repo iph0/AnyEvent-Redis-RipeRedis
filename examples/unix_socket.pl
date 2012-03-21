@@ -7,14 +7,15 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $redis = AnyEvent::Redis::RipeRedis->new(
+my $redis;
+
+$redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
-  password => 'your_password',
   encoding => 'utf8',
   reconnect => 1,
   reconnect_after => 5,
-  max_connect_attempts => 10,
+  max_connect_attempts => 15,
 
   on_connect => sub {
     my $attempt = shift;
@@ -33,12 +34,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
     warn "$msg; $attempt\n";
   },
 
-  on_redis_error => sub {
-    my $msg = shift;
-
-    warn "Redis error: $msg\n";
-  },
-
   on_error => sub {
     my $msg = shift;
 
@@ -47,6 +42,21 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 );
 
 my $cv = AnyEvent->condvar();
+
+# Authenticate
+$redis->auth( 'your_password', {
+  on_done => sub {
+    my $resp = shift;
+
+    say $resp;
+  },
+
+  on_error => sub {
+    my $msg = shift;
+
+    warn "Authentication failed; $msg\n";
+  }
+} );
 
 my $timer;
 

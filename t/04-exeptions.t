@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 14;
+use Test::More tests => 13;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -122,20 +122,6 @@ if ( $@ ) {
 }
 
 
-# Invalid "on_redis_error"
-
-eval {
-  $redis = $t_class->new(
-    on_redis_error => ''
-  );
-};
-
-if ( $@ ) {
-  my $exp_msg = '"on_redis_error" callback must be a CODE reference';
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
-}
-
-
 # Invalid "on_error"
 
 eval {
@@ -146,25 +132,42 @@ eval {
 
 if ( $@ ) {
   my $exp_msg = '"on_error" callback must be a CODE reference';
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
+  ok( index( $@, $exp_msg ) == 0, "$exp_msg (parameter of the constructor)" );
 }
 
 
-$redis = new_ok( $t_class );
+$redis = $t_class->new();
 
 
-# Invalid "on_subscribe"
+# Invalid "on_done"
 
 eval {
-  $redis->subscribe( 'channel', {
-    on_subscribe => {}
+  $redis->incr( 'foo', {
+    on_done => {}
   } );
 };
 
 if ( $@ ) {
-  my $exp_msg = '"on_subscribe" callback must be a CODE reference';
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
+  my $exp_msg = '"on_done" callback must be a CODE reference';
+  ok( index( $@, $exp_msg ) == 0, "$exp_msg" );
 }
+
+
+# Invalid "on_error"
+
+eval {
+  $redis->incr( 'foo', {
+    on_error => []
+  } );
+};
+
+if ( $@ ) {
+  my $exp_msg = '"on_error" callback must be a CODE reference';
+  ok( index( $@, $exp_msg ) == 0, "$exp_msg (parameter of the method)" );
+}
+
+
+# Invalid "on_message"
 
 eval {
   $redis->subscribe( 'channel', {

@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.500000';
+our $VERSION = '0.600011';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -34,6 +34,18 @@ my $DEFAULT = {
   port => '6379',
   reconnect_after => 5,
 };
+
+my %SUB_UNSUB_COMMANDS = (
+  subscribe => 1,
+  psubscribe => 1,
+  unsubscribe => 1,
+  punsubscribe => 1
+);
+
+my %SUB_COMMANDS = (
+  subscribe => 1,
+  psubscribe => 1
+);
 
 my $EOL = "\r\n";
 my $EOL_LENGTH = length( $EOL );
@@ -209,15 +221,14 @@ sub _exec_command {
     args => \@args,
   };
 
-  if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe'
-      || $cmd_name eq 'unsubscribe' || $cmd_name eq 'punsubscribe' ) {
+  if ( exists( $SUB_UNSUB_COMMANDS{ $cmd_name } ) ) {
 
     if ( $self->{sub_lock} ) {
       croak "Command \"$cmd_name\" not allowed in this context."
           . " First, the transaction must be completed.";
     }
 
-    if ( $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe' ) {
+    if ( exists( $SUB_COMMANDS{ $cmd_name } ) ) {
 
       if ( defined( $cb ) ) {
         $cmd->{on_message} = $cb;
@@ -478,10 +489,9 @@ sub _prcoess_response {
     return;
   }
 
-  if ( $cmd->{name} eq 'subscribe' || $cmd->{name} eq 'psubscribe'
-      || $cmd->{name} eq 'unsubscribe' || $cmd->{name} eq 'punsubscribe' ) {
+  if ( exists( $SUB_UNSUB_COMMANDS{ $cmd->{name} } ) ) {
 
-    if ( $cmd->{name} eq 'subscribe' || $cmd->{name} eq 'psubscribe' ) {
+    if ( exists( $SUB_COMMANDS{ $cmd->{name} } ) ) {
       my $cb_group = {};
 
       if ( exists( $cmd->{on_done} ) ) {
@@ -565,7 +575,7 @@ sub _abort_all_commands {
   my $self = shift;
 
   while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
-    $cmd->{on_error}->( "Execution of command \"$cmd->{name}\" failed" );
+    $cmd->{on_error}->( "Command \"$cmd->{name}\" failed" );
   }
 
   return;

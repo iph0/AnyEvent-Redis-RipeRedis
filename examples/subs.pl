@@ -10,22 +10,12 @@ use AnyEvent::Redis::RipeRedis;
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
-  password => 'your_password',
   encoding => 'utf8',
-  reconnect => 1,
-  reconnect_after => 5,
-  max_connect_attempts => 10,
 
   on_connect => sub {
     my $attempt = shift;
 
     say "Connected: $attempt";
-  },
-
-  on_redis_error => sub {
-    my $msg = shift;
-
-    warn "Redis error: $msg\n";
   },
 
   on_error => sub {
@@ -36,6 +26,21 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 );
 
 my $cv = AnyEvent->condvar();
+
+# Authenticate
+$redis->auth( 'your_password', {
+  on_done => sub {
+    my $resp = shift;
+
+    say $resp;
+  },
+
+  on_error => sub {
+    my $msg = shift;
+
+    warn "Authentication failed; $msg\n";
+  }
+} );
 
 
 # Subscribe to channels by name
@@ -48,7 +53,7 @@ $redis->subscribe( qw( ch_1 ch_2 ), sub {
 } );
 
 $redis->subscribe( qw( ch_foo ch_bar ), {
-  on_subscribe =>  sub {
+  on_done =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
 
@@ -75,7 +80,7 @@ $redis->psubscribe( qw( chan_* alert_* ), sub {
 } );
 
 $redis->psubscribe( qw( info_* err_* ), {
-  on_subscribe =>  sub {
+  on_done =>  sub {
     my $ch_pattern = shift;
     my $subs_num = shift;
 

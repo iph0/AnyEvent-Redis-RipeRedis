@@ -15,7 +15,6 @@ my $cv = AnyEvent->condvar();
 my $redis = $t_class->new(
   host => 'localhost',
   port => '6379',
-  password => 'test',
   encoding => 'utf8',
 
   on_connect => sub {
@@ -30,6 +29,9 @@ my $redis = $t_class->new(
     diag( $msg );
   }
 );
+
+# Authenticate
+$redis->auth( 'test' );
 
 
 # Subscribe to channels by name
@@ -48,7 +50,7 @@ $redis->subscribe( qw( ch_1 ch_2 ), sub {
 } );
 
 $redis->subscribe( qw( ch_foo ch_bar ), {
-  on_subscribe =>  sub {
+  on_done =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
 
@@ -88,7 +90,7 @@ $redis->psubscribe( qw( chan_* alert_* ), sub {
 } );
 
 $redis->psubscribe( qw( info_* err_* ), {
-  on_subscribe =>  sub {
+  on_done =>  sub {
     my $ch_pattern = shift;
     my $subs_num = shift;
 
@@ -179,7 +181,7 @@ my $exp_sub_data = [
   }
 ];
 
-is_deeply( \@sub_data, $exp_sub_data, 'subscribe (on_subscribe)' );
+is_deeply( \@sub_data, $exp_sub_data, 'subscribe (on_done)' );
 
 my $exp_sub_msgs = [
   {
@@ -226,7 +228,7 @@ my $exp_psub_data = [
   }
 ];
 
-is_deeply( \@psub_data, $exp_psub_data, 'psubscribe (on_subscribe)' );
+is_deeply( \@psub_data, $exp_psub_data, 'psubscribe (on_done)' );
 
 my $exp_psub_msgs = [
   {

@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 25;
+use Test::More tests => 23;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -21,7 +21,6 @@ can_ok( $t_class, 'AUTOLOAD' );
 my %GENERIC_PARAMS = (
   host => 'localhost',
   port => '6379',
-  password => 'test',
   encoding => 'utf8',
 );
 
@@ -29,8 +28,6 @@ my $cv = AnyEvent->condvar();
 
 # Parameters pass to constructor as hash reference
 new_ok( $t_class, [ \%GENERIC_PARAMS ] );
-
-my @errors;
 
 # Parameters pass to constructor as hash
 my $redis = new_ok( $t_class, [
@@ -42,12 +39,6 @@ my $redis = new_ok( $t_class, [
     is( $attempt, 1, 'on_connect' );
   },
 
-  on_redis_error => sub {
-    my $msg = shift;
-
-    push( @errors, $msg );
-  },
-
   on_error => sub {
     my $msg = shift;
 
@@ -55,12 +46,13 @@ my $redis = new_ok( $t_class, [
   }
 ] );
 
+# Authenticate
+$redis->auth( 'test', {
+  on_done => sub {
+    my $resp = shift;
 
-# Ping
-$redis->ping( sub {
-  my $resp = shift;
-
-  is( $resp, 'PONG', 'ping (status reply)' );
+    is( $resp, 'OK', 'auth (on_done; status reply)' )
+  }
 } );
 
 # Increment
@@ -68,13 +60,6 @@ $redis->incr( 'foo', sub {
   my $val = shift;
 
   is( $val, 1, 'incr (numeric reply)' );
-} );
-
-# Invalid command
-$redis->incrr( 'foo', sub {
-  my $val = shift;
-
-  say $val;
 } );
 
 # Set value
@@ -157,16 +142,6 @@ $redis->incr( 'foo', sub {
   is( $val, 'QUEUED', 'incr (queued)' );
 } );
 
-# Invalid command
-$redis->incrr( 'foo' );
-
-# Invalid value type
-$redis->incr( 'list', sub {
-  my $val = shift;
-
-  is( $val, 'QUEUED', 'Invalid value type' );
-} );
-
 $redis->lrange( 'list', 0, -1, sub {
   my $resp = shift;
 
@@ -193,22 +168,14 @@ $redis->exec( sub {
   ];
 
   is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
+} );
 
-  $redis->quit( sub {
-    my $resp = shift;
+$redis->quit( sub {
+  my $resp = shift;
 
-    is( $resp, 'OK', 'quit (status reply)' );
+  is( $resp, 'OK', 'quit (status reply)' );
 
-    my $exp = [
-      "ERR unknown command 'incrr'",
-      "ERR unknown command 'incrr'",
-      'ERR Operation against a key holding the wrong kind of value'
-    ];
-
-    is_deeply( \@errors, $exp, 'on_redis_error' );
-
-    $cv->send();
-  } );
+  $cv->send();
 } );
 
 my $timeout;

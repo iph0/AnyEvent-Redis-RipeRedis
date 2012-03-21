@@ -10,11 +10,7 @@ use AnyEvent::Redis::RipeRedis;
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
-#  password => 'your_password',
   encoding => 'utf8',
-  reconnect => 1,
-  reconnect_after => 5,
-  max_connect_attempts => 10,
 
   on_connect => sub {
     my $attempt = shift;
@@ -31,17 +27,23 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 
 my $cv = AnyEvent->condvar();
 
-$redis->auth( 'your_password' );
+# Authenticate
+$redis->auth( 'your_password', {
+  on_done => sub {
+    my $resp = shift;
 
-# Increment
-$redis->incr( 'foo', sub {
-  my $val = shift;
+    say $resp;
+  },
 
-  say $val;
+  on_error => sub {
+    my $msg = shift;
+
+    warn "Authentication failed; $msg\n";
+  }
 } );
 
-# Invalid command
-$redis->incrr( 'foo', sub {
+# Increment
+$redis->incr( 'foo',sub {
   my $val = shift;
 
   say $val;
@@ -89,20 +91,6 @@ $redis->multi( sub {
 } );
 
 $redis->incr( 'foo', sub {
-  my $resp = shift;
-
-  say $resp;
-} );
-
-# Invalid command
-$redis->incrr( 'foo', sub {
-  my $resp = shift;
-
-  say $resp;
-} );
-
-# Invalid value type
-$redis->incr( 'list', sub {
   my $resp = shift;
 
   say $resp;
