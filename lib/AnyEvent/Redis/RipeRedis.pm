@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.600012';
+our $VERSION = '0.600013';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -529,6 +529,7 @@ sub _prcoess_response {
   shift( @{ $self->{commands_queue} } );
 
   if ( $cmd->{name} eq 'quit' ) {
+    $self->_clean();
     $self->_abort_all_commands();
   }
 

@@ -137,7 +137,6 @@ foreach my $key ( qw( foo bar list ) ) {
   } );
 }
 
-
 # Disconnect
 $redis->quit( sub {
   my $resp = shift;
