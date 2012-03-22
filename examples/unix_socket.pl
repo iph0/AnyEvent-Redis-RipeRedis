@@ -22,7 +22,7 @@ $redis = AnyEvent::Redis::RipeRedis->new(
     my $attempt = shift;
 
     say "Connected: $attempt";
-    
+
     # Authenticate
     $redis->auth( 'your_password', {
       on_done => sub {
