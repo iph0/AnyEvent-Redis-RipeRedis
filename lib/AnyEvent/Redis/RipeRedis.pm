@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.600014';
+our $VERSION = '0.600015';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -140,9 +140,9 @@ sub _connect {
     on_connect_error => sub {
       my $err = pop;
 
-      $self->_clean();
-
       $err = "Can't connect to $self->{host}:$self->{port}; $err";
+      
+      $self->_clean();
 
       if ( exists( $self->{on_connect_error} ) ) {
         $self->{on_connect_error}->( $err, $self->{connect_attempt} );
@@ -184,63 +184,28 @@ sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
 
-  my $cb;
   my $params = {};
-
+  
   if ( ref( $_[ -1 ] ) eq 'CODE' ) {
-    $cb = pop;
+    my $cb = pop;
+
+    if ( $self->_is_sub_command( $cmd_name ) ) {
+      $params->{on_message} = $cb;
+    }
+    else {
+      $params->{on_done} = $cb;
+    }
   }
   elsif ( ref( $_[ -1 ] ) eq 'HASH' ) {
     $params = pop;
   }
 
   my @args = @_;
-
+  
   my $cmd = {
     name => $cmd_name,
     args => \@args,
   };
-
-  if ( $self->_is_sub_group_command( $cmd_name ) ) {
-
-    if ( $self->{sub_lock} ) {
-      croak "Command \"$cmd_name\" not allowed in this context."
-          . " First, the transaction must be completed.";
-    }
-
-    if ( $self->_is_sub_command( $cmd_name ) ) {
-
-      if ( defined( $cb ) ) {
-        $cmd->{on_message} = $cb;
-      }
-      elsif ( defined( $params->{on_message} ) ) {
-
-        if ( ref( $params->{on_message} ) ne 'CODE' ) {
-          croak '"on_message" callback must be a CODE reference';
-        }
-
-        $cmd->{on_message} = $params->{on_message};
-      }
-    }
-    elsif ( defined( $cb ) ) {
-      $cmd->{on_done} = $cb;
-    }
-
-    $cmd->{resp_remaining} = scalar( @args );
-  }
-  else {
-
-    if ( $cmd_name eq 'multi' ) {
-      $self->{sub_lock} = 1;
-    }
-    elsif ( $cmd_name eq 'exec' ) {
-      undef( $self->{sub_lock} );
-    }
-
-    if ( defined( $cb ) ) {
-      $cmd->{on_done} = $cb;
-    }
-  }
 
   foreach my $cb_name ( qw( on_done on_error ) ) {
 
@@ -259,9 +224,39 @@ sub _exec_command {
   }
 
   if ( !defined( $self->{handle} ) ) {
-    $cmd->{on_error}->( "Can't execute command \"$cmd_name\". Connection not established" );
+    $cmd->{on_error}->( "Can't execute command \"$cmd_name\"."
+        . " Connection not established" );
 
     return;
+  }
+
+  if ( $self->_is_sub_group_command( $cmd_name ) ) {
+
+    if ( $self->{sub_lock} ) {
+      croak "Command \"$cmd_name\" not allowed in this context."
+          . " First, the transaction must be completed.";
+    }
+
+    if ( $self->_is_sub_command( $cmd_name ) 
+      && defined( $params->{on_message} ) ) {
+
+      if ( ref( $params->{on_message} ) ne 'CODE' ) {
+        croak '"on_message" callback must be a CODE reference';
+      }
+
+      $cmd->{on_message} = $params->{on_message};
+    }
+
+    $cmd->{resp_remaining} = scalar( @args );
+  }
+  else {
+
+    if ( $cmd_name eq 'multi' ) {
+      $self->{sub_lock} = 1;
+    }
+    elsif ( $cmd_name eq 'exec' ) {
+      undef( $self->{sub_lock} );
+    }
   }
 
   $self->_push_command( $cmd );
