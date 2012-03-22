@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.600015';
+our $VERSION = '0.600017';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -230,8 +230,7 @@ sub _exec_command {
           . " First, the transaction must be completed.";
     }
 
-    if ( $self->_is_sub_command( $cmd_name )
-      && defined( $params->{on_message} ) ) {
+    if ( $self->_is_sub_command( $cmd_name ) && defined( $params->{on_message} ) ) {
 
       if ( ref( $params->{on_message} ) ne 'CODE' ) {
         croak '"on_message" callback must be a CODE reference';
