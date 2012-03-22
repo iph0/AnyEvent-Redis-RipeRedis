@@ -45,13 +45,6 @@ $redis->auth( 'your_password', {
 
 # Subscribe to channels by name
 
-$redis->subscribe( qw( ch_1 ch_2 ), sub {
-  my $ch_name = shift;
-  my $msg = shift;
-
-  say "$ch_name: $msg";
-} );
-
 $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
     my $ch_name = shift;
@@ -70,14 +63,6 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
 
 
 # Subscribe to channels by pattern
-
-$redis->psubscribe( qw( chan_* alert_* ), sub {
-  my $ch_name = shift;
-  my $msg = shift;
-  my $ch_pattern = shift;
-
-  say "$ch_name ($ch_pattern): $msg";
-} );
 
 $redis->psubscribe( qw( info_* err_* ), {
   on_done =>  sub {
@@ -99,26 +84,26 @@ $redis->psubscribe( qw( info_* err_* ), {
 my $sig_cb = sub {
   say 'Stopped';
 
-  $redis->unsubscribe( qw( ch_1 ch_2 ) );
+  $redis->unsubscribe( qw( ch_foo ch_bar ), {
+    on_done => sub {
+      my $ch_name = shift;
+      my $subs_num = shift;
 
-  $redis->unsubscribe( qw( ch_foo ch_bar ), sub {
-    my $ch_name = shift;
-    my $subs_num = shift;
-
-    say "Unsubscribed: $ch_name. Active: $subs_num";
+      say "Unsubscribed: $ch_name. Active: $subs_num";
+    },
   } );
 
-  $redis->punsubscribe( qw( chan_* alert_* ) );
+  $redis->punsubscribe( qw( info_* err_* ), {
+    on_done => sub {
+      my $ch_pattern = shift;
+      my $subs_num = shift;
 
-  $redis->punsubscribe( qw( info_* err_* ), sub {
-    my $ch_pattern = shift;
-    my $subs_num = shift;
+      say "Unsubscribed: $ch_pattern. Active: $subs_num";
 
-    say "Unsubscribed: $ch_pattern. Active: $subs_num";
-
-    if ( $subs_num == 0 ) {
-      $cv->send();
-    }
+      if ( $subs_num == 0 ) {
+        $cv->send();
+      }
+    },
   } );
 };
 

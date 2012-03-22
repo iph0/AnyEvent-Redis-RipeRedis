@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.600017';
+our $VERSION = '0.700000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -42,66 +42,17 @@ my $EOL_LENGTH = length( $EOL );
 # Constructor
 sub new {
   my $proto = shift;
-  my %params = @_;
+  my $params = { @_ };
 
-  my $class = ref( $proto ) || $proto;
-  my $self = fields::new( $class );
+  my $self = fields::new( $proto );
 
-  $self->{host} = $params{host} || $DEFAULT->{host};
-  $self->{port} = $params{port} || $DEFAULT->{port};
+  $params = $self->_validate_new( $params );
 
-  if ( defined( $params{encoding} ) ) {
-    $self->{encoding} = find_encoding( $params{encoding} );
+  foreach my $name ( keys( %{ $params } ) ) {
 
-    if ( !defined( $self->{encoding} ) ) {
-      croak "Encoding \"$params{encoding}\" not found";
+    if ( defined( $params->{ $name } ) ) {
+      $self->{ $name } = $params->{ $name };
     }
-  }
-
-  $self->{reconnect} = $params{reconnect};
-
-  if ( $self->{reconnect} ) {
-
-    if ( defined( $params{reconnect_after} ) ) {
-
-      if ( !looks_like_number( $params{reconnect_after} )
-        || $params{reconnect_after} <= 0 ) {
-
-        croak '"reconnect_after" must be a positive number';
-      }
-
-      $self->{reconnect_after} = $params{reconnect_after};
-    }
-    else {
-      $self->{reconnect_after} = $DEFAULT->{reconnect_after};
-    }
-
-    if ( defined( $params{max_connect_attempts} ) ) {
-
-      if ( $params{max_connect_attempts} =~ m/[^0-9]/o
-        || $params{max_connect_attempts} <= 0 ) {
-
-        croak '"max_connect_attempts" must be a positive integer number';
-      }
-
-      $self->{max_connect_attempts} = $params{max_connect_attempts};
-    }
-  }
-
-  foreach my $cb_name ( qw( on_connect on_stop_reconnect on_connect_error on_error ) ) {
-
-    if ( defined( $params{ $cb_name } ) ) {
-
-      if ( ref( $params{ $cb_name } ) ne 'CODE' ) {
-        croak "\"$cb_name\" callback must be a CODE reference";
-      }
-
-      $self->{ $cb_name } = $params{ $cb_name };
-    }
-  }
-
-  if ( !exists( $self->{on_error} ) ) {
-    $self->{on_error} = sub { warn shift . "\n"; };
   }
 
   $self->{handle} = undef;
@@ -117,6 +68,60 @@ sub new {
 
 
 # Private methods
+
+####
+sub _validate_new {
+  my $self = shift;
+  my $params = shift;
+
+  if ( defined( $params->{encoding} ) ) {
+    my $enc = $params->{encoding};
+    $params->{encoding} = find_encoding( $enc );
+
+    if ( !defined( $params->{encoding} ) ) {
+      croak "Encoding \"$enc\" not found";
+    }
+  }
+
+  if ( $params->{reconnect} ) {
+
+    if ( defined( $params->{reconnect_after} ) ) {
+
+      if ( !looks_like_number( $params->{reconnect_after} )
+        || $params->{reconnect_after} <= 0 ) {
+
+        croak '"reconnect_after" must be a positive number';
+      }
+    }
+    else {
+      $params->{reconnect_after} = $DEFAULT->{reconnect_after};
+    }
+
+    if ( defined( $params->{max_connect_attempts} )
+        && ( $params->{max_connect_attempts} =~ m/[^0-9]/o
+          || $params->{max_connect_attempts} <= 0 ) ) {
+
+      croak '"max_connect_attempts" must be a positive integer number';
+    }
+  }
+
+  foreach my $cb_name ( qw( on_connect on_stop_reconnect on_connect_error on_error ) ) {
+
+    if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
+      croak "\"$cb_name\" callback must be a CODE reference";
+    }
+  }
+
+  if ( !defined( $params->{on_error} ) ) {
+    $params->{on_error} = sub {
+      my $err = shift;
+
+      warn "$err\n";
+    };
+  }
+
+  return $params;
+}
 
 ####
 sub _connect {
@@ -142,7 +147,7 @@ sub _connect {
 
       $err = "Can't connect to $self->{host}:$self->{port}; $err";
 
-      $self->_clean();
+      undef( $self->{handle} );
 
       if ( exists( $self->{on_connect_error} ) ) {
         $self->{on_connect_error}->( $err, $self->{connect_attempt} );
@@ -151,27 +156,27 @@ sub _connect {
         $self->{on_error}->( $err );
       }
 
-      $self->_abort_all_commands();
+      $self->_abort_all();
       $self->_try_to_reconnect();
     },
 
     on_error => sub {
       my $err = pop;
 
-      $self->_clean();
+      undef( $self->{handle} );
       $self->{on_error}->( $err );
-      $self->_abort_all_commands();
+      $self->_abort_all();
       $self->_try_to_reconnect();
     },
 
     on_eof => sub {
-      $self->_clean();
+      undef( $self->{handle} );
       $self->{on_error}->( 'Connection lost' );
-      $self->_abort_all_commands();
+      $self->_abort_all();
       $self->_try_to_reconnect();
     },
 
-    on_read => $self->_prepare_on_read_cb( sub {
+    on_read => $self->_prepare_read( sub {
       return $self->_prcoess_response( @_ );
     } ),
   );
@@ -183,72 +188,39 @@ sub _connect {
 sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
-
-  my $params = {};
-
-  if ( ref( $_[ -1 ] ) eq 'CODE' ) {
-    my $cb = pop;
-
-    if ( $self->_is_sub_command( $cmd_name ) ) {
-      $params->{on_message} = $cb;
-    }
-    else {
-      $params->{on_done} = $cb;
-    }
-  }
-  elsif ( ref( $_[ -1 ] ) eq 'HASH' ) {
-    $params = pop;
-  }
-
   my @args = @_;
+
+  my $params;
+
+  if ( ref( $args[ -1 ] ) eq 'HASH' ) {
+    $params = pop( @args );
+  }
+  else {
+    $params = {};
+  }
+
+  $params = $self->_validate_exec_cmd( $params );
 
   my $cmd = {
     name => $cmd_name,
     args => \@args,
+    %{ $params },
   };
 
-  foreach my $cb_name ( qw( on_done on_error ) ) {
-
-    if ( defined( $params->{ $cb_name } ) ) {
-
-      if ( ref( $params->{ $cb_name } ) ne 'CODE' ) {
-        croak "\"$cb_name\" callback must be a CODE reference";
-      }
-
-      $cmd->{ $cb_name } = $params->{ $cb_name };
-    }
-  }
-
-  if ( !exists( $cmd->{on_error} ) ) {
-    $cmd->{on_error} = $self->{on_error};
-  }
-
-  if ( $self->_is_sub_group_command( $cmd_name ) ) {
+  if ( $self->_is_sub_group_cmd( $cmd_name ) ) {
 
     if ( $self->{sub_lock} ) {
       croak "Command \"$cmd_name\" not allowed in this context."
           . " First, the transaction must be completed.";
     }
 
-    if ( $self->_is_sub_command( $cmd_name ) && defined( $params->{on_message} ) ) {
-
-      if ( ref( $params->{on_message} ) ne 'CODE' ) {
-        croak '"on_message" callback must be a CODE reference';
-      }
-
-      $cmd->{on_message} = $params->{on_message};
-    }
-
     $cmd->{resp_remaining} = scalar( @args );
   }
-  else {
-
-    if ( $cmd_name eq 'multi' ) {
-      $self->{sub_lock} = 1;
-    }
-    elsif ( $cmd_name eq 'exec' ) {
-      undef( $self->{sub_lock} );
-    }
+  elsif ( $cmd_name eq 'multi' ) {
+    $self->{sub_lock} = 1;
+  }
+  elsif ( $cmd_name eq 'exec' ) {
+    undef( $self->{sub_lock} );
   }
 
   if ( !defined( $self->{handle} ) ) {
@@ -261,6 +233,25 @@ sub _exec_command {
   $self->_push_command( $cmd );
 
   return;
+}
+
+####
+sub _validate_exec_cmd {
+  my $self = shift;
+  my $params = shift;
+
+  foreach my $cb_name ( qw( on_done on_message on_error ) ) {
+
+    if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
+      croak "\"$cb_name\" callback must be a CODE reference";
+    }
+  }
+
+  if ( !defined( $params->{on_error} ) ) {
+    $params->{on_error} = $self->{on_error};
+  }
+
+  return $params;
 }
 
 ####
@@ -302,7 +293,7 @@ sub _serialize_command {
 }
 
 ####
-sub _prepare_on_read_cb {
+sub _prepare_read {
   my $self = shift;
   my $cb = shift;
 
@@ -389,7 +380,7 @@ sub _unshift_read {
 
   my $remaining = $mbulk_len;
 
-  my $on_read_cb;
+  my $read_cb;
   my @data_list;
   my @errors;
 
@@ -407,10 +398,10 @@ sub _unshift_read {
     --$remaining;
 
     if ( ref( $data ) eq 'ARRAY' && @{ $data } && $remaining > 0 ) {
-      $hdl->unshift_read( $on_read_cb );
+      $hdl->unshift_read( $read_cb );
     }
     elsif ( $remaining == 0 ) {
-      undef( $on_read_cb );
+      undef( $read_cb );
 
       if ( @errors ) {
         my $err = join( "\n", @errors );
@@ -426,8 +417,8 @@ sub _unshift_read {
     }
   };
 
-  $on_read_cb = $self->_prepare_on_read_cb( $cb_wrap );
-  $hdl->unshift_read( $on_read_cb );
+  $read_cb = $self->_prepare_read( $cb_wrap );
+  $hdl->unshift_read( $read_cb );
 
   return;
 }
@@ -445,7 +436,7 @@ sub _prcoess_response {
   if ( %{ $self->{subs} } && $self->_is_sub_message( $data ) ) {
 
     if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
-      return $self->_process_message( $data );
+      return $self->_process_sub_message( $data );
     }
   }
 
@@ -457,17 +448,17 @@ sub _prcoess_response {
     return;
   }
 
-  if ( $self->_is_sub_group_command( $cmd->{name} ) ) {
+  if ( $self->_is_sub_group_cmd( $cmd->{name} ) ) {
 
-    if ( $self->_is_sub_command( $cmd->{name} ) ) {
+    if ( $self->_is_sub_cmd( $cmd->{name} ) ) {
       my $sub = {};
 
-      if ( exists( $cmd->{on_done} ) ) {
+      if ( defined( $cmd->{on_done} ) ) {
         $sub->{on_done} = $cmd->{on_done};
         $sub->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
       }
 
-      if ( exists( $cmd->{on_message} ) ) {
+      if ( defined( $cmd->{on_message} ) ) {
         $sub->{on_message} = $cmd->{on_message};
       }
 
@@ -475,7 +466,7 @@ sub _prcoess_response {
     }
     else {
 
-      if ( exists( $cmd->{on_done} ) ) {
+      if ( defined( $cmd->{on_done} ) ) {
         $cmd->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
       }
 
@@ -491,32 +482,35 @@ sub _prcoess_response {
     return;
   }
 
-  if ( exists( $cmd->{on_done} ) ) {
+  if ( defined( $cmd->{on_done} ) ) {
     $cmd->{on_done}->( $data );
   }
 
   shift( @{ $self->{commands_queue} } );
 
   if ( $cmd->{name} eq 'quit' ) {
-    $self->_clean();
-    $self->_abort_all_commands();
+    undef( $self->{handle} );
+    $self->_abort_all();
   }
 
   return;
 }
 
 ####
-sub _process_message {
+sub _process_sub_message {
   my $self = shift;
   my $data = shift;
 
   my $sub = $self->{subs}{ $data->[ 1 ] };
 
-  if ( $data->[ 0 ] eq 'message' ) {
-    $sub->{on_message}->( $data->[ 1 ], $data->[ 2 ] );
-  }
-  else {
-    $sub->{on_message}->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
+  if ( exists( $sub->{on_message} ) ) {
+
+    if ( $data->[ 0 ] eq 'message' ) {
+      $sub->{on_message}->( $data->[ 1 ], $data->[ 2 ] );
+    }
+    else {
+      $sub->{on_message}->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
+    }
   }
 
   return;
@@ -540,21 +534,13 @@ sub _process_error {
 }
 
 ####
-sub _abort_all_commands {
+sub _abort_all {
   my $self = shift;
 
   while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
     $cmd->{on_error}->( "Command \"$cmd->{name}\" failed" );
   }
 
-  return;
-}
-
-####
-sub _clean {
-  my $self = shift;
-
-  undef( $self->{handle} );
   undef( $self->{sub_lock} );
   $self->{subs} = {};
 
@@ -604,7 +590,7 @@ sub _reconnect {
 }
 
 ####
-sub _is_sub_group_command {
+sub _is_sub_group_cmd {
   my $cmd_name = pop;
 
   return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe'
@@ -612,7 +598,7 @@ sub _is_sub_group_command {
 }
 
 ####
-sub _is_sub_command {
+sub _is_sub_cmd {
   my $cmd_name = pop;
 
   return $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe';
@@ -657,24 +643,14 @@ __END__
 
 =head1 NAME
 
-AnyEvent::Redis::RipeRedis - Non-blocking Redis client with self reconnect feature on
-loss connection
+AnyEvent::Redis::RipeRedis - Non-blocking Redis client with self reconnect
+feature on loss connection
 
 =head1 SYNOPSIS
 
   use AnyEvent::Redis::RipeRedis;
 
 =head1 DESCRIPTION
-
-This module is an AnyEvent user, you need to make sure that you use and run a
-supported event loop.
-
-AnyEvent::Redis::RipeRedis is non-blocking Redis client with self reconnect feature on
-loss connection.
-
-Module requires Redis 1.2 or higher.
-
-=head1 METHODS
 
 =head1 SEE ALSO
 

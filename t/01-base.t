@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 22;
+use Test::More tests => 20;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -18,16 +18,12 @@ BEGIN {
 can_ok( $t_class, 'new' );
 can_ok( $t_class, 'AUTOLOAD' );
 
-my %GENERIC_PARAMS = (
-  host => 'localhost',
-  port => '6379',
-  encoding => 'utf8',
-);
-
 my $cv = AnyEvent->condvar();
 
 my $redis = new_ok( $t_class, [
-  %GENERIC_PARAMS,
+  host => 'localhost',
+  port => '6379',
+  encoding => 'utf8',
 
   on_connect => sub {
     my $attempt = shift;
@@ -47,131 +43,148 @@ $redis->auth( 'test', {
   on_done => sub {
     my $resp = shift;
 
-    is( $resp, 'OK', 'auth (on_done; status reply)' )
-  }
+    is( $resp, 'OK', 'auth (status reply)' )
+  },
 } );
 
 # Increment
-$redis->incr( 'foo', sub {
-  my $val = shift;
+$redis->incr( 'foo', {
+  on_done => sub {
+    my $val = shift;
 
-  is( $val, 1, 'incr (numeric reply)' );
+    is( $val, 1, 'incr (numeric reply)' );
+  },
 } );
 
 # Set value
-$redis->set( 'bar', 'Some string', sub {
-  my $resp = shift;
-
-  is( $resp, 'OK', 'set (status reply)' );
-} );
+$redis->set( 'bar', 'Some string' );
 
 # Get value
-$redis->get( 'bar', sub {
-  my $val = shift;
+$redis->get( 'bar', {
+  on_done => sub {
+    my $val = shift;
 
-  is( $val, 'Some string', 'get (bulk reply)' );
+    is( $val, 'Some string', 'get (bulk reply)' );
+  },
 } );
 
 # Get non existent key
-$redis->get( 'non_existent', sub {
-  my $val = shift;
+$redis->get( 'non_existent', {
+  on_done => sub {
+    my $val = shift;
 
-  is( $val, undef, 'get (non existent key)' );
+    is( $val, undef, 'get (non existent key)' );
+  },
 } );
 
 
 # Push values
 
 for ( my $i = 2; $i <= 3; $i++ ) {
-  $redis->rpush( 'list', "element_$i", sub {
-    my $resp = shift;
+  $redis->rpush( 'list', "element_$i", {
+    on_done => sub {
+      my $resp = shift;
 
-    is( $resp, 'OK', 'rpush (status reply)' );
+      is( $resp, 'OK', 'rpush (status reply)' );
+    },
   } );
 }
 
-$redis->lpush( 'list', "element_1", sub {
-  my $resp = shift;
+$redis->lpush( 'list', "element_1", {
+  on_done => sub {
+    my $resp = shift;
 
-  is( $resp, 'OK', 'rpush (status reply)' );
+    is( $resp, 'OK', 'rpush (status reply)' );
+  },
 } );
 
 
 # Get list of values
-$redis->lrange( 'list', 0, -1, sub {
-  my $list = shift;
+$redis->lrange( 'list', 0, -1, {
+  on_done => sub {
+    my $list = shift;
 
-  my $exp = [ qw(
-    element_1
-    element_2
-    element_3
-  ) ];
-
-  is_deeply( $list, $exp, 'lrange (multi-bulk reply)' );
-} );
-
-# Get non existent list
-$redis->lrange( 'non_existent', 0, -1, sub {
-  my $list = shift;
-
-  is_deeply( $list, [], 'lrange (non existent key)' );
-} );
-
-# Get
-$redis->brpop( 'non_existent', '3', sub {
-  my $val = shift;
-
-  is( $val, undef, 'brpop (non existent key)' );
-} );
-
-# Transaction
-
-$redis->multi( sub {
-  my $resp = shift;
-
-  is( $resp, 'OK', 'multi (status reply)' );
-} );
-
-$redis->incr( 'foo', sub {
-  my $val = shift;
-
-  is( $val, 'QUEUED', 'incr (queued)' );
-} );
-
-$redis->lrange( 'list', 0, -1, sub {
-  my $resp = shift;
-
-  is( $resp, 'QUEUED', 'lrange (queued)' );
-} );
-
-$redis->get( 'bar', sub {
-  my $val = shift;
-
-  is( $val, 'QUEUED', 'get (queued)' );
-} );
-
-$redis->exec( sub {
-  my $data_list = shift;
-
-  my $exp = [
-    2,
-    [ qw(
+    my $exp = [ qw(
       element_1
       element_2
       element_3
-    ) ],
-    'Some string',
-  ];
+    ) ];
 
-  is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
+    is_deeply( $list, $exp, 'lrange (multi-bulk reply)' );
+  },
 } );
 
-$redis->quit( sub {
-  my $resp = shift;
+# Fetch from empty list
+$redis->lrange( 'non_existent', 0, -1, {
+  on_done => sub {
+    my $list = shift;
 
-  is( $resp, 'OK', 'quit (status reply)' );
+    is_deeply( $list, [], 'lrange (empty list)' );
+  },
+} );
 
-  $cv->send();
+# Get from empty list
+$redis->brpop( 'non_existent', '5', {
+  on_done => sub {
+    my $val = shift;
+
+    is( $val, undef, 'brpop (empty list)' );
+  },
+} );
+
+
+# Transaction
+
+$redis->multi( {
+  on_done => sub {
+    my $resp = shift;
+
+    is( $resp, 'OK', 'multi (status reply)' );
+  },
+} );
+
+$redis->incr( 'foo', {
+  on_done => sub {
+    my $val = shift;
+
+    is( $val, 'QUEUED', 'incr (queued)' );
+  },
+} );
+
+$redis->lrange( 'list', 0, -1, {
+  on_done => sub {
+    my $resp = shift;
+
+    is( $resp, 'QUEUED', 'lrange (queued)' );
+  },
+} );
+
+$redis->get( 'bar', {
+  on_done => sub {
+    my $val = shift;
+
+    is( $val, 'QUEUED', 'get (queued)' );
+  },
+} );
+
+$redis->exec( {
+  on_done => sub {
+    my $data_list = shift;
+
+    my $exp = [
+      2,
+      [ qw(
+        element_1
+        element_2
+        element_3
+      ) ],
+      'Some string',
+    ];
+
+    is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
+
+    $cv->send();
+  },
 } );
 
 my $timeout;

@@ -43,86 +43,106 @@ $redis->auth( 'your_password', {
 } );
 
 # Increment
-$redis->incr( 'foo',sub {
-  my $val = shift;
+$redis->incr( 'foo', { 
+  on_done => sub {
+    my $val = shift;
 
-  say $val;
+    say $val;
+  },
 } );
 
 # Set value
-$redis->set( 'bar', 'Some string', sub {
-  my $resp = shift;
+$redis->set( 'bar', 'Some string', {
+  on_done => sub {
+    my $resp = shift;
 
-  say $resp;
+    say $resp;
+  },
 } );
 
 # Get value
-$redis->get( 'bar', sub {
-  my $val = shift;
+$redis->get( 'bar', { 
+  on_done => sub {
+    my $val = shift;
 
-  say $val;
+    say $val;
+  }, 
 } );
 
 # Push values
 for ( my $i = 1; $i <= 3; $i++ ) {
-  $redis->rpush( 'list', "element_$i", sub {
-    my $resp = shift;
+  $redis->rpush( 'list', "element_$i", {
+    on_done => sub {
+      my $resp = shift;
 
-    say $resp;
+      say $resp;
+    },
   } );
 }
 
 # Get list of values
-$redis->lrange( 'list', 0, -1, sub {
-  my $list = shift;
+$redis->lrange( 'list', 0, -1, {
+  on_done => sub {
+    my $list = shift;
 
-  foreach my $val ( @{ $list } ) {
-    say $val;
-  }
+    foreach my $val ( @{ $list } ) {
+      say $val;
+    }
+  },
 } );
 
 
 # Transaction
 
-$redis->multi( sub {
-  my $resp = shift;
+$redis->multi( {
+  on_done => sub {
+    my $resp = shift;
 
-  say $resp;
+    say $resp;
+  },
 } );
 
-$redis->incr( 'foo', sub {
-  my $resp = shift;
+$redis->incr( 'foo', {
+  on_done => sub {
+    my $resp = shift;
 
-  say $resp;
+    say $resp;
+  },
 } );
 
-$redis->lrange( 'list', 0, -1, sub {
-  my $resp = shift;
+$redis->lrange( 'list', 0, -1, {
+  on_done => sub {
+    my $resp = shift;
 
-  say $resp;
+    say $resp;
+  },
 } );
 
-$redis->get( 'bar', sub {
-  my $resp = shift;
+$redis->get( 'bar', { 
+  on_done => sub {
+    my $resp = shift;
 
-  say $resp;
+    say $resp;
+  },
 } );
 
-$redis->exec( sub {
-  my $data_list = shift;
+$redis->exec( {
+  on_done => sub {
+    my $data_list = shift;
 
-  foreach my $data ( @{ $data_list } ) {
+    foreach my $data ( @{ $data_list } ) {
 
-    if ( ref( $data ) eq 'ARRAY' ) {
+      if ( ref( $data ) eq 'ARRAY' ) {
 
-      foreach my $val ( @{ $data } ) {
-        say $val;
+        foreach my $val ( @{ $data } ) {
+          say $val;
+        }
+      }
+      else {
+        say $data;
       }
     }
-    else {
-      say $data;
-    }
-  }
+  },
 } );
 
 
@@ -130,20 +150,24 @@ $redis->exec( sub {
 
 foreach my $key ( qw( foo bar list ) ) {
 
-  $redis->del( $key, sub {
-    my $is_del = shift;
+  $redis->del( $key, {
+    on_done => sub {
+      my $is_del = shift;
 
-    say $is_del;
+      say $is_del;
+    }
   } );
 }
 
 # Disconnect
-$redis->quit( sub {
-  my $resp = shift;
+$redis->quit( { 
+  on_done => sub {
+    my $resp = shift;
 
-  say $resp;
+    say $resp;
 
-  $cv->send();
- } );
+    $cv->send();
+  }
+} );
 
 $cv->recv();

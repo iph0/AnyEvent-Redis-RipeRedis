@@ -334,8 +334,10 @@ sub t_connection_lost {
     }
   );
 
-  $redis->auth( 'test', sub {
-    Test::AnyEvent::RedisHandle->redis_down();
+  $redis->auth( 'test', {
+    on_done => sub {
+      Test::AnyEvent::RedisHandle->redis_down();
+    },
   } );
 
   $cv->recv();
@@ -402,15 +404,13 @@ sub t_broken_connection {
     },
   );
 
-  $redis->auth( 'test', sub {
-    Test::AnyEvent::RedisHandle->break_connection();
+  $redis->auth( 'test', {
+    on_done => sub {
+      Test::AnyEvent::RedisHandle->break_connection();
+    },
   } );
 
-  $redis->ping( sub {
-    my $val;
-
-    diag( $val );
-  } );
+  $redis->ping();
 
   $cv->recv();
 

@@ -42,10 +42,12 @@ $redis = AnyEvent::Redis::RipeRedis->new(
       after => 0,
       interval => 1,
       cb => sub {
-        $redis->incr( 'foo', sub {
-          my $val = shift;
+        $redis->incr( 'foo', { 
+          on_done => sub {
+            my $val = shift;
 
-          say $val;
+            say $val;
+          }
         } );
       },
     );

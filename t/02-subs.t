@@ -39,16 +39,6 @@ $redis->auth( 'test' );
 my @sub_data;
 my @sub_msgs;
 
-$redis->subscribe( qw( ch_1 ch_2 ), sub {
-  my $ch_name = shift;
-  my $msg = shift;
-
-  push( @sub_msgs, {
-    ch_name => $ch_name,
-    message => $msg,
-  } );
-} );
-
 $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
     my $ch_name = shift;
@@ -68,7 +58,7 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
       ch_name => $ch_name,
       message => $msg,
     } );
-  }
+  },
 } );
 
 
@@ -76,18 +66,6 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
 
 my @psub_data;
 my @psub_msgs;
-
-$redis->psubscribe( qw( chan_* alert_* ), sub {
-  my $ch_name = shift;
-  my $msg = shift;
-  my $ch_pattern = shift;
-
-  push( @psub_msgs, {
-    ch_name => $ch_name,
-    message => $msg,
-    ch_pattern => $ch_pattern,
-  } );
-} );
 
 $redis->psubscribe( qw( info_* err_* ), {
   on_done =>  sub {
@@ -110,7 +88,7 @@ $redis->psubscribe( qw( info_* err_* ), {
       message => $msg,
       ch_pattern => $ch_pattern,
     } );
-  }
+  },
 } );
 
 
@@ -127,32 +105,32 @@ $unsub_timeout = AnyEvent->timer(
   cb => sub {
     undef( $unsub_timeout );
 
-    $redis->unsubscribe( qw( ch_1 ch_2 ) );
+    $redis->unsubscribe( qw( ch_foo ch_bar ), {
+      on_done => sub {
+        my $ch_name = shift;
+        my $subs_num = shift;
 
-    $redis->unsubscribe( qw( ch_foo ch_bar ), sub {
-      my $ch_name = shift;
-      my $subs_num = shift;
-
-      push( @unsub_data, {
-        ch_name => $ch_name,
-        subs_num => $subs_num,
-      } );
+        push( @unsub_data, {
+          ch_name => $ch_name,
+          subs_num => $subs_num,
+        } );
+      },
     } );
 
-    $redis->punsubscribe( qw( chan_* alert_* ) );
+    $redis->punsubscribe( qw( info_* err_* ), {
+      on_done => sub {
+        my $ch_pattern = shift;
+        my $subs_num = shift;
 
-    $redis->punsubscribe( qw( info_* err_* ), sub {
-      my $ch_pattern = shift;
-      my $subs_num = shift;
+        push( @punsub_data, {
+          ch_pattern => $ch_pattern,
+          subs_num => $subs_num,
+        } );
 
-      push( @punsub_data, {
-        ch_pattern => $ch_pattern,
-        subs_num => $subs_num,
-      } );
-
-      if ( $subs_num == 0 ) {
-        $cv->send();
-      }
+        if ( $subs_num == 0 ) {
+          $cv->send();
+        }
+      },
     } );
   }
 );
@@ -173,25 +151,17 @@ $cv->recv();
 my $exp_sub_data = [
   {
     ch_name => 'ch_foo',
-    subs_num => 3,
+    subs_num => 1,
   },
   {
     ch_name => 'ch_bar',
-    subs_num => 4,
+    subs_num => 2,
   },
 ];
 
-is_deeply( \@sub_data, $exp_sub_data, 'subscribe (on_done)' );
+is_deeply( \@sub_data, $exp_sub_data, 'subscribe (multi reply)' );
 
 my $exp_sub_msgs = [
-  {
-    ch_name => 'ch_1',
-    message => 'test',
-  },
-  {
-    ch_name => 'ch_2',
-    message => 'test',
-  },
   {
     ch_name => 'ch_foo',
     message => 'test',
@@ -207,40 +177,30 @@ is_deeply( \@sub_msgs, $exp_sub_msgs, 'message' );
 my $exp_unsub_data = [
   {
     ch_name => 'ch_foo',
-    subs_num => 5,
+    subs_num => 3,
   },
   {
     ch_name => 'ch_bar',
-    subs_num => 4,
+    subs_num => 2,
   },
 ];
 
-is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
+is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe (multi reply)' );
 
 my $exp_psub_data = [
   {
     ch_pattern => 'info_*',
-    subs_num => 7,
+    subs_num => 3,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 8,
+    subs_num => 4,
   }
 ];
 
-is_deeply( \@psub_data, $exp_psub_data, 'psubscribe (on_done)' );
+is_deeply( \@psub_data, $exp_psub_data, 'psubscribe (multi reply)' );
 
 my $exp_psub_msgs = [
-  {
-    ch_name => 'chan_some',
-    message => 'test',
-    ch_pattern => 'chan_*',
-  },
-  {
-    ch_name => 'alert_some',
-    message => 'test',
-    ch_pattern => 'alert_*',
-  },
   {
     ch_name => 'info_some',
     message => 'test',
@@ -266,4 +226,4 @@ my $exp_punsub_data = [
   },
 ];
 
-is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe' );
+is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe (multi reply)' );
