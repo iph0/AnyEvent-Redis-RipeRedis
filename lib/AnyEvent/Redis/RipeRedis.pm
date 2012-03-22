@@ -141,7 +141,7 @@ sub _connect {
       my $err = pop;
 
       $err = "Can't connect to $self->{host}:$self->{port}; $err";
-      
+
       $self->_clean();
 
       if ( exists( $self->{on_connect_error} ) ) {
@@ -185,7 +185,7 @@ sub _exec_command {
   my $cmd_name = shift;
 
   my $params = {};
-  
+
   if ( ref( $_[ -1 ] ) eq 'CODE' ) {
     my $cb = pop;
 
@@ -201,7 +201,7 @@ sub _exec_command {
   }
 
   my @args = @_;
-  
+
   my $cmd = {
     name => $cmd_name,
     args => \@args,
@@ -230,7 +230,7 @@ sub _exec_command {
           . " First, the transaction must be completed.";
     }
 
-    if ( $self->_is_sub_command( $cmd_name ) 
+    if ( $self->_is_sub_command( $cmd_name )
       && defined( $params->{on_message} ) ) {
 
       if ( ref( $params->{on_message} ) ne 'CODE' ) {
@@ -608,7 +608,7 @@ sub _reconnect {
 sub _is_sub_group_command {
   my $cmd_name = pop;
 
-  return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe' 
+  return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe'
       || $cmd_name eq 'psubscribe' || $cmd_name eq 'punsubscribe';
 }
 
