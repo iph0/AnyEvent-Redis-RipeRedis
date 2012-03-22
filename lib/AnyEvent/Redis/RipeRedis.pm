@@ -223,13 +223,6 @@ sub _exec_command {
     $cmd->{on_error} = $self->{on_error};
   }
 
-  if ( !defined( $self->{handle} ) ) {
-    $cmd->{on_error}->( "Can't execute command \"$cmd_name\"."
-        . " Connection not established" );
-
-    return;
-  }
-
   if ( $self->_is_sub_group_command( $cmd_name ) ) {
 
     if ( $self->{sub_lock} ) {
@@ -257,6 +250,13 @@ sub _exec_command {
     elsif ( $cmd_name eq 'exec' ) {
       undef( $self->{sub_lock} );
     }
+  }
+
+  if ( !defined( $self->{handle} ) ) {
+    $cmd->{on_error}->( "Can't execute command \"$cmd_name\"."
+        . " Connection not established" );
+
+    return;
   }
 
   $self->_push_command( $cmd );
