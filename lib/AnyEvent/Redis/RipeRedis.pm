@@ -35,18 +35,6 @@ my $DEFAULT = {
   reconnect_after => 5,
 };
 
-my %SUB_UNSUB_COMMANDS = (
-  subscribe => 1,
-  psubscribe => 1,
-  unsubscribe => 1,
-  punsubscribe => 1,
-);
-
-my %SUB_COMMANDS = (
-  subscribe => 1,
-  psubscribe => 1,
-);
-
 my $EOL = "\r\n";
 my $EOL_LENGTH = length( $EOL );
 
@@ -221,14 +209,14 @@ sub _exec_command {
     args => \@args,
   };
 
-  if ( exists( $SUB_UNSUB_COMMANDS{ $cmd_name } ) ) {
+  if ( $self->_is_sub_group_command( $cmd_name ) ) {
 
     if ( $self->{sub_lock} ) {
       croak "Command \"$cmd_name\" not allowed in this context."
           . " First, the transaction must be completed.";
     }
 
-    if ( exists( $SUB_COMMANDS{ $cmd_name } ) ) {
+    if ( $self->_is_sub_command( $cmd_name ) ) {
 
       if ( defined( $cb ) ) {
         $cmd->{on_message} = $cb;
@@ -464,16 +452,15 @@ sub _prcoess_response {
   my $data = shift;
   my $is_err = shift;
 
-  if ( %{ $self->{subs} } && ref( $data ) eq 'ARRAY'
-    && ( $data->[ 0 ] eq 'message' || $data->[ 0 ] eq 'pmessage' ) ) {
+  if ( $is_err ) {
+    return $self->_process_error( $data );
+  }
+
+  if ( %{ $self->{subs} } && $self->_is_sub_message( $data ) ) {
 
     if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
       return $self->_process_message( $data );
     }
-  }
-
-  if ( $is_err ) {
-    return $self->_process_error( $data );
   }
 
   my $cmd = $self->{commands_queue}[ 0 ];
@@ -484,9 +471,9 @@ sub _prcoess_response {
     return;
   }
 
-  if ( exists( $SUB_UNSUB_COMMANDS{ $cmd->{name} } ) ) {
+  if ( $self->_is_sub_group_command( $cmd->{name} ) ) {
 
-    if ( exists( $SUB_COMMANDS{ $cmd->{name} } ) ) {
+    if ( $self->_is_sub_command( $cmd->{name} ) ) {
       my $sub = {};
 
       if ( exists( $cmd->{on_done} ) ) {
@@ -628,6 +615,29 @@ sub _reconnect {
   }
 
   return;
+}
+
+####
+sub _is_sub_group_command {
+  my $cmd_name = pop;
+
+  return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe' 
+      || $cmd_name eq 'psubscribe' || $cmd_name eq 'punsubscribe';
+}
+
+####
+sub _is_sub_command {
+  my $cmd_name = pop;
+
+  return $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe';
+}
+
+####
+sub _is_sub_message {
+  my $data = pop;
+
+  return ref( $data ) eq 'ARRAY' && ( $data->[ 0 ] eq 'message'
+      || $data->[ 0 ] eq 'pmessage' );
 }
 
 ####
