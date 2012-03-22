@@ -42,15 +42,7 @@ my $EOL_LENGTH = length( $EOL );
 # Constructor
 sub new {
   my $proto = shift;
-
-  my %params;
-
-  if ( ref( $_[ 0 ] ) eq 'HASH' ) {
-    %params = %{ shift() };
-  }
-  else {
-    %params = @_;
-  }
+  my %params = @_;
 
   my $class = ref( $proto ) || $proto;
   my $self = fields::new( $class );

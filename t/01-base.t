@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 23;
+use Test::More tests => 22;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -26,10 +26,6 @@ my %GENERIC_PARAMS = (
 
 my $cv = AnyEvent->condvar();
 
-# Parameters pass to constructor as hash reference
-new_ok( $t_class, [ \%GENERIC_PARAMS ] );
-
-# Parameters pass to constructor as hash
 my $redis = new_ok( $t_class, [
   %GENERIC_PARAMS,
 
