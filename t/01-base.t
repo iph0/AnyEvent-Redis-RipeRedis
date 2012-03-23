@@ -166,6 +166,7 @@ $redis->exec( {
       'Some string',
     ];
     is_deeply( $data, $exp_data, 'exec (nested multi-bulk reply)' );
+    
     $cv->send();
   },
 } );
