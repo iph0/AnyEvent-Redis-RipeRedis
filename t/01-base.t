@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 21;
+use Test::More tests => 18;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -95,18 +95,13 @@ $redis->lpush( 'list', "element_1", {
   },
 } );
 
-
 # Get list of values
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $list = shift;
 
-    my $exp_list = [ qw(
-      element_1
-      element_2
-      element_3
-    ) ];
-    is_deeply( $list, $exp_list, 'lrange (multi-bulk reply)' );
+    my @exp_list = qw( element_1 element_2 element_3 );
+    is_deeply( $list, \@exp_list, 'lrange (multi-bulk reply)' );
   },
 } );
 
@@ -126,52 +121,34 @@ $redis->brpop( 'non_existent', '5', {
   },
 } );
 
-
 # Transaction
-
-$redis->multi( {
-  on_done => sub {
-    my $resp = shift;
-    is( $resp, 'OK', 'multi (status reply)' );
-  },
-} );
-
-$redis->incr( 'foo', {
-  on_done => sub {
-    my $val = shift;
-    is( $val, 'QUEUED', 'incr (queued)' );
-  },
-} );
-
-$redis->lrange( 'list', 0, -1, {
-  on_done => sub {
-    my $resp = shift;
-    is( $resp, 'QUEUED', 'lrange (queued)' );
-  },
-} );
-
-$redis->get( 'bar', {
-  on_done => sub {
-    my $val = shift;
-    is( $val, 'QUEUED', 'get (queued)' );
-  },
-} );
-
+$redis->multi();
+$redis->incr( 'foo' );
+$redis->lrange( 'list', 0, -1 );
+$redis->lrange( 'non_existent', 0, -1 );
+$redis->get( 'bar' );
+$redis->lrange( 'list', 0, -1 );
 $redis->exec( {
   on_done => sub {
     my $data = shift;
 
     my $exp_data = [
       2,
-      [ qw(
-        element_1
-        element_2
-        element_3
-      ) ],
+      [ qw( element_1 element_2 element_3 ) ],
+      [],
       'Some string',
+      [ qw( element_1 element_2 element_3 ) ],
     ];
     is_deeply( $data, $exp_data, 'exec (nested multi-bulk reply)' );
+  },
+} );
 
+# Quit
+$redis->quit( { 
+  on_done => sub {
+    my $resp = shift;
+    is( $resp, 'OK', 'quit (status reply)' );
+    
     $cv->send();
   },
 } );

@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.700005';
+our $VERSION = '0.700006';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -251,20 +251,16 @@ sub _push_command {
 sub _serialize_command {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
-  my $bulk_len = scalar( @{ $cmd->{args} } ) + 1;
+  
+  my @args = grep { defined( $_ ) } @{ $cmd->{args} };
+  my $bulk_len = scalar( @args ) + 1;
   my $cmd_szd = "*$bulk_len$EOL";
-  foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
+  foreach my $tkn ( $cmd->{name}, @args ) {
     if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
       $tkn = $self->{encoding}->encode( $tkn );
     }
-    if ( defined( $tkn ) ) {
-      my $tkn_len =  length( $tkn );
-      $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
-    }
-    else {
-      $cmd_szd .= "\$-1$EOL";
-    }
+    my $tkn_len =  length( $tkn );
+    $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
   }
 
   return $cmd_szd;
