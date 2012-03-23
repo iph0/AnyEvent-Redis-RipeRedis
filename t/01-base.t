@@ -96,12 +96,12 @@ $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $list = shift;
 
-    my $exp = [ qw(
+    my $exp_list = [ qw(
       element_1
       element_2
       element_3
     ) ];
-    is_deeply( $list, $exp, 'lrange (multi-bulk reply)' );
+    is_deeply( $list, $exp_list, 'lrange (multi-bulk reply)' );
   },
 } );
 
@@ -154,9 +154,9 @@ $redis->get( 'bar', {
 
 $redis->exec( {
   on_done => sub {
-    my $data_list = shift;
+    my $data = shift;
 
-    my $exp = [
+    my $exp_data = [
       2,
       [ qw(
         element_1
@@ -165,7 +165,7 @@ $redis->exec( {
       ) ],
       'Some string',
     ];
-    is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
+    is_deeply( $data, $exp_data, 'exec (nested multi-bulk reply)' );
     $cv->send();
   },
 } );
