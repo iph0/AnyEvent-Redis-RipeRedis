@@ -430,9 +430,10 @@ sub _validate_set {
   my $key = shift( @args );
   my $val = shift( @args );
 
-  if ( !defined( $key ) || $key eq ''
-    || !defined( $val ) || $val eq '' ) {
-
+  if ( 
+    !defined( $key ) || $key eq ''
+      || !defined( $val ) || $val eq '' 
+      ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
@@ -512,9 +513,10 @@ sub _validate_push {
   my $key = shift( @args );
   my $val = shift( @args );
 
-  if ( !defined( $key ) || $key eq ''
-    || !defined( $val ) || $val eq '' ) {
-
+  if ( 
+    !defined( $key ) || $key eq ''
+      || !defined( $val ) || $val eq '' 
+      ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
@@ -567,9 +569,10 @@ sub _validate_bpop {
   my $timeout = pop( @args );
   my @keys = @args;
 
-  if ( scalar( @keys ) == 0
-    || !defined( $timeout ) || $timeout eq '' ) {
-
+  if (
+    scalar( @keys ) == 0
+      || !defined( $timeout ) || $timeout eq '' 
+      ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
@@ -637,10 +640,11 @@ sub _validate_lrange {
   my $start = shift( @args );
   my $stop = shift( @args );
 
-  if ( !defined( $key ) || $key eq ''
-    || !defined( $start ) || $start eq ''
-    || !defined( $stop ) || $stop eq '' ) {
-
+  if ( 
+    !defined( $key ) || $key eq ''
+      || !defined( $start ) || $start eq ''
+      || !defined( $stop ) || $stop eq '' 
+      ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {

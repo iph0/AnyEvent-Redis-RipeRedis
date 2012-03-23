@@ -80,9 +80,10 @@ sub _validate_new {
 
   if ( $params->{reconnect} ) {
     if ( defined( $params->{reconnect_after} ) ) {
-      if ( !looks_like_number( $params->{reconnect_after} )
-        || $params->{reconnect_after} <= 0 ) {
-
+      if (
+        !looks_like_number( $params->{reconnect_after} )
+          || $params->{reconnect_after} <= 0
+          ) {
         croak '"reconnect_after" must be a positive number';
       }
     }
@@ -90,10 +91,11 @@ sub _validate_new {
       $params->{reconnect_after} = $DEFAULT->{reconnect_after};
     }
 
-    if ( defined( $params->{max_connect_attempts} )
-      && ( $params->{max_connect_attempts} =~ m/[^0-9]/o
-        || $params->{max_connect_attempts} <= 0 ) ) {
-
+    if (
+      defined( $params->{max_connect_attempts} )
+        && ( $params->{max_connect_attempts} =~ m/[^0-9]/o
+          || $params->{max_connect_attempts} <= 0 )
+        ) {
       croak '"max_connect_attempts" must be a positive integer number';
     }
   }
@@ -299,7 +301,7 @@ sub _prepare_read {
       }
 
       my $eol_pos = index( $hdl->{rbuf}, $EOL );
-      
+
       if ( $eol_pos >= 0 ) {
         my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
@@ -352,7 +354,7 @@ sub _unshift_read {
   my @errors;
 
   my $remaining = $mbulk_len;
-  
+
   my $cb_wrap = sub {
     my $data = shift;
     my $is_err = shift;
@@ -507,10 +509,11 @@ sub _abort_all {
 sub _try_to_reconnect {
   my __PACKAGE__ $self = shift;
 
-  if ( $self->{reconnect}
-    && ( !defined( $self->{max_connect_attempts} )
-      || $self->{connect_attempt} < $self->{max_connect_attempts} ) ) {
-
+  if (
+    $self->{reconnect}
+      && ( !defined( $self->{max_connect_attempts} )
+        || $self->{connect_attempt} < $self->{max_connect_attempts} )
+      ) {
     $self->_reconnect();
   }
   else {
