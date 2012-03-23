@@ -1,9 +1,10 @@
 use 5.010000;
 use strict;
 use warnings;
+use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 20;
+use Test::More tests => 21;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -55,6 +56,15 @@ $redis->get( 'bar', {
   on_done => sub {
     my $val = shift;
     is( $val, 'Some string', 'get (bulk reply)' );
+  },
+} );
+
+# Set/Get UTF-8 string
+$redis->set( 'ключ', 'Значение' );
+$redis->get( 'ключ', { 
+  on_done => sub {
+    my $val = shift;
+    is( $val, 'Значение', 'set/get UTF-8 string' );
   },
 } );
 

@@ -1,6 +1,6 @@
 package AnyEvent::Redis::RipeRedis;
 
-use 5.010000;
+use 5.006000;
 use strict;
 use warnings;
 
@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.700004';
+our $VERSION = '0.700005';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -74,7 +74,7 @@ sub _validate_new {
     $params->{encoding} = find_encoding( $enc );
 
     if ( !defined( $params->{encoding} ) ) {
-      croak "Encoding \"$enc\" not found";
+      croak "Encoding '$enc' not found";
     }
   }
 
@@ -84,7 +84,7 @@ sub _validate_new {
         !looks_like_number( $params->{reconnect_after} )
           || $params->{reconnect_after} <= 0
           ) {
-        croak '"reconnect_after" must be a positive number';
+        croak "'reconnect_after' must be a positive number";
       }
     }
     else {
@@ -95,13 +95,13 @@ sub _validate_new {
       defined( $params->{max_connect_attempts} )
         && ( $params->{max_connect_attempts} =~ m/[^0-9]/o )
         ) {
-      croak '"max_connect_attempts" must be a positive integer number';
+      croak "'max_connect_attempts' must be a positive integer number";
     }
   }
 
   foreach my $cb_name ( qw( on_connect on_stop_reconnect on_connect_error on_error ) ) {
     if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
-      croak "\"$cb_name\" callback must be a CODE reference";
+      croak "'$cb_name' callback must be a CODE reference";
     }
   }
 
@@ -193,7 +193,7 @@ sub _exec_command {
 
   if ( $self->_is_sub_group_cmd( $cmd_name ) ) {
     if ( $self->{sub_lock} ) {
-      croak "Command \"$cmd_name\" not allowed in this context."
+      croak "Command '$cmd_name' not allowed in this context."
           . " First, the transaction must be completed.";
     }
     $cmd->{resp_remaining} = scalar( @args );
@@ -206,7 +206,7 @@ sub _exec_command {
   }
 
   if ( !defined( $self->{handle} ) ) {
-    $cmd->{on_error}->( "Can't execute command \"$cmd_name\"."
+    $cmd->{on_error}->( "Can't execute command '$cmd_name'."
         . " Connection not established" );
 
     return;
@@ -224,7 +224,7 @@ sub _validate_exec_cmd {
 
   foreach my $cb_name ( qw( on_done on_message on_error ) ) {
     if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
-      croak "\"$cb_name\" callback must be a CODE reference";
+      croak "'$cb_name' callback must be a CODE reference";
     }
   }
 
@@ -495,7 +495,7 @@ sub _abort_all {
   my __PACKAGE__ $self = shift;
 
   while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
-    $cmd->{on_error}->( "Command \"$cmd->{name}\" failed" );
+    $cmd->{on_error}->( "Command '$cmd->{name}' failed" );
   }
 
   undef( $self->{sub_lock} );

@@ -14,7 +14,6 @@ my $cv = AnyEvent->condvar();
 my $redis = $t_class->new(
   host => 'localhost',
   port => '6379',
-  encoding => 'utf8',
 
   on_connect => sub {
     my $attempt = shift;
