@@ -7,6 +7,8 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
+my $cv = AnyEvent->condvar();
+
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
@@ -18,12 +20,10 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   },
 
   on_error => sub {
-    my $msg = shift;
-    warn "$msg\n";
+    my $err = shift;
+    warn "$err\n";
   },
 );
-
-my $cv = AnyEvent->condvar();
 
 # Authenticate
 $redis->auth( 'your_password', {
@@ -33,8 +33,8 @@ $redis->auth( 'your_password', {
   },
 
   on_error => sub {
-    my $msg = shift;
-    warn "Authentication failed; $msg\n";
+    my $err = shift;
+    warn "Authentication failed; $err\n";
   },
 } );
 

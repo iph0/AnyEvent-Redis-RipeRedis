@@ -179,4 +179,9 @@ sub break_connection {
   $CONN_IS_BROKEN = 1;
 }
 
+####
+sub fix_connection {
+  $CONN_IS_BROKEN = 0;
+}
+
 1;

@@ -20,11 +20,6 @@ my $redis = $t_class->new(
     my $attempt = shift;
     is( $attempt, 1, 'on_connect' );
   },
-
-  on_error => sub {
-    my $msg = shift;
-    diag( $msg );
-  },
 );
 
 # Authenticate

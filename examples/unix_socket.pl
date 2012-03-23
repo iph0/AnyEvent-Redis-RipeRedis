@@ -10,6 +10,8 @@ use AnyEvent::Redis::RipeRedis;
 my $redis;
 my $timer;
 
+my $cv = AnyEvent->condvar();
+
 $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
@@ -31,8 +33,8 @@ $redis = AnyEvent::Redis::RipeRedis->new(
       },
 
       on_error => sub {
-        my $msg = shift;
-        warn "Authentication failed; $msg\n";
+        my $err = shift;
+        warn "Authentication failed; $err\n";
       },
     } );
 
@@ -55,18 +57,16 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   },
 
   on_connect_error => sub {
-    my $msg = shift;
+    my $err = shift;
     my $attempt = shift;
-    warn "$msg; $attempt\n";
+    warn "$err; $attempt\n";
   },
 
   on_error => sub {
-    my $msg = shift;
-    warn "$msg\n";
+    my $err = shift;
+    warn "$err\n";
   },
 );
-
-my $cv = AnyEvent->condvar();
 
 my $sig_cb = sub {
   say 'Stopped';

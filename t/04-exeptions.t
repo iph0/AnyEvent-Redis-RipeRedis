@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 13;
+use Test::More tests => 12;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -50,22 +50,10 @@ if ( $@ ) {
 
 
 # Invalid "max_connect_attempts"
-
 eval {
   $redis = $t_class->new(
     reconnect => 1,
     max_connect_attempts => '10_invalid',
-  );
-};
-if ( $@ ) {
-  my $exp_msg = '"max_connect_attempts" must be a positive integer number';
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
-}
-
-eval {
-  $redis = $t_class->new(
-    reconnect => 1,
-    max_connect_attempts => -10,
   );
 };
 if ( $@ ) {

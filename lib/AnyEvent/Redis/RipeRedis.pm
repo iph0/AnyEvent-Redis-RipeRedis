@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.700003';
+our $VERSION = '0.700004';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -93,8 +93,7 @@ sub _validate_new {
 
     if (
       defined( $params->{max_connect_attempts} )
-        && ( $params->{max_connect_attempts} =~ m/[^0-9]/o
-          || $params->{max_connect_attempts} <= 0 )
+        && ( $params->{max_connect_attempts} =~ m/[^0-9]/o )
         ) {
       croak '"max_connect_attempts" must be a positive integer number';
     }

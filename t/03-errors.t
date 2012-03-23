@@ -2,10 +2,8 @@ use 5.010000;
 use strict;
 use warnings;
 
-# FIXME restyle
-
 use lib 't/tlib';
-use Test::More tests => 6;
+use Test::More tests => 5;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -17,9 +15,9 @@ my %GENERIC_PARAMS = (
   port => '6379',
   encoding => 'utf8',
 );
+my $PASSWORD = 'test';
 
 my $timeout;
-
 $timeout = AnyEvent->timer(
   after => 5,
   cb => sub {
@@ -28,125 +26,67 @@ $timeout = AnyEvent->timer(
   },
 );
 
-# TODO
-# on_redis_error (t_on_redis_error)
-
-t_can_not_connect();
-t_reconnect_n_times();
-t_reconnect_until_success();
-t_connection_lost();
-t_broken_connection();
-t_on_error();
+can_not_connect_t();
+reconnect_n_times_t();
+reconnect_until_success_t();
+connection_lost_t();
+# TODO connection_lost_reconnect_t();
+broken_connection_t();
+# TODO on_error_t();
+# TODO executong command on closed connection
 
 # Subroutines
 
 ####
-sub t_can_not_connect {
-  my $cv;
-  my $redis;
+sub can_not_connect_t {
   my @data;
 
   Test::AnyEvent::RedisHandle->redis_down();
 
-  $cv = AnyEvent->condvar();
-
-  $redis = $t_class->new(
+  my $cv = AnyEvent->condvar();
+  
+  my $redis = $t_class->new(
     %GENERIC_PARAMS,
 
     on_connect_error => sub {
-      my $msg = shift;
+      my $err = shift;
       my $attempt = shift;
-
-      push( @data, [ $msg, $attempt ] );
-
-      $cv->send();
+      push( @data, [ $err, $attempt ] );      
     },
 
     on_error => sub {
-      my $msg = shift;
-      diag( $msg );
-    },
-  );
-
-  $cv->recv();
-
-  $cv = AnyEvent->condvar();
-
-  $redis = $t_class->new(
-    %GENERIC_PARAMS,
-
-    on_error => sub {
-      my $msg = shift;
-      push( @data, $msg );
+      my $err = shift;
+      push( @data, $err );
+      
       $cv->send();
     },
   );
 
-  $cv->recv();
+  $redis->auth( $PASSWORD );
 
-  $redis->ping( sub {
-    my $resp;
-    diag( $resp );
-  } );
+  $cv->recv();
 
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $exp_msg_conn_err = "Can't connect to localhost:6379; Connection error";
-  my $exp_msg_cmd_err = "Can't execute command \"ping\". Connection not established";
-
   my @exp_data = (
-    [ $exp_msg_conn_err, 1 ],
-    $exp_msg_conn_err,
-    $exp_msg_cmd_err,
+    [ "Can't connect to localhost:6379; Connection error", 1 ],
+    "Command \"auth\" failed",
   );
-
   is_deeply( \@data, \@exp_data, 'No connection, reconnection off' );
 
   return;
 }
 
 ####
-sub t_reconnect_n_times {
-  my $cv;
-  my $redis;
+sub reconnect_n_times_t {
   my @data;
 
   Test::AnyEvent::RedisHandle->redis_down();
 
-  $cv = AnyEvent->condvar();
+  my $cv = AnyEvent->condvar();
 
-  $redis = $t_class->new(
+  my $redis = $t_class->new(
     %GENERIC_PARAMS,
-    reconnect => 1,
-    reconnect_after => 0.001,
-    max_connect_attempts => 2,
-
-    on_stop_reconnect => sub {
-      push( @data, 'stopped' );
-
-      $cv->send();
-    },
-
-    on_connect_error => sub {
-      my $msg = shift;
-      my $attempt = shift;
-
-      push( @data, [ $msg, $attempt ] );
-    },
-
-    on_error => sub {
-      my $msg = shift;
-      diag( $msg );
-    },
-  );
-
-  $cv->recv();
-
-  $cv = AnyEvent->condvar();
-
-  $redis = $t_class->new(
-    %GENERIC_PARAMS,
-
     reconnect => 1,
     reconnect_after => 0.001,
     max_connect_attempts => 2,
@@ -157,123 +97,83 @@ sub t_reconnect_n_times {
     },
 
     on_error => sub {
-      my $msg = shift;
-      push( @data, $msg );
+      my $err = shift;
+      push( @data, $err );
     },
   );
 
+  $redis->auth( $PASSWORD );
+  
   $cv->recv();
 
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $exp_msg = "Can't connect to localhost:6379; Connection error";
-
   my @exp_data = (
-    [ $exp_msg, 1 ],
-    [ $exp_msg, 2 ],
-    'stopped',
-    $exp_msg,
-    $exp_msg,
+    "Can't connect to localhost:6379; Connection error",
+    "Command \"auth\" failed",
+    "Can't connect to localhost:6379; Connection error",
     'stopped',
   );
-
   is_deeply( \@data, \@exp_data, 'No connection, reconnect <N> times' );
 
   return;
 }
 
 ####
-sub t_reconnect_until_success {
-  my $cv;
-  my $redis;
+sub reconnect_until_success_t {
   my @data;
 
   Test::AnyEvent::RedisHandle->redis_down();
 
-  $cv = AnyEvent->condvar();
-
-  $redis = $t_class->new(
+  my $cv = AnyEvent->condvar();
+  
+  my $redis = $t_class->new(
     %GENERIC_PARAMS,
     reconnect => 1,
     reconnect_after => 0.001,
-    max_connect_attempts => 3,
 
     on_connect => sub {
       my $attempt = shift;
       push( @data, $attempt );
+      
       $cv->send();
     },
 
     on_connect_error => sub {
-      my $msg = shift;
+      my $err = shift;
       my $attempt = shift;
-
-      push( @data, [ $msg, $attempt ] );
-
+      push( @data, [ $err, $attempt ] );
+      
       if ( $attempt == 2 ) {
         Test::AnyEvent::RedisHandle->redis_up();
       }
     },
 
     on_error => sub {
-      my $msg = shift;
-      diag( $msg );
+      my $err = shift;
+      push( @data, $err );
     },
   );
 
+  $redis->auth( $PASSWORD );
+  
   $cv->recv();
 
   Test::AnyEvent::RedisHandle->redis_down();
 
-  $cv = AnyEvent->condvar();
-
-  my $attempt = 0;
-
-  $redis = $t_class->new(
-    %GENERIC_PARAMS,
-
-    reconnect => 1,
-    reconnect_after => 0.001,
-    max_connect_attempts => 3,
-
-    on_connect => sub {
-      my $attempt = shift;
-      push( @data, $attempt );
-
-      $cv->send();
-    },
-
-    on_error => sub {
-      my $msg = shift;
-
-      push( @data, $msg );
-
-      if ( ++$attempt == 2 ) {
-        Test::AnyEvent::RedisHandle->redis_up();
-      }
-    },
-  );
-
-  $cv->recv();
-
-  my $exp_msg = "Can't connect to localhost:6379; Connection error";
-
   my @exp_data = (
-    [ $exp_msg, 1 ],
-    [ $exp_msg, 2 ],
-    3,
-    $exp_msg,
-    $exp_msg,
+    [ "Can't connect to localhost:6379; Connection error", 1 ],
+    "Command \"auth\" failed",
+    [ "Can't connect to localhost:6379; Connection error", 2 ],
     3,
   );
-
   is_deeply( \@data, \@exp_data, 'No connection, reconnect until success' );
 
   return;
 }
 
 ####
-sub t_connection_lost {
+sub connection_lost_t {
   my @data;
   my $send_sw;
 
@@ -283,41 +183,21 @@ sub t_connection_lost {
 
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
-
-    reconnect => 1,
-    reconnect_after => 0.001,
-    max_connect_attempts => 4,
-
+    
     on_connect => sub {
       my $attempt = shift;
-
       push( @data, $attempt );
-
-      if ( $send_sw ) {
-        $cv->send();
-      }
-    },
-
-    on_connect_error => sub {
-      my $msg = shift;
-      my $attempt = shift;
-
-      push( @data, [ $msg, $attempt ] );
-
-      if ( $attempt == 3 ) {
-        $send_sw = 1;
-
-        Test::AnyEvent::RedisHandle->redis_up();
-      }
     },
 
     on_error => sub {
       my $msg = shift;
       push( @data, $msg );
-    }
+
+      $cv->send();
+    },
   );
 
-  $redis->auth( 'test', {
+  $redis->auth( $PASSWORD, {
     on_done => sub {
       Test::AnyEvent::RedisHandle->redis_down();
     },
@@ -325,118 +205,84 @@ sub t_connection_lost {
 
   $cv->recv();
 
-  my $exp_msg = "Can't connect to localhost:6379; Connection error";
-
   my @exp_data = (
     1,
     'Connection lost',
-    [ $exp_msg, 1 ],
-    [ $exp_msg, 2 ],
-    [ $exp_msg, 3 ],
-    4,
   );
-
-  is_deeply( \@data, \@exp_data, 'Connection lost, reconnect until success' );
+  is_deeply( \@data, \@exp_data, 'Connection lost' );
 
   return;
 }
 
 ####
-sub t_broken_connection {
+sub broken_connection_t {
   my @data;
-  my $send_sw;
-
-  my $cv = AnyEvent->condvar();
 
   Test::AnyEvent::RedisHandle->redis_up();
+
+  my $cv = AnyEvent->condvar();
 
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
 
-    reconnect => 1,
-    reconnect_after => 0.001,
-    max_connect_attempts => 4,
-
     on_connect => sub {
       my $attempt = shift;
-
       push( @data, $attempt );
-
-      if ( $send_sw ) {
-        $cv->send();
-      }
-    },
-
-    on_connect_error => sub {
-      my $msg = shift;
-      my $attempt = shift;
-
-      push( @data, [ $msg, $attempt ] );
-
-      if ( $attempt == 3 ) {
-        $send_sw = 1;
-        Test::AnyEvent::RedisHandle->redis_up();
-      }
     },
 
     on_error => sub {
       my $msg = shift;
-
       push( @data, $msg );
+      
+      $cv->send();
     },
   );
 
-  $redis->auth( 'test', {
+  $redis->auth( $PASSWORD, {
     on_done => sub {
       Test::AnyEvent::RedisHandle->break_connection();
     },
   } );
-
   $redis->ping();
 
   $cv->recv();
 
-  my $exp_msg = "Can't connect to localhost:6379; Connection error";
+  Test::AnyEvent::RedisHandle->fix_connection();
 
   my @exp_data = (
     1,
     'Error writing to socket',
     'Command "ping" failed',
-    [ $exp_msg, 1 ],
-    [ $exp_msg, 2 ],
-    [ $exp_msg, 3 ],
-    4,
   );
-
-  is_deeply( \@data, \@exp_data, 'Broken connection, reconnect until success' );
+  is_deeply( \@data, \@exp_data, 'Broken connection' );
 
   return;
 }
 
 ####
-sub t_on_error {
-  my $cv = AnyEvent->condvar();
-
-  my $redis = $t_class->new(
-    %GENERIC_PARAMS,
-
-    on_error => sub {
-      my $msg = shift;
-      diag( $msg );
-    },
-  );
-
-  # Authenticate
-  $redis->auth( 'invalid_password', {
-    on_error => sub {
-      my $resp = shift;
-      is( $resp, 'ERR invalid password', 'on_error (parameter of the method)' );
-
-      $cv->send();
-    },
-  } );
-
-  $cv->recv();
-
-  return;
-}
+#sub on_error_t {
+#  my $cv = AnyEvent->condvar();
+#
+#  my $redis = $t_class->new(
+#    %GENERIC_PARAMS,
+#
+#    on_error => sub {
+#      my $msg = shift;
+#      diag( $msg );
+#    },
+#  );
+#
+#  # Authenticate
+#  $redis->auth( 'invalid_password', {
+#    on_error => sub {
+#      my $resp = shift;
+#      is( $resp, 'ERR invalid password', 'on_error (parameter of the method)' );
+#
+#      $cv->send();
+#    },
+#  } );
+#
+#  $cv->recv();
+#
+#  return;
+#}

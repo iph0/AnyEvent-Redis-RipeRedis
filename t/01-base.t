@@ -29,11 +29,6 @@ my $redis = new_ok( $t_class, [
     my $attempt = shift;
     is( $attempt, 1, 'on_connect' );
   },
-
-  on_error => sub {
-    my $msg = shift;
-    diag( $msg );
-  },
 ] );
 
 # Authenticate
