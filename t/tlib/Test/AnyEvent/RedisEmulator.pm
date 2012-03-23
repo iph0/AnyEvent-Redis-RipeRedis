@@ -135,7 +135,7 @@ sub new {
 
 ####
 sub process_command {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd_szd = shift;
 
   my $cmd = $self->_parse_command( $cmd_szd );
@@ -184,35 +184,27 @@ sub process_command {
 
 ####
 sub _parse_command {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd_szd = shift;
 
   if ( !defined( $cmd_szd ) || $cmd_szd eq '' ) {
     return;
   }
-
   my $eol_pos = index( $cmd_szd, $EOL );
-
   if ( $eol_pos <= 0 ) {
     return;
   }
-
   my $token = substr( $cmd_szd, 0, $eol_pos, '' );
   my $type = substr( $token, 0, 1, '' );
   substr( $cmd_szd, 0, $EOL_LENGTH, '' );
-
   if ( $type ne '*' ) {
     return;
   }
-
   my $mbulk_len = $token;
-
   if ( $mbulk_len =~ m/[^0-9]/o || $mbulk_len == 0 ) {
     return;
   }
-
   my $args = $self->_parse_mbulk( $cmd_szd, $mbulk_len );
-
   my $cmd = {
     name => shift( @{ $args } ),
     args => $args,
@@ -239,19 +231,15 @@ sub _parse_mbulk {
     }
     else {
       my $eol_pos = index( $cmd_szd, $EOL );
-
       if ( $eol_pos <= 0 ) {
         return;
       }
-
       my $token = substr( $cmd_szd, 0, $eol_pos, '' );
       my $type = substr( $token, 0, 1, '' );
       substr( $cmd_szd, 0, $EOL_LENGTH, '' );
-
       if ( $type ne '$' ) {
         return;
       }
-
       $bulk_len = $token;
     }
   }
@@ -261,7 +249,7 @@ sub _parse_mbulk {
 
 ####
 sub _exec_command {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
   if ( !$self->{is_auth} && $cmd->{name} ne 'auth' ) {
@@ -291,7 +279,7 @@ sub _exec_command {
 
 ####
 sub _serialize_response {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $resp = shift;
 
   if ( $resp->{type} eq '+' || $resp->{type} eq ':' ) {
@@ -338,7 +326,6 @@ sub _serialize_response {
 ####
 sub _validate_auth {
   my $cmd = pop;
-
   my @args = @{ $cmd->{args} };
   my $pass = shift( @args );
 
@@ -356,9 +343,8 @@ sub _validate_auth {
 
 ####
 sub _exec_auth {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $pass = shift( @args );
 
@@ -388,7 +374,6 @@ sub _exec_ping {
 ####
 sub _validate_incr {
   my $cmd = pop;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
 
@@ -406,13 +391,12 @@ sub _validate_incr {
 
 ####
 sub _exec_incr {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
-  my $storage = $self->{storage};
 
+  my $storage = $self->{storage};
   if ( defined( $storage->{ $key } ) ) {
     if ( ref( $storage->{ $key } ) ) {
       return {
@@ -442,7 +426,6 @@ sub _exec_incr {
 ####
 sub _validate_set {
   my $cmd = pop;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $val = shift( @args );
@@ -463,9 +446,8 @@ sub _validate_set {
 
 ####
 sub _exec_set {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $val = shift( @args );
@@ -481,7 +463,6 @@ sub _exec_set {
 ####
 sub _validate_get {
   my $cmd = pop;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
 
@@ -499,13 +480,12 @@ sub _validate_get {
 
 ####
 sub _exec_get {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
-  my $storage = $self->{storage};
 
+  my $storage = $self->{storage};
   if ( !defined( $storage->{ $key } ) ) {
     return {
       type => '$',
@@ -528,7 +508,6 @@ sub _exec_get {
 ####
 sub _validate_push {
   my $cmd = pop;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $val = shift( @args );
@@ -549,14 +528,13 @@ sub _validate_push {
 
 ####
 sub _exec_push {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $val = shift( @args );
-  my $storage = $self->{storage};
 
+  my $storage = $self->{storage};
   if ( defined( $storage->{ $key } ) ) {
     if ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
       return {
@@ -585,7 +563,6 @@ sub _exec_push {
 ####
 sub _validate_bpop {
   my $cmd = pop;
-
   my @args = @{ $cmd->{args} };
   my $timeout = pop( @args );
   my @keys = @args;
@@ -612,14 +589,13 @@ sub _validate_bpop {
 
 ####
 sub _exec_bpop {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $timeout = pop( @args ); # Timeout will be ignored
   my @keys = @args;
   my $storage = $self->{storage};
-
+  
   foreach my $key ( @keys ) {
     if ( !defined( $storage->{ $key } ) ) {
       next;
@@ -654,9 +630,8 @@ sub _exec_bpop {
 
 ####
 sub _validate_lrange {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $start = shift( @args );
@@ -679,9 +654,8 @@ sub _validate_lrange {
 
 ####
 sub _exec_lrange {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $start = shift( @args );
@@ -692,8 +666,8 @@ sub _exec_lrange {
   if ( $stop !~ m/^\-?[0-9]+$/o ) {
     $stop = 0;
   }
+  
   my $storage = $self->{storage};
-
   if ( !defined( $storage->{ $key } ) ) {
     return {
       type => '*',
@@ -721,7 +695,7 @@ sub _exec_lrange {
 
 ####
 sub _exec_multi {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
 
   $self->{transaction_began} = 1;
 
@@ -732,7 +706,7 @@ sub _exec_multi {
 }
 
 sub _exec_exec {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
 
   my @data_list;
   if ( @{ $self->{commands_queue} } ) {
@@ -753,7 +727,6 @@ sub _exec_exec {
 ####
 sub _validate_sub {
   my $cmd = pop;
-
   my @ch_proto = @{ $cmd->{args} };
 
   if ( scalar( @ch_proto ) == 0 ) {
@@ -770,9 +743,8 @@ sub _validate_sub {
 
 ####
 sub _exec_sub {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @ch_proto = @{ $cmd->{args} };
 
   my @data;
@@ -821,9 +793,8 @@ sub _exec_sub {
 
 ####
 sub _exec_unsub {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
-
   my @ch_proto = @{ $cmd->{args} };
 
   my @data;

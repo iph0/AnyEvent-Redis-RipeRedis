@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.700002';
+our $VERSION = '0.700003';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -48,16 +48,8 @@ sub new {
 
   $params = $self->_validate_new( $params );
 
-  $self->{host} = $params->{host};
-  $self->{port} = $params->{port};
-  $self->{encoding} = $params->{encoding};
-  $self->{reconnect} = $params->{reconnect};
-  $self->{reconnect_after} = $params->{reconnect_after};
-  $self->{max_connect_attempts} = $params->{max_connect_attempts};
-  $self->{on_connect} = $params->{on_connect};
-  $self->{on_stop_reconnect} = $params->{on_stop_reconnect};
-  $self->{on_connect_error} = $params->{on_connect_error};
-  $self->{on_error} = $params->{on_error};
+  my @keys = keys( %{ $params } );
+  @{ $self }{ @keys } = @{ $params }{ @keys };
   $self->{handle} = undef;
   $self->{connect_attempt} = 0;
   $self->{commands_queue} = [];
@@ -74,7 +66,7 @@ sub new {
 
 ####
 sub _validate_new {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $params = shift;
 
   if ( defined( $params->{encoding} ) ) {
@@ -124,7 +116,7 @@ sub _validate_new {
 
 ####
 sub _connect {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
 
   ++$self->{connect_attempt};
 
@@ -182,7 +174,7 @@ sub _connect {
 
 ####
 sub _exec_command {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd_name = shift;
   my @args = @_;
   my $params = {};
@@ -226,7 +218,7 @@ sub _exec_command {
 
 ####
 sub _validate_exec_cmd {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $params = shift;
 
   foreach my $cb_name ( qw( on_done on_message on_error ) ) {
@@ -244,7 +236,7 @@ sub _validate_exec_cmd {
 
 ####
 sub _push_command {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
   push( @{ $self->{commands_queue} }, $cmd );
@@ -256,7 +248,7 @@ sub _push_command {
 
 ####
 sub _serialize_command {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
   my $bulk_len = scalar( @{ $cmd->{args} } ) + 1;
@@ -279,7 +271,7 @@ sub _serialize_command {
 
 ####
 sub _prepare_read {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $cb = shift;
 
   my $bulk_len;
@@ -350,7 +342,7 @@ sub _prepare_read {
 
 ####
 sub _unshift_read {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $hdl = shift;
   my $mbulk_len = shift;
   my $cb = shift;
@@ -400,7 +392,7 @@ sub _unshift_read {
 
 ####
 sub _prcoess_response {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $data = shift;
   my $is_err = shift;
 
@@ -465,7 +457,7 @@ sub _prcoess_response {
 
 ####
 sub _process_sub_message {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $data = shift;
 
   my $sub = $self->{subs}{ $data->[ 1 ] };
@@ -483,7 +475,7 @@ sub _process_sub_message {
 
 ####
 sub _process_error {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
   my $err = shift;
 
   my $cmd = shift( @{ $self->{commands_queue} } );
@@ -499,7 +491,7 @@ sub _process_error {
 
 ####
 sub _abort_all {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
 
   while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
     $cmd->{on_error}->( "Command \"$cmd->{name}\" failed" );
@@ -513,7 +505,7 @@ sub _abort_all {
 
 ####
 sub _try_to_reconnect {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
 
   if ( $self->{reconnect}
     && ( !defined( $self->{max_connect_attempts} )
@@ -532,7 +524,7 @@ sub _try_to_reconnect {
 
 ####
 sub _reconnect {
-  my $self = shift;
+  my __PACKAGE__ $self = shift;
 
   if ( $self->{connect_attempt} > 0 ) {
     my $timer;
@@ -579,7 +571,7 @@ sub AUTOLOAD {
   $cmd_name = lc( $cmd_name );
 
   my $sub = sub {
-    my $self = shift;
+    my __PACKAGE__ $self = shift;
     $self->_exec_command( $cmd_name, @_ );
   };
 

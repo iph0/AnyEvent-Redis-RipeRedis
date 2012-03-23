@@ -30,12 +30,9 @@ my $redis = $t_class->new(
 # Authenticate
 $redis->auth( 'test' );
 
-
 # Subscribe to channels by name
-
 my @sub_data;
 my @sub_msgs;
-
 $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
     my $ch_name = shift;
@@ -58,12 +55,9 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
   },
 } );
 
-
 # Subscribe to channels by pattern
-
 my @psub_data;
 my @psub_msgs;
-
 $redis->psubscribe( qw( info_* err_* ), {
   on_done =>  sub {
     my $ch_pattern = shift;
@@ -88,9 +82,7 @@ $redis->psubscribe( qw( info_* err_* ), {
   },
 } );
 
-
 # Unsubscribe after timeout
-
 my @unsub_data;
 my @punsub_data;
 my $unsub_timeout;
