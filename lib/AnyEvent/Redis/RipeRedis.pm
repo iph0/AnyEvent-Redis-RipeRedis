@@ -261,7 +261,6 @@ sub _serialize_command {
 
   my $bulk_len = scalar( @{ $cmd->{args} } ) + 1;
   my $cmd_szd = "*$bulk_len$EOL";
-
   foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
     if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
       $tkn = $self->{encoding}->encode( $tkn );
