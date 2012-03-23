@@ -27,13 +27,11 @@ $redis = AnyEvent::Redis::RipeRedis->new(
     $redis->auth( 'your_password', {
       on_done => sub {
         my $resp = shift;
-
         say "Authentication $resp";
       },
 
       on_error => sub {
         my $msg = shift;
-
         warn "Authentication failed; $msg\n";
       },
     } );
@@ -45,9 +43,8 @@ $redis = AnyEvent::Redis::RipeRedis->new(
         $redis->incr( 'foo', {
           on_done => sub {
             my $val = shift;
-
             say $val;
-          }
+          },
         } );
       },
     );
@@ -60,13 +57,11 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   on_connect_error => sub {
     my $msg = shift;
     my $attempt = shift;
-
     warn "$msg; $attempt\n";
   },
 
   on_error => sub {
     my $msg = shift;
-
     warn "$msg\n";
   },
 );
@@ -75,7 +70,6 @@ my $cv = AnyEvent->condvar();
 
 my $sig_cb = sub {
   say 'Stopped';
-
   $cv->send();
 };
 

@@ -14,13 +14,11 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 
   on_connect => sub {
     my $attempt = shift;
-
     say "Connected: $attempt";
   },
 
   on_error => sub {
     my $msg = shift;
-
     warn "$msg\n";
   },
 );
@@ -31,20 +29,17 @@ my $cv = AnyEvent->condvar();
 $redis->auth( 'your_password', {
   on_done => sub {
     my $resp = shift;
-
     say "Authentication $resp";
   },
 
   on_error => sub {
     my $msg = shift;
-
     warn "Authentication failed; $msg\n";
   },
 } );
 
 
 # Subscribe to channels by name
-
 $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
     my $ch_name = shift;
@@ -61,9 +56,7 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
   },
 } );
 
-
 # Subscribe to channels by pattern
-
 $redis->psubscribe( qw( info_* err_* ), {
   on_done =>  sub {
     my $ch_pattern = shift;

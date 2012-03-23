@@ -118,8 +118,7 @@ my $EOL_LENGTH = length( $EOL );
 sub new {
   my $proto = shift;
 
-  my $class = ref( $proto ) || $proto;
-  my $self = fields::new( $class );
+  my $self = fields::new( $proto );
 
   $self->{storage} = {};
   $self->{is_auth} = 0;
@@ -142,22 +141,17 @@ sub process_command {
   my $cmd = $self->_parse_command( $cmd_szd );
 
   my $resp;
-
   if ( defined( $cmd ) ) {
-
     if ( exists( $COMMANDS{ $cmd->{name} } ) ) {
-
       $resp = eval {
         $self->_exec_command( $cmd );
       };
-
       if ( $@ ) {
         $resp = $@;
       }
     }
     else {
       ( my $msg = $ERR_MESSAGES{unknown_cmd} ) =~ s/%c/$cmd->{name}/go;
-
       $resp = {
         type => '-',
         data => $msg,
@@ -171,15 +165,15 @@ sub process_command {
     };
   }
 
-
+  my $resp_szd;
   if ( ref( $resp ) ne 'ARRAY' ) {
-    return $self->_serialize_response( $resp );
+    $resp_szd = $self->_serialize_response( $resp );
   }
-
-  my $resp_szd = '';
-
-  foreach my $resp_el ( @{ $resp } ) {
-    $resp_szd .= $self->_serialize_response( $resp_el );
+  else {
+    $resp_szd = '';
+    foreach my $resp_el ( @{ $resp } ) {
+      $resp_szd .= $self->_serialize_response( $resp_el );
+    }
   }
 
   return $resp_szd;
@@ -234,17 +228,12 @@ sub _parse_mbulk {
 
   my @args;
   my $bulk_len;
-
   my $args_remaining = $mbulk_len;
-
   while ( $args_remaining ) {
-
     if ( $bulk_len ) {
       my $arg = substr( $cmd_szd, 0, $bulk_len, '' );
       substr( $cmd_szd, 0, $EOL_LENGTH, '' );
-
       push( @args, $arg );
-
       undef( $bulk_len );
       --$args_remaining;
     }
@@ -312,28 +301,21 @@ sub _serialize_response {
     return "$resp->{type}ERR $resp->{data}$EOL";
   }
   elsif ( $resp->{type} eq '$' ) {
-
     if ( defined( $resp->{data} ) && $resp->{data} ne ''  ){
       my $bulk_len = length( $resp->{data} );
-
       return "$resp->{type}$bulk_len$EOL$resp->{data}$EOL";
     }
 
     return "$resp->{type}-1$EOL";
   }
   elsif ( $resp->{type} eq '*' ) {
-
     if ( !defined( $resp->{data} ) || $resp->{data} eq '' ) {
       return "*-1$EOL";
     }
-
     my $mbulk_len = scalar( @{ $resp->{data} } );
-
     if ( $mbulk_len > 0 ) {
       my $data_szd = "*$mbulk_len$EOL";
-
       foreach my $val ( @{ $resp->{data} } ) {
-
         if ( ref( $val ) eq 'HASH' ) {
           $data_szd .= $self->_serialize_response( $val );
         }
@@ -429,11 +411,9 @@ sub _exec_incr {
 
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
-
   my $storage = $self->{storage};
 
   if ( defined( $storage->{ $key } ) ) {
-
     if ( ref( $storage->{ $key } ) ) {
       return {
         type => '-',
@@ -524,7 +504,6 @@ sub _exec_get {
 
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
-
   my $storage = $self->{storage};
 
   if ( !defined( $storage->{ $key } ) ) {
@@ -576,11 +555,9 @@ sub _exec_push {
   my @args = @{ $cmd->{args} };
   my $key = shift( @args );
   my $val = shift( @args );
-
   my $storage = $self->{storage};
 
   if ( defined( $storage->{ $key } ) ) {
-
     if ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
       return {
         type => '-',
@@ -641,11 +618,9 @@ sub _exec_bpop {
   my @args = @{ $cmd->{args} };
   my $timeout = pop( @args ); # Timeout will be ignored
   my @keys = @args;
-
   my $storage = $self->{storage};
 
   foreach my $key ( @keys ) {
-
     if ( !defined( $storage->{ $key } ) ) {
       next;
     }
@@ -711,15 +686,12 @@ sub _exec_lrange {
   my $key = shift( @args );
   my $start = shift( @args );
   my $stop = shift( @args );
-
   if ( $start !~ m/^\-?[0-9]+$/o ) {
     $start = 0;
   }
-
   if ( $stop !~ m/^\-?[0-9]+$/o ) {
     $stop = 0;
   }
-
   my $storage = $self->{storage};
 
   if ( !defined( $storage->{ $key } ) ) {
@@ -763,12 +735,9 @@ sub _exec_exec {
   my $self = shift;
 
   my @data_list;
-
   if ( @{ $self->{commands_queue} } ) {
-
     while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
       my $resp = $COMMANDS{ $cmd->{name} }{exec}->( $self, $cmd );
-
       push( @data_list, $resp );
     }
   }
@@ -807,14 +776,11 @@ sub _exec_sub {
   my @ch_proto = @{ $cmd->{args} };
 
   my @data;
-
   foreach my $ch_proto ( @ch_proto ) {
-
     if ( !exists( $self->{subs}{ $ch_proto } ) ) {
       $self->{subs}{ $ch_proto } = 1;
       ++$self->{subs_num};
     }
-
     push( @data, {
       type => '*',
       data => [
@@ -826,10 +792,8 @@ sub _exec_sub {
 
     # Send message to channels
     my $msg = 'test';
-
     if ( index( $cmd->{name}, 'p' ) == 0 ) {
       ( my $ch_name = $ch_proto ) =~ s/\*$/some/o;
-
       push( @data, {
         type => '*',
         data => [
@@ -863,14 +827,11 @@ sub _exec_unsub {
   my @ch_proto = @{ $cmd->{args} };
 
   my @data;
-
   foreach my $ch_proto ( @ch_proto ) {
-
     if ( exists( $self->{subs}{ $ch_proto } ) ) {
       delete( $self->{subs}{ $ch_proto } );
       --$self->{subs_num};
     }
-
     push( @data, {
       type => '*',
       data => [

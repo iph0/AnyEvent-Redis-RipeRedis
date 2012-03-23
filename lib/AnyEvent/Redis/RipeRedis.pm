@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.700001';
+our $VERSION = '0.700002';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -51,13 +51,9 @@ sub new {
   $self->{host} = $params->{host};
   $self->{port} = $params->{port};
   $self->{encoding} = $params->{encoding};
-
-  if ( $params->{reconnect} ) {
-    $self->{reconnect} = $params->{reconnect};
-    $self->{reconnect_after} = $params->{reconnect_after};
-    $self->{max_connect_attempts} = $params->{max_connect_attempts};
-  }
-  
+  $self->{reconnect} = $params->{reconnect};
+  $self->{reconnect_after} = $params->{reconnect_after};
+  $self->{max_connect_attempts} = $params->{max_connect_attempts};
   $self->{on_connect} = $params->{on_connect};
   $self->{on_stop_reconnect} = $params->{on_stop_reconnect};
   $self->{on_connect_error} = $params->{on_connect_error};
@@ -91,9 +87,7 @@ sub _validate_new {
   }
 
   if ( $params->{reconnect} ) {
-
     if ( defined( $params->{reconnect_after} ) ) {
-
       if ( !looks_like_number( $params->{reconnect_after} )
         || $params->{reconnect_after} <= 0 ) {
 
@@ -105,15 +99,14 @@ sub _validate_new {
     }
 
     if ( defined( $params->{max_connect_attempts} )
-        && ( $params->{max_connect_attempts} =~ m/[^0-9]/o
-          || $params->{max_connect_attempts} <= 0 ) ) {
+      && ( $params->{max_connect_attempts} =~ m/[^0-9]/o
+        || $params->{max_connect_attempts} <= 0 ) ) {
 
       croak '"max_connect_attempts" must be a positive integer number';
     }
   }
 
   foreach my $cb_name ( qw( on_connect on_stop_reconnect on_connect_error on_error ) ) {
-
     if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
       croak "\"$cb_name\" callback must be a CODE reference";
     }
@@ -122,7 +115,6 @@ sub _validate_new {
   if ( !defined( $params->{on_error} ) ) {
     $params->{on_error} = sub {
       my $err = shift;
-
       warn "$err\n";
     };
   }
@@ -141,28 +133,23 @@ sub _connect {
     keepalive => 1,
 
     on_connect => sub {
-
       if ( defined( $self->{on_connect} ) ) {
         $self->{on_connect}->( $self->{connect_attempt} );
       }
-
       $self->{connect_attempt} = 0;
     },
 
     on_connect_error => sub {
       my $err = pop;
 
-      $err = "Can't connect to $self->{host}:$self->{port}; $err";
-
       undef( $self->{handle} );
-
+      $err = "Can't connect to $self->{host}:$self->{port}; $err";
       if ( defined( $self->{on_connect_error} ) ) {
         $self->{on_connect_error}->( $err, $self->{connect_attempt} );
       }
       else {
         $self->{on_error}->( $err );
       }
-
       $self->_abort_all();
       $self->_try_to_reconnect();
     },
@@ -183,9 +170,11 @@ sub _connect {
       $self->_try_to_reconnect();
     },
 
-    on_read => $self->_prepare_read( sub {
-      return $self->_prcoess_response( @_ );
-    } ),
+    on_read => $self->_prepare_read(
+      sub {
+        return $self->_prcoess_response( @_ );
+      }
+    ),
   );
 
   return;
@@ -196,14 +185,9 @@ sub _exec_command {
   my $self = shift;
   my $cmd_name = shift;
   my @args = @_;
-
-  my $params;
-
+  my $params = {};
   if ( ref( $args[ -1 ] ) eq 'HASH' ) {
     $params = pop( @args );
-  }
-  else {
-    $params = {};
   }
 
   $params = $self->_validate_exec_cmd( $params );
@@ -215,12 +199,10 @@ sub _exec_command {
   };
 
   if ( $self->_is_sub_group_cmd( $cmd_name ) ) {
-
     if ( $self->{sub_lock} ) {
       croak "Command \"$cmd_name\" not allowed in this context."
           . " First, the transaction must be completed.";
     }
-
     $cmd->{resp_remaining} = scalar( @args );
   }
   elsif ( $cmd_name eq 'multi' ) {
@@ -248,7 +230,6 @@ sub _validate_exec_cmd {
   my $params = shift;
 
   foreach my $cb_name ( qw( on_done on_message on_error ) ) {
-
     if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
       croak "\"$cb_name\" callback must be a CODE reference";
     }
@@ -282,11 +263,9 @@ sub _serialize_command {
   my $cmd_szd = "*$bulk_len$EOL";
 
   foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
-
     if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
       $tkn = $self->{encoding}->encode( $tkn );
     }
-
     if ( defined( $tkn ) ) {
       my $tkn_len =  length( $tkn );
       $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
@@ -310,20 +289,15 @@ sub _prepare_read {
     my $hdl = shift;
 
     while ( 1 ) {
-
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + $EOL_LENGTH;
-
         if ( length( substr( $hdl->{rbuf}, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
           my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
           substr( $hdl->{rbuf}, 0, $EOL_LENGTH, '' );
-
           chomp( $data );
-
           if ( $self->{encoding} ) {
             $data = $self->{encoding}->decode( $data );
           }
-
           undef( $bulk_len );
 
           return 1 if $cb->( $data );
@@ -334,7 +308,7 @@ sub _prepare_read {
       }
 
       my $eol_pos = index( $hdl->{rbuf}, $EOL );
-
+      
       if ( $eol_pos >= 0 ) {
         my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
@@ -347,7 +321,6 @@ sub _prepare_read {
           return 1 if $cb->( $data, 1 );
         }
         elsif ( $type eq '$' ) {
-
           if ( $data > 0 ) {
             $bulk_len = $data;
           }
@@ -357,10 +330,8 @@ sub _prepare_read {
         }
         elsif ( $type eq '*' ) {
           my $mbulk_len = $data;
-
           if ( $mbulk_len > 0 ) {
             $self->_unshift_read( $hdl, $mbulk_len, $cb );
-
             return 1;
           }
           elsif ( $mbulk_len < 0 ) {
@@ -385,12 +356,12 @@ sub _unshift_read {
   my $mbulk_len = shift;
   my $cb = shift;
 
-  my $remaining = $mbulk_len;
-
   my $read_cb;
   my @data_list;
   my @errors;
 
+  my $remaining = $mbulk_len;
+  
   my $cb_wrap = sub {
     my $data = shift;
     my $is_err = shift;
@@ -412,13 +383,11 @@ sub _unshift_read {
 
       if ( @errors ) {
         my $err = join( "\n", @errors );
-
         $cb->( $err, 1 );
-
-        return 1;
       }
-
-      $cb->( \@data_list );
+      else {
+        $cb->( \@data_list );
+      }
 
       return 1;
     }
@@ -441,7 +410,6 @@ sub _prcoess_response {
   }
 
   if ( %{ $self->{subs} } && $self->_is_sub_message( $data ) ) {
-
     if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
       return $self->_process_sub_message( $data );
     }
@@ -451,32 +419,25 @@ sub _prcoess_response {
 
   if ( !defined( $cmd ) ) {
     $self->{on_error}->( 'Unexpected data in response' );
-
     return;
   }
 
   if ( $self->_is_sub_group_cmd( $cmd->{name} ) ) {
-
     if ( $self->_is_sub_cmd( $cmd->{name} ) ) {
       my $sub = {};
-
       if ( defined( $cmd->{on_done} ) ) {
         $sub->{on_done} = $cmd->{on_done};
         $sub->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
       }
-
       if ( defined( $cmd->{on_message} ) ) {
         $sub->{on_message} = $cmd->{on_message};
       }
-
       $self->{subs}{ $data->[ 1 ] } = $sub;
     }
     else {
-
       if ( defined( $cmd->{on_done} ) ) {
         $cmd->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
       }
-
       if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
         delete( $self->{subs}{ $data->[ 1 ] } );
       }
@@ -509,9 +470,7 @@ sub _process_sub_message {
   my $data = shift;
 
   my $sub = $self->{subs}{ $data->[ 1 ] };
-
   if ( exists( $sub->{on_message} ) ) {
-
     if ( $data->[ 0 ] eq 'message' ) {
       $sub->{on_message}->( $data->[ 1 ], $data->[ 2 ] );
     }
@@ -529,7 +488,6 @@ sub _process_error {
   my $err = shift;
 
   my $cmd = shift( @{ $self->{commands_queue} } );
-
   if ( defined( $cmd ) ) {
     $cmd->{on_error}->( $err );
   }
@@ -558,13 +516,13 @@ sub _abort_all {
 sub _try_to_reconnect {
   my $self = shift;
 
-  if ( $self->{reconnect} && ( !defined( $self->{max_connect_attempts} )
-    || $self->{connect_attempt} < $self->{max_connect_attempts} ) ) {
+  if ( $self->{reconnect}
+    && ( !defined( $self->{max_connect_attempts} )
+      || $self->{connect_attempt} < $self->{max_connect_attempts} ) ) {
 
     $self->_reconnect();
   }
   else {
-
     if ( defined( $self->{on_stop_reconnect} ) ) {
       $self->{on_stop_reconnect}->();
     }
@@ -579,12 +537,10 @@ sub _reconnect {
 
   if ( $self->{connect_attempt} > 0 ) {
     my $timer;
-
     $timer = AnyEvent->timer(
       after => $self->{reconnect_after},
       cb => sub {
         undef( $timer );
-
         $self->_connect();
       },
     );
@@ -599,7 +555,6 @@ sub _reconnect {
 ####
 sub _is_sub_group_cmd {
   my $cmd_name = pop;
-
   return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe'
       || $cmd_name eq 'psubscribe' || $cmd_name eq 'punsubscribe';
 }
@@ -607,14 +562,12 @@ sub _is_sub_group_cmd {
 ####
 sub _is_sub_cmd {
   my $cmd_name = pop;
-
   return $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe';
 }
 
 ####
 sub _is_sub_message {
   my $data = pop;
-
   return ref( $data ) eq 'ARRAY' && ( $data->[ 0 ] eq 'message'
       || $data->[ 0 ] eq 'pmessage' );
 }
@@ -622,20 +575,17 @@ sub _is_sub_message {
 ####
 sub AUTOLOAD {
   our $AUTOLOAD;
-
   my $cmd_name = $AUTOLOAD;
   $cmd_name =~ s/^.+:://o;
   $cmd_name = lc( $cmd_name );
 
   my $sub = sub {
     my $self = shift;
-
     $self->_exec_command( $cmd_name, @_ );
   };
 
   do {
     no strict 'refs';
-
     *{ $AUTOLOAD } = $sub;
   };
 

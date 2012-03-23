@@ -27,13 +27,11 @@ my $redis = new_ok( $t_class, [
 
   on_connect => sub {
     my $attempt = shift;
-
     is( $attempt, 1, 'on_connect' );
   },
 
   on_error => sub {
     my $msg = shift;
-
     diag( $msg );
   },
 ] );
@@ -42,7 +40,6 @@ my $redis = new_ok( $t_class, [
 $redis->auth( 'test', {
   on_done => sub {
     my $resp = shift;
-
     is( $resp, 'OK', 'auth (status reply)' )
   },
 } );
@@ -51,7 +48,6 @@ $redis->auth( 'test', {
 $redis->incr( 'foo', {
   on_done => sub {
     my $val = shift;
-
     is( $val, 1, 'incr (numeric reply)' );
   },
 } );
@@ -63,7 +59,6 @@ $redis->set( 'bar', 'Some string' );
 $redis->get( 'bar', {
   on_done => sub {
     my $val = shift;
-
     is( $val, 'Some string', 'get (bulk reply)' );
   },
 } );
@@ -72,7 +67,6 @@ $redis->get( 'bar', {
 $redis->get( 'non_existent', {
   on_done => sub {
     my $val = shift;
-
     is( $val, undef, 'get (non existent key)' );
   },
 } );
@@ -84,7 +78,6 @@ for ( my $i = 2; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i", {
     on_done => sub {
       my $resp = shift;
-
       is( $resp, 'OK', 'rpush (status reply)' );
     },
   } );
@@ -93,7 +86,6 @@ for ( my $i = 2; $i <= 3; $i++ ) {
 $redis->lpush( 'list', "element_1", {
   on_done => sub {
     my $resp = shift;
-
     is( $resp, 'OK', 'rpush (status reply)' );
   },
 } );
@@ -109,7 +101,6 @@ $redis->lrange( 'list', 0, -1, {
       element_2
       element_3
     ) ];
-
     is_deeply( $list, $exp, 'lrange (multi-bulk reply)' );
   },
 } );
@@ -118,7 +109,6 @@ $redis->lrange( 'list', 0, -1, {
 $redis->lrange( 'non_existent', 0, -1, {
   on_done => sub {
     my $list = shift;
-
     is_deeply( $list, [], 'lrange (empty list)' );
   },
 } );
@@ -127,7 +117,6 @@ $redis->lrange( 'non_existent', 0, -1, {
 $redis->brpop( 'non_existent', '5', {
   on_done => sub {
     my $val = shift;
-
     is( $val, undef, 'brpop (empty list)' );
   },
 } );
@@ -138,7 +127,6 @@ $redis->brpop( 'non_existent', '5', {
 $redis->multi( {
   on_done => sub {
     my $resp = shift;
-
     is( $resp, 'OK', 'multi (status reply)' );
   },
 } );
@@ -146,7 +134,6 @@ $redis->multi( {
 $redis->incr( 'foo', {
   on_done => sub {
     my $val = shift;
-
     is( $val, 'QUEUED', 'incr (queued)' );
   },
 } );
@@ -154,7 +141,6 @@ $redis->incr( 'foo', {
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $resp = shift;
-
     is( $resp, 'QUEUED', 'lrange (queued)' );
   },
 } );
@@ -162,7 +148,6 @@ $redis->lrange( 'list', 0, -1, {
 $redis->get( 'bar', {
   on_done => sub {
     my $val = shift;
-
     is( $val, 'QUEUED', 'get (queued)' );
   },
 } );
@@ -180,20 +165,16 @@ $redis->exec( {
       ) ],
       'Some string',
     ];
-
     is_deeply( $data_list, $exp, 'exec (nested multi-bulk reply)' );
-
     $cv->send();
   },
 } );
 
 my $timeout;
-
 $timeout = AnyEvent->timer(
   after => 5,
   cb => sub {
     undef( $timeout );
-
     exit 0; # Emergency exit
   },
 );

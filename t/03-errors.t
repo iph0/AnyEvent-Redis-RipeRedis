@@ -2,6 +2,8 @@ use 5.010000;
 use strict;
 use warnings;
 
+# FIXME restyle
+
 use lib 't/tlib';
 use Test::More tests => 6;
 use Test::AnyEvent::RedisHandle;
@@ -22,7 +24,6 @@ $timeout = AnyEvent->timer(
   after => 5,
   cb => sub {
     undef( $timeout );
-
     exit 0; # Emergency exit
   },
 );
@@ -63,7 +64,6 @@ sub t_can_not_connect {
 
     on_error => sub {
       my $msg = shift;
-
       diag( $msg );
     },
   );
@@ -77,9 +77,7 @@ sub t_can_not_connect {
 
     on_error => sub {
       my $msg = shift;
-
       push( @data, $msg );
-
       $cv->send();
     },
   );
@@ -88,7 +86,6 @@ sub t_can_not_connect {
 
   $redis->ping( sub {
     my $resp;
-
     diag( $resp );
   } );
 
@@ -120,7 +117,6 @@ sub t_reconnect_n_times {
 
   $redis = $t_class->new(
     %GENERIC_PARAMS,
-
     reconnect => 1,
     reconnect_after => 0.001,
     max_connect_attempts => 2,
@@ -140,7 +136,6 @@ sub t_reconnect_n_times {
 
     on_error => sub {
       my $msg = shift;
-
       diag( $msg );
     },
   );
@@ -158,13 +153,11 @@ sub t_reconnect_n_times {
 
     on_stop_reconnect => sub {
       push( @data, 'stopped' );
-
       $cv->send();
     },
 
     on_error => sub {
       my $msg = shift;
-
       push( @data, $msg );
     },
   );
@@ -195,22 +188,19 @@ sub t_reconnect_until_success {
   my $redis;
   my @data;
 
-  $cv = AnyEvent->condvar();
-
   Test::AnyEvent::RedisHandle->redis_down();
+
+  $cv = AnyEvent->condvar();
 
   $redis = $t_class->new(
     %GENERIC_PARAMS,
-
     reconnect => 1,
     reconnect_after => 0.001,
     max_connect_attempts => 3,
 
     on_connect => sub {
       my $attempt = shift;
-
       push( @data, $attempt );
-
       $cv->send();
     },
 
@@ -227,16 +217,15 @@ sub t_reconnect_until_success {
 
     on_error => sub {
       my $msg = shift;
-
       diag( $msg );
     },
   );
 
   $cv->recv();
 
-  $cv = AnyEvent->condvar();
-
   Test::AnyEvent::RedisHandle->redis_down();
+
+  $cv = AnyEvent->condvar();
 
   my $attempt = 0;
 
@@ -249,7 +238,6 @@ sub t_reconnect_until_success {
 
     on_connect => sub {
       my $attempt = shift;
-
       push( @data, $attempt );
 
       $cv->send();
@@ -325,7 +313,6 @@ sub t_connection_lost {
 
     on_error => sub {
       my $msg = shift;
-
       push( @data, $msg );
     }
   );
@@ -388,7 +375,6 @@ sub t_broken_connection {
 
       if ( $attempt == 3 ) {
         $send_sw = 1;
-
         Test::AnyEvent::RedisHandle->redis_up();
       }
     },
@@ -436,7 +422,6 @@ sub t_on_error {
 
     on_error => sub {
       my $msg = shift;
-
       diag( $msg );
     },
   );
@@ -445,7 +430,6 @@ sub t_on_error {
   $redis->auth( 'invalid_password', {
     on_error => sub {
       my $resp = shift;
-
       is( $resp, 'ERR invalid password', 'on_error (parameter of the method)' );
 
       $cv->send();

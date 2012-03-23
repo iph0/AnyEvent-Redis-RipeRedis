@@ -9,7 +9,6 @@ use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
 my $t_class = 'AnyEvent::Redis::RipeRedis';
-
 my $cv = AnyEvent->condvar();
 
 my $redis = $t_class->new(
@@ -19,13 +18,11 @@ my $redis = $t_class->new(
 
   on_connect => sub {
     my $attempt = shift;
-
     is( $attempt, 1, 'on_connect' );
   },
 
   on_error => sub {
     my $msg = shift;
-
     diag( $msg );
   },
 );
@@ -96,12 +93,9 @@ $redis->psubscribe( qw( info_* err_* ), {
 
 my @unsub_data;
 my @punsub_data;
-
 my $unsub_timeout;
-
 $unsub_timeout = AnyEvent->timer(
   after => 0.001,
-
   cb => sub {
     undef( $unsub_timeout );
 
@@ -136,12 +130,10 @@ $unsub_timeout = AnyEvent->timer(
 );
 
 my $timeout;
-
 $timeout = AnyEvent->timer(
   after => 5,
   cb => sub {
     undef( $timeout );
-
     exit 0; # Emergency exit
   },
 );
@@ -158,7 +150,6 @@ my $exp_sub_data = [
     subs_num => 2,
   },
 ];
-
 is_deeply( \@sub_data, $exp_sub_data, 'subscribe (multi reply)' );
 
 my $exp_sub_msgs = [
@@ -171,7 +162,6 @@ my $exp_sub_msgs = [
     message => 'test',
   },
 ];
-
 is_deeply( \@sub_msgs, $exp_sub_msgs, 'message' );
 
 my $exp_unsub_data = [
@@ -184,7 +174,6 @@ my $exp_unsub_data = [
     subs_num => 2,
   },
 ];
-
 is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe (multi reply)' );
 
 my $exp_psub_data = [
@@ -197,7 +186,6 @@ my $exp_psub_data = [
     subs_num => 4,
   }
 ];
-
 is_deeply( \@psub_data, $exp_psub_data, 'psubscribe (multi reply)' );
 
 my $exp_psub_msgs = [
@@ -212,7 +200,6 @@ my $exp_psub_msgs = [
     ch_pattern => 'err_*',
   },
 ];
-
 is_deeply( \@psub_msgs, $exp_psub_msgs, 'pmessage' );
 
 my $exp_punsub_data = [
@@ -225,5 +212,4 @@ my $exp_punsub_data = [
     subs_num => 0,
   },
 ];
-
 is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe (multi reply)' );

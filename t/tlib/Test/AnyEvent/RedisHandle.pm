@@ -30,11 +30,8 @@ $mock->fake_module(
     $mock->{on_error} = $params{on_error};
     $mock->{on_eof} = $params{on_eof};
     $mock->{on_read} = $params{on_read};
-
     $mock->{rbuf} = '';
-
     $mock->{_redis_emu} = undef;
-
     $mock->{_write_queue} = [];
     $mock->{_read_queue} = [];
     $mock->{_continue_read} = undef;
@@ -71,7 +68,6 @@ $mock->mock( 'unshift_read', sub {
   my $cb = shift;
 
   unshift( @{ $self->{_read_queue} }, $cb );
-
   $self->{_continue_read} = 1;
 
   return;
@@ -83,7 +79,6 @@ $mock->mock( '_connect', sub {
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
     my $msg = 'Connection error';
-
     if ( exists( $self->{on_connect_error} ) ) {
       $self->{on_connect_error}->( $self, $msg );
     }
@@ -95,26 +90,18 @@ $mock->mock( '_connect', sub {
   }
 
   $self->{_redis_emu} = Test::AnyEvent::RedisEmulator->new();
-
   $self->{on_connect}->();
 
-  my $after = 0;
-  my $interval = 0.001;
-
   $self->{_process_timer} = AnyEvent->timer(
-    after => $after,
-    interval => $interval,
+    after => 0,
+    interval => 0.001,
     cb => sub {
-
       if ( @{ $self->{_write_queue} } ) {
         $self->_write();
       }
-
-
       if ( $self->{_continue_read} ) {
         $self->_read();
       }
-
       if ( $REDIS_IS_DOWN
         && !@{ $self->{_write_queue} }
         && !$self->{_continue_read} ) {
@@ -133,13 +120,11 @@ $mock->mock( '_write', sub {
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
     $self->{on_error}->( $self, 'Error writing to socket' );
-
     return;
   }
 
   my $cmd_szd = shift( @{ $self->{_write_queue} } );
   $self->{rbuf} .= $self->{_redis_emu}->process_command( $cmd_szd );
-
   if ( !$self->{_continue_read} ) {
     $self->{_continue_read} = 1;
   }
@@ -153,27 +138,21 @@ $mock->mock( '_read', sub {
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
     $self->{on_error}->( $self, 'Error reading from socket' );
-
     return;
   }
 
   if ( @{ $self->{_read_queue} } && !defined( $self->{_curr_on_read} ) ) {
     $self->{_curr_on_read} = shift( @{ $self->{_read_queue} } );
   }
-
   if ( defined( $self->{_curr_on_read} ) ) {
-
     if ( !$self->{_curr_on_read}->( $self ) ) {
       $self->{_continue_read} = undef;
-
       return;
     }
-
     $self->{_curr_on_read} = undef;
   }
   else {
     $self->{_continue_read} = undef;
-
     $self->{on_read}->( $self );
   }
 

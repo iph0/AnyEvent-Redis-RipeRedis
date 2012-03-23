@@ -14,13 +14,11 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 
   on_connect => sub {
     my $attempt = shift;
-
     say "Connected: $attempt";
   },
 
   on_error => sub {
     my $msg = shift;
-
     warn "$msg\n";
   },
 );
@@ -31,13 +29,11 @@ my $cv = AnyEvent->condvar();
 $redis->auth( 'your_password', {
   on_done => sub {
     my $resp = shift;
-
     say "Authentication $resp";
   },
 
   on_error => sub {
     my $msg = shift;
-
     warn "Authentication failed; $msg\n";
   },
 } );
@@ -46,7 +42,6 @@ $redis->auth( 'your_password', {
 $redis->incr( 'foo', {
   on_done => sub {
     my $val = shift;
-
     say $val;
   },
 } );
@@ -55,7 +50,6 @@ $redis->incr( 'foo', {
 $redis->set( 'bar', 'Some string', {
   on_done => sub {
     my $resp = shift;
-
     say $resp;
   },
 } );
@@ -64,7 +58,6 @@ $redis->set( 'bar', 'Some string', {
 $redis->get( 'bar', {
   on_done => sub {
     my $val = shift;
-
     say $val;
   },
 } );
@@ -74,7 +67,6 @@ for ( my $i = 1; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i", {
     on_done => sub {
       my $resp = shift;
-
       say $resp;
     },
   } );
@@ -97,7 +89,6 @@ $redis->lrange( 'list', 0, -1, {
 $redis->multi( {
   on_done => sub {
     my $resp = shift;
-
     say $resp;
   },
 } );
@@ -105,7 +96,6 @@ $redis->multi( {
 $redis->incr( 'foo', {
   on_done => sub {
     my $resp = shift;
-
     say $resp;
   },
 } );
@@ -113,7 +103,6 @@ $redis->incr( 'foo', {
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $resp = shift;
-
     say $resp;
   },
 } );
@@ -121,7 +110,6 @@ $redis->lrange( 'list', 0, -1, {
 $redis->get( 'bar', {
   on_done => sub {
     my $resp = shift;
-
     say $resp;
   },
 } );
@@ -131,9 +119,7 @@ $redis->exec( {
     my $data_list = shift;
 
     foreach my $data ( @{ $data_list } ) {
-
       if ( ref( $data ) eq 'ARRAY' ) {
-
         foreach my $val ( @{ $data } ) {
           say $val;
         }
@@ -149,11 +135,9 @@ $redis->exec( {
 # Delete keys
 
 foreach my $key ( qw( foo bar list ) ) {
-
   $redis->del( $key, {
     on_done => sub {
       my $is_del = shift;
-
       say $is_del;
     }
   } );
@@ -163,9 +147,7 @@ foreach my $key ( qw( foo bar list ) ) {
 $redis->quit( {
   on_done => sub {
     my $resp = shift;
-
     say $resp;
-
     $cv->send();
   }
 } );
