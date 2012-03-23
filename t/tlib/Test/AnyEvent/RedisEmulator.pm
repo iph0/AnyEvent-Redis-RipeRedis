@@ -430,9 +430,9 @@ sub _validate_set {
   my $key = shift( @args );
   my $val = shift( @args );
 
-  if ( 
+  if (
     !defined( $key ) || $key eq ''
-      || !defined( $val ) || $val eq '' 
+      || !defined( $val ) || $val eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
@@ -513,9 +513,9 @@ sub _validate_push {
   my $key = shift( @args );
   my $val = shift( @args );
 
-  if ( 
+  if (
     !defined( $key ) || $key eq ''
-      || !defined( $val ) || $val eq '' 
+      || !defined( $val ) || $val eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
@@ -571,7 +571,7 @@ sub _validate_bpop {
 
   if (
     scalar( @keys ) == 0
-      || !defined( $timeout ) || $timeout eq '' 
+      || !defined( $timeout ) || $timeout eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
@@ -598,7 +598,7 @@ sub _exec_bpop {
   my $timeout = pop( @args ); # Timeout will be ignored
   my @keys = @args;
   my $storage = $self->{storage};
-  
+
   foreach my $key ( @keys ) {
     if ( !defined( $storage->{ $key } ) ) {
       next;
@@ -640,10 +640,10 @@ sub _validate_lrange {
   my $start = shift( @args );
   my $stop = shift( @args );
 
-  if ( 
+  if (
     !defined( $key ) || $key eq ''
       || !defined( $start ) || $start eq ''
-      || !defined( $stop ) || $stop eq '' 
+      || !defined( $stop ) || $stop eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
@@ -670,7 +670,7 @@ sub _exec_lrange {
   if ( $stop !~ m/^\-?[0-9]+$/o ) {
     $stop = 0;
   }
-  
+
   my $storage = $self->{storage};
   if ( !defined( $storage->{ $key } ) ) {
     return {

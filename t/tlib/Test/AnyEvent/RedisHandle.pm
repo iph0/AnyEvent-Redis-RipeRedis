@@ -102,10 +102,10 @@ $mock->mock( '_connect', sub {
       if ( $self->{_continue_read} ) {
         $self->_read();
       }
-      if ( 
+      if (
         $REDIS_IS_DOWN
           && !@{ $self->{_write_queue} }
-          && !$self->{_continue_read} 
+          && !$self->{_continue_read}
           ) {
         $self->{on_eof}->();
       }
