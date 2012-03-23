@@ -123,7 +123,7 @@ sub t_reconnect_n_times {
 
     reconnect => 1,
     reconnect_after => 0.001,
-    max_connect_attempts => 3,
+    max_connect_attempts => 2,
 
     on_stop_reconnect => sub {
       push( @data, 'stopped' );
@@ -154,7 +154,7 @@ sub t_reconnect_n_times {
 
     reconnect => 1,
     reconnect_after => 0.001,
-    max_connect_attempts => 3,
+    max_connect_attempts => 2,
 
     on_stop_reconnect => sub {
       push( @data, 'stopped' );
@@ -178,9 +178,7 @@ sub t_reconnect_n_times {
   my @exp_data = (
     [ $exp_msg, 1 ],
     [ $exp_msg, 2 ],
-    [ $exp_msg, 3 ],
     'stopped',
-    $exp_msg,
     $exp_msg,
     $exp_msg,
     'stopped',
@@ -206,7 +204,7 @@ sub t_reconnect_until_success {
 
     reconnect => 1,
     reconnect_after => 0.001,
-    max_connect_attempts => 4,
+    max_connect_attempts => 3,
 
     on_connect => sub {
       my $attempt = shift;
@@ -222,7 +220,7 @@ sub t_reconnect_until_success {
 
       push( @data, [ $msg, $attempt ] );
 
-      if ( $attempt == 3 ) {
+      if ( $attempt == 2 ) {
         Test::AnyEvent::RedisHandle->redis_up();
       }
     },
@@ -247,7 +245,7 @@ sub t_reconnect_until_success {
 
     reconnect => 1,
     reconnect_after => 0.001,
-    max_connect_attempts => 4,
+    max_connect_attempts => 3,
 
     on_connect => sub {
       my $attempt = shift;
@@ -262,7 +260,7 @@ sub t_reconnect_until_success {
 
       push( @data, $msg );
 
-      if ( ++$attempt == 3 ) {
+      if ( ++$attempt == 2 ) {
         Test::AnyEvent::RedisHandle->redis_up();
       }
     },
@@ -275,12 +273,10 @@ sub t_reconnect_until_success {
   my @exp_data = (
     [ $exp_msg, 1 ],
     [ $exp_msg, 2 ],
-    [ $exp_msg, 3 ],
-    4,
+    3,
     $exp_msg,
     $exp_msg,
-    $exp_msg,
-    '4',
+    3,
   );
 
   is_deeply( \@data, \@exp_data, 'No connection, reconnect until success' );

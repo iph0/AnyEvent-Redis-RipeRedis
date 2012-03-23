@@ -28,7 +28,7 @@ $redis = AnyEvent::Redis::RipeRedis->new(
       on_done => sub {
         my $resp = shift;
 
-        say $resp;
+        say "Authentication $resp";
       },
 
       on_error => sub {
@@ -42,7 +42,7 @@ $redis = AnyEvent::Redis::RipeRedis->new(
       after => 0,
       interval => 1,
       cb => sub {
-        $redis->incr( 'foo', { 
+        $redis->incr( 'foo', {
           on_done => sub {
             my $val = shift;
 

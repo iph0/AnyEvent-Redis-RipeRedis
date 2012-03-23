@@ -32,7 +32,7 @@ $redis->auth( 'your_password', {
   on_done => sub {
     my $resp = shift;
 
-    say $resp;
+    say "Authentication $resp";
   },
 
   on_error => sub {

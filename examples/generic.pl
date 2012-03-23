@@ -32,7 +32,7 @@ $redis->auth( 'your_password', {
   on_done => sub {
     my $resp = shift;
 
-    say $resp;
+    say "Authentication $resp";
   },
 
   on_error => sub {
@@ -43,7 +43,7 @@ $redis->auth( 'your_password', {
 } );
 
 # Increment
-$redis->incr( 'foo', { 
+$redis->incr( 'foo', {
   on_done => sub {
     my $val = shift;
 
@@ -61,12 +61,12 @@ $redis->set( 'bar', 'Some string', {
 } );
 
 # Get value
-$redis->get( 'bar', { 
+$redis->get( 'bar', {
   on_done => sub {
     my $val = shift;
 
     say $val;
-  }, 
+  },
 } );
 
 # Push values
@@ -118,7 +118,7 @@ $redis->lrange( 'list', 0, -1, {
   },
 } );
 
-$redis->get( 'bar', { 
+$redis->get( 'bar', {
   on_done => sub {
     my $resp = shift;
 
@@ -160,7 +160,7 @@ foreach my $key ( qw( foo bar list ) ) {
 }
 
 # Disconnect
-$redis->quit( { 
+$redis->quit( {
   on_done => sub {
     my $resp = shift;
 

@@ -22,7 +22,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.700000';
+our $VERSION = '0.700001';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -48,13 +48,20 @@ sub new {
 
   $params = $self->_validate_new( $params );
 
-  foreach my $name ( keys( %{ $params } ) ) {
+  $self->{host} = $params->{host};
+  $self->{port} = $params->{port};
+  $self->{encoding} = $params->{encoding};
 
-    if ( defined( $params->{ $name } ) ) {
-      $self->{ $name } = $params->{ $name };
-    }
+  if ( $params->{reconnect} ) {
+    $self->{reconnect} = $params->{reconnect};
+    $self->{reconnect_after} = $params->{reconnect_after};
+    $self->{max_connect_attempts} = $params->{max_connect_attempts};
   }
-
+  
+  $self->{on_connect} = $params->{on_connect};
+  $self->{on_stop_reconnect} = $params->{on_stop_reconnect};
+  $self->{on_connect_error} = $params->{on_connect_error};
+  $self->{on_error} = $params->{on_error};
   $self->{handle} = undef;
   $self->{connect_attempt} = 0;
   $self->{commands_queue} = [];
@@ -135,7 +142,7 @@ sub _connect {
 
     on_connect => sub {
 
-      if ( exists( $self->{on_connect} ) ) {
+      if ( defined( $self->{on_connect} ) ) {
         $self->{on_connect}->( $self->{connect_attempt} );
       }
 
@@ -149,7 +156,7 @@ sub _connect {
 
       undef( $self->{handle} );
 
-      if ( exists( $self->{on_connect_error} ) ) {
+      if ( defined( $self->{on_connect_error} ) ) {
         $self->{on_connect_error}->( $err, $self->{connect_attempt} );
       }
       else {
@@ -276,7 +283,7 @@ sub _serialize_command {
 
   foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
 
-    if ( exists( $self->{encoding} ) && is_utf8( $tkn ) ) {
+    if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
       $tkn = $self->{encoding}->encode( $tkn );
     }
 
@@ -551,14 +558,14 @@ sub _abort_all {
 sub _try_to_reconnect {
   my $self = shift;
 
-  if ( $self->{reconnect} && ( !exists( $self->{max_connect_attempts} )
+  if ( $self->{reconnect} && ( !defined( $self->{max_connect_attempts} )
     || $self->{connect_attempt} < $self->{max_connect_attempts} ) ) {
 
     $self->_reconnect();
   }
   else {
 
-    if ( exists( $self->{on_stop_reconnect} ) ) {
+    if ( defined( $self->{on_stop_reconnect} ) ) {
       $self->{on_stop_reconnect}->();
     }
   }
