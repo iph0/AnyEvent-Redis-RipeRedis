@@ -38,7 +38,6 @@ $redis->auth( 'your_password', {
   },
 } );
 
-
 # Subscribe to channels by name
 $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
@@ -74,6 +73,7 @@ $redis->psubscribe( qw( info_* err_* ), {
   },
 } );
 
+# Unsubscribe
 my $sig_cb = sub {
   say 'Stopped';
 

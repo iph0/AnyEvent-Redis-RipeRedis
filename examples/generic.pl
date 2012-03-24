@@ -83,37 +83,31 @@ $redis->lrange( 'list', 0, -1, {
   },
 } );
 
-
 # Transaction
-
 $redis->multi( {
   on_done => sub {
     my $resp = shift;
     say $resp;
   },
 } );
-
 $redis->incr( 'foo', {
   on_done => sub {
     my $resp = shift;
     say $resp;
   },
 } );
-
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $resp = shift;
     say $resp;
   },
 } );
-
 $redis->get( 'bar', {
   on_done => sub {
     my $resp = shift;
     say $resp;
   },
 } );
-
 $redis->exec( {
   on_done => sub {
     my $data_list = shift;
@@ -131,9 +125,7 @@ $redis->exec( {
   },
 } );
 
-
 # Delete keys
-
 foreach my $key ( qw( foo bar list ) ) {
   $redis->del( $key, {
     on_done => sub {
