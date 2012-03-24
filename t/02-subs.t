@@ -1,4 +1,4 @@
-use 5.010000;
+use 5.006000;
 use strict;
 use warnings;
 
@@ -136,7 +136,7 @@ my $exp_sub_data = [
     subs_num => 2,
   },
 ];
-is_deeply( \@sub_data, $exp_sub_data, 'subscribe (multi reply)' );
+is_deeply( \@sub_data, $exp_sub_data, 'subscribe' );
 
 my $exp_sub_msgs = [
   {
@@ -160,7 +160,7 @@ my $exp_unsub_data = [
     subs_num => 2,
   },
 ];
-is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe (multi reply)' );
+is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
 
 my $exp_psub_data = [
   {
@@ -172,7 +172,7 @@ my $exp_psub_data = [
     subs_num => 4,
   }
 ];
-is_deeply( \@psub_data, $exp_psub_data, 'psubscribe (multi reply)' );
+is_deeply( \@psub_data, $exp_psub_data, 'psubscribe' );
 
 my $exp_psub_msgs = [
   {
@@ -198,4 +198,4 @@ my $exp_punsub_data = [
     subs_num => 0,
   },
 ];
-is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe (multi reply)' );
+is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe' );

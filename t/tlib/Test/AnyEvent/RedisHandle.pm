@@ -1,9 +1,10 @@
 package Test::AnyEvent::RedisHandle;
 
+use 5.006000;
 use strict;
 use warnings;
 
-our $VERSION = '0.0300000';
+our $VERSION = '0.1000000';
 
 use Test::MockObject;
 use Test::AnyEvent::RedisEmulator;

@@ -50,9 +50,9 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
 
   on_message => sub {
     my $ch_name = shift;
-    my $err = shift;
+    my $msg = shift;
 
-    say "$ch_name: $err";
+    say "$ch_name: $msg";
   },
 } );
 
@@ -67,10 +67,10 @@ $redis->psubscribe( qw( info_* err_* ), {
 
   on_message => sub {
     my $ch_name = shift;
-    my $err = shift;
+    my $msg = shift;
     my $ch_pattern = shift;
 
-    say "$ch_name ($ch_pattern): $err";
+    say "$ch_name ($ch_pattern): $msg";
   },
 } );
 

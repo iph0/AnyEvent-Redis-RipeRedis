@@ -17,12 +17,12 @@ use fields qw(
   on_error
   handle
   connect_attempt
-  commands_queue
+  command_queue
   sub_lock
   subs
 );
 
-our $VERSION = '0.700006';
+our $VERSION = '0.700007';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -44,7 +44,7 @@ sub new {
   my $proto = shift;
   my $params = { @_ };
 
-  my $self = fields::new( $proto );
+  my __PACKAGE__ $self = fields::new( $proto );
 
   $params = $self->_validate_new( $params );
 
@@ -52,7 +52,7 @@ sub new {
   @{ $self }{ @keys } = @{ $params }{ @keys };
   $self->{handle} = undef;
   $self->{connect_attempt} = 0;
-  $self->{commands_queue} = [];
+  $self->{command_queue} = [];
   $self->{sub_lock} = undef;
   $self->{subs} = {};
 
@@ -191,7 +191,7 @@ sub _exec_command {
     %{ $params },
   };
 
-  if ( $self->_is_sub_group_cmd( $cmd_name ) ) {
+  if ( $self->_is_sub_action_cmd( $cmd_name ) ) {
     if ( $self->{sub_lock} ) {
       croak "Command '$cmd_name' not allowed in this context."
           . " First, the transaction must be completed.";
@@ -240,7 +240,7 @@ sub _push_command {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  push( @{ $self->{commands_queue} }, $cmd );
+  push( @{ $self->{command_queue} }, $cmd );
   my $cmd_szd = $self->_serialize_command( $cmd );
   $self->{handle}->push_write( $cmd_szd );
 
@@ -251,7 +251,7 @@ sub _push_command {
 sub _serialize_command {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  
+
   my @args = grep { defined( $_ ) } @{ $cmd->{args} };
   my $bulk_len = scalar( @args ) + 1;
   my $cmd_szd = "*$bulk_len$EOL";
@@ -394,7 +394,15 @@ sub _prcoess_response {
   my $is_err = shift;
 
   if ( $is_err ) {
-    return $self->_process_error( $data );
+    my $cmd = shift( @{ $self->{command_queue} } );
+    if ( defined( $cmd ) ) {
+      $cmd->{on_error}->( $data );
+    }
+    else {
+      $self->{on_error}->( $data );
+    }
+
+    return;
   }
 
   if ( %{ $self->{subs} } && $self->_is_sub_message( $data ) ) {
@@ -403,50 +411,60 @@ sub _prcoess_response {
     }
   }
 
-  my $cmd = $self->{commands_queue}[ 0 ];
+  my $cmd = $self->{command_queue}[ 0 ];
 
   if ( !defined( $cmd ) ) {
-    $self->{on_error}->( 'Unexpected data in response' );
+    $self->{on_error}->( "Don't known how process response data."
+      . " Command queue is empty" );
     return;
   }
 
-  if ( $self->_is_sub_group_cmd( $cmd->{name} ) ) {
-    if ( $self->_is_sub_cmd( $cmd->{name} ) ) {
-      my $sub = {};
-      if ( defined( $cmd->{on_done} ) ) {
-        $sub->{on_done} = $cmd->{on_done};
-        $sub->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
-      }
-      if ( defined( $cmd->{on_message} ) ) {
-        $sub->{on_message} = $cmd->{on_message};
-      }
-      $self->{subs}{ $data->[ 1 ] } = $sub;
-    }
-    else {
-      if ( defined( $cmd->{on_done} ) ) {
-        $cmd->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
-      }
-      if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
-        delete( $self->{subs}{ $data->[ 1 ] } );
-      }
-    }
-
-    if ( --$cmd->{resp_remaining} == 0 ) {
-      shift( @{ $self->{commands_queue} } );
-    }
-
-    return;
+  if ( $self->_is_sub_action_cmd( $cmd->{name} ) ) {
+    return $self->_process_sub_action( $cmd, $data );
   }
 
   if ( defined( $cmd->{on_done} ) ) {
     $cmd->{on_done}->( $data );
   }
 
-  shift( @{ $self->{commands_queue} } );
+  shift( @{ $self->{command_queue} } );
 
   if ( $cmd->{name} eq 'quit' ) {
     undef( $self->{handle} );
     $self->_abort_all();
+  }
+
+  return;
+}
+
+####
+sub _process_sub_action {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+  my $data = shift;
+
+  if ( $cmd->{name} eq 'subscribe' || $cmd->{name} eq 'psubscribe' ) {
+    my $sub = {};
+    if ( defined( $cmd->{on_done} ) ) {
+      $sub->{on_done} = $cmd->{on_done};
+      $sub->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
+    }
+    if ( defined( $cmd->{on_message} ) ) {
+      $sub->{on_message} = $cmd->{on_message};
+    }
+    $self->{subs}{ $data->[ 1 ] } = $sub;
+  }
+  else {
+    if ( defined( $cmd->{on_done} ) ) {
+      $cmd->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
+    }
+    if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
+      delete( $self->{subs}{ $data->[ 1 ] } );
+    }
+  }
+
+  if ( --$cmd->{resp_remaining} == 0 ) {
+    shift( @{ $self->{command_queue} } );
   }
 
   return;
@@ -471,26 +489,10 @@ sub _process_sub_message {
 }
 
 ####
-sub _process_error {
-  my __PACKAGE__ $self = shift;
-  my $err = shift;
-
-  my $cmd = shift( @{ $self->{commands_queue} } );
-  if ( defined( $cmd ) ) {
-    $cmd->{on_error}->( $err );
-  }
-  else {
-    $self->{on_error}->( $err );
-  }
-
-  return;
-}
-
-####
 sub _abort_all {
   my __PACKAGE__ $self = shift;
 
-  while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
+  while ( my $cmd = shift( @{ $self->{command_queue} } ) ) {
     $cmd->{on_error}->( "Command '$cmd->{name}' failed" );
   }
 
@@ -542,16 +544,10 @@ sub _reconnect {
 }
 
 ####
-sub _is_sub_group_cmd {
+sub _is_sub_action_cmd {
   my $cmd_name = pop;
   return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe'
       || $cmd_name eq 'psubscribe' || $cmd_name eq 'punsubscribe';
-}
-
-####
-sub _is_sub_cmd {
-  my $cmd_name = pop;
-  return $cmd_name eq 'subscribe' || $cmd_name eq 'psubscribe';
 }
 
 ####

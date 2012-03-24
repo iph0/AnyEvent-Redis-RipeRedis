@@ -4,7 +4,7 @@ examples/subs.pl
 examples/unix_socket.pl
 lib/AnyEvent/Redis/RipeRedis.pm
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 README
 t/01-base.t
 t/02-subs.t

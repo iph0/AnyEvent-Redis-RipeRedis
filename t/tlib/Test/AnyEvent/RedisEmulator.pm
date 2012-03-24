@@ -1,5 +1,6 @@
 package Test::AnyEvent::RedisEmulator;
 
+use 5.006000;
 use strict;
 use warnings;
 
@@ -12,10 +13,9 @@ use fields qw(
   subs_num
 );
 
-our $VERSION = '0.0300000';
+our $VERSION = '0.1000000';
 
 my $PASSWORD = 'test';
-
 my %COMMANDS = (
   auth => {
     validate => *_validate_auth,
