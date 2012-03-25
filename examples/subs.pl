@@ -12,11 +12,15 @@ my $cv = AnyEvent->condvar();
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
+  password => 'your_password',
   encoding => 'utf8',
 
   on_connect => sub {
-    my $attempt = shift;
-    say "Connected: $attempt";
+    say 'Connected to Redis';
+  },
+
+  on_disconnect => sub {
+    say 'Disconnected from Redis';
   },
 
   on_error => sub {
@@ -24,19 +28,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
     warn "$err\n";
   },
 );
-
-# Authenticate
-$redis->auth( 'your_password', {
-  on_done => sub {
-    my $resp = shift;
-    say "Authentication $resp";
-  },
-
-  on_error => sub {
-    my $err = shift;
-    warn "Authentication failed; $err\n";
-  },
-} );
 
 # Subscribe to channels by name
 $redis->subscribe( qw( ch_foo ch_bar ), {
@@ -98,6 +89,15 @@ my $sig_cb = sub {
       }
     },
   } );
+
+  my $timer;
+  $timer = AnyEvent->timer(
+    after => 5,
+    cb => sub {
+      undef( $timer );
+      exit 0; # Emergency exit
+    },
+  );
 };
 
 my $int_watcher = AnyEvent->signal(

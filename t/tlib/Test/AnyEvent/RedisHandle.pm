@@ -4,7 +4,7 @@ use 5.006000;
 use strict;
 use warnings;
 
-our $VERSION = '0.1000000';
+our $VERSION = '0.101000';
 
 use Test::MockObject;
 use Test::AnyEvent::RedisEmulator;
@@ -107,7 +107,9 @@ $mock->mock( '_connect', sub {
         $REDIS_IS_DOWN
           && !@{ $self->{_write_queue} }
           && !$self->{_continue_read}
+          && $self->{_redis_emu}
           ) {
+        undef( $self->{_redis_emu} );
         $self->{on_eof}->();
       }
     },
@@ -121,6 +123,7 @@ $mock->mock( '_write', sub {
   my $self = shift;
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+    undef( $self->{_redis_emu} );
     $self->{on_error}->( $self, 'Error writing to socket' );
     return;
   }
@@ -139,6 +142,7 @@ $mock->mock( '_read', sub {
   my $self = shift;
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+    undef( $self->{_redis_emu} );
     $self->{on_error}->( $self, 'Error reading from socket' );
     return;
   }

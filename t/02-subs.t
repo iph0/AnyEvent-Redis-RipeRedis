@@ -14,10 +14,10 @@ my $cv = AnyEvent->condvar();
 my $redis = $t_class->new(
   host => 'localhost',
   port => '6379',
+  password => 'test',
 
   on_connect => sub {
-    my $attempt = shift;
-    is( $attempt, 1, 'on_connect' );
+    ok( 1, 'on_connect' );
   },
 );
 
@@ -115,11 +115,11 @@ $unsub_timeout = AnyEvent->timer(
   }
 );
 
-my $timeout;
-$timeout = AnyEvent->timer(
+my $timer;
+$timer = AnyEvent->timer(
   after => 5,
   cb => sub {
-    undef( $timeout );
+    undef( $timer );
     exit 0; # Emergency exit
   },
 );

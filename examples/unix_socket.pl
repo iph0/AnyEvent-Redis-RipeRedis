@@ -7,64 +7,40 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $redis;
-my $timer;
-
 my $cv = AnyEvent->condvar();
 
+my $redis;
 $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
+  password => 'your_password',
   encoding => 'utf8',
-  reconnect => 1,
-  reconnect_after => 5,
-  max_connect_attempts => 15,
 
   on_connect => sub {
-    my $attempt = shift;
-
-    say "Connected: $attempt";
-
-    # Authenticate
-    $redis->auth( 'your_password', {
-      on_done => sub {
-        my $resp = shift;
-        say "Authentication $resp";
-      },
-
-      on_error => sub {
-        my $err = shift;
-        warn "Authentication failed; $err\n";
-      },
-    } );
-
-    $timer = AnyEvent->timer(
-      after => 0,
-      interval => 1,
-      cb => sub {
-        $redis->incr( 'foo', {
-          on_done => sub {
-            my $val = shift;
-            say $val;
-          },
-        } );
-      },
-    );
+    say 'Connected to Redis';
   },
 
-  on_stop_reconnect => sub {
-    say 'Stop reconnecting';
-  },
-
-  on_connect_error => sub {
-    my $err = shift;
-    my $attempt = shift;
-    warn "$err; $attempt\n";
+  on_disconnect => sub {
+    say 'Disconnected from Redis';
   },
 
   on_error => sub {
     my $err = shift;
     warn "$err\n";
+  },
+);
+
+my $timer;
+$timer = AnyEvent->timer(
+  after => 0,
+  interval => 1,
+  cb => sub {
+    $redis->incr( 'foo', {
+      on_done => sub {
+        my $val = shift;
+        say $val;
+      },
+    } );
   },
 );
 

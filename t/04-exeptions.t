@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 12;
+use Test::More tests => 8;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -23,44 +23,6 @@ if ( $@ ) {
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
-
-# Invalid "reconnect_after"
-
-eval {
-  $redis = $t_class->new(
-    reconnect => 1,
-    reconnect_after => '10_invalid',
-  );
-};
-if ( $@ ) {
-  my $exp_msg = "'reconnect_after' must be a positive number";
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
-}
-
-eval {
-  $redis = $t_class->new(
-    reconnect => 1,
-    reconnect_after => -10,
-  );
-};
-if ( $@ ) {
-  my $exp_msg = "'reconnect_after' must be a positive number";
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
-}
-
-
-# Invalid "max_connect_attempts"
-eval {
-  $redis = $t_class->new(
-    reconnect => 1,
-    max_connect_attempts => '10_invalid',
-  );
-};
-if ( $@ ) {
-  my $exp_msg = "'max_connect_attempts' must be a positive integer number";
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
-}
-
 # Invalid "on_connect"
 eval {
   $redis = $t_class->new(
@@ -72,25 +34,14 @@ if ( $@ ) {
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 
-# Invalid "on_stop_reconnect"
+# Invalid "on_disconnect"
 eval {
   $redis = $t_class->new(
-    on_stop_reconnect => {},
+    on_disconnect => {},
   );
 };
 if ( $@ ) {
-  my $exp_msg = "'on_stop_reconnect' callback must be a CODE reference";
-  ok( index( $@, $exp_msg ) == 0, $exp_msg );
-}
-
-# Invalid "on_connect_error"
-eval {
-  $redis = $t_class->new(
-    on_connect_error => 1,
-  );
-};
-if ( $@ ) {
-  my $exp_msg = "'on_connect_error' callback must be a CODE reference";
+  my $exp_msg = "'on_disconnect' callback must be a CODE reference";
   ok( index( $@, $exp_msg ) == 0, $exp_msg );
 }
 

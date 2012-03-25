@@ -7,22 +7,18 @@ use warnings;
 use fields qw(
   host
   port
+  password
   encoding
-  reconnect
-  reconnect_after
-  max_connect_attempts
   on_connect
-  on_stop_reconnect
-  on_connect_error
+  on_disconnect
   on_error
   handle
-  connect_attempt
   command_queue
   sub_lock
   subs
 );
 
-our $VERSION = '0.700007';
+our $VERSION = '0.801000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -51,7 +47,6 @@ sub new {
   my @keys = keys( %{ $params } );
   @{ $self }{ @keys } = @{ $params }{ @keys };
   $self->{handle} = undef;
-  $self->{connect_attempt} = 0;
   $self->{command_queue} = [];
   $self->{sub_lock} = undef;
   $self->{subs} = {};
@@ -78,28 +73,7 @@ sub _validate_new {
     }
   }
 
-  if ( $params->{reconnect} ) {
-    if ( defined( $params->{reconnect_after} ) ) {
-      if (
-        !looks_like_number( $params->{reconnect_after} )
-          || $params->{reconnect_after} <= 0
-          ) {
-        croak "'reconnect_after' must be a positive number";
-      }
-    }
-    else {
-      $params->{reconnect_after} = $DEFAULT->{reconnect_after};
-    }
-
-    if (
-      defined( $params->{max_connect_attempts} )
-        && ( $params->{max_connect_attempts} =~ m/[^0-9]/o )
-        ) {
-      croak "'max_connect_attempts' must be a positive integer number";
-    }
-  }
-
-  foreach my $cb_name ( qw( on_connect on_stop_reconnect on_connect_error on_error ) ) {
+  foreach my $cb_name ( qw( on_connect on_disconnect on_error ) ) {
     if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
       croak "'$cb_name' callback must be a CODE reference";
     }
@@ -119,17 +93,14 @@ sub _validate_new {
 sub _connect {
   my __PACKAGE__ $self = shift;
 
-  ++$self->{connect_attempt};
-
   $self->{handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
     keepalive => 1,
 
     on_connect => sub {
       if ( defined( $self->{on_connect} ) ) {
-        $self->{on_connect}->( $self->{connect_attempt} );
+        $self->{on_connect}->();
       }
-      $self->{connect_attempt} = 0;
     },
 
     on_connect_error => sub {
@@ -137,14 +108,16 @@ sub _connect {
 
       undef( $self->{handle} );
       $err = "Can't connect to $self->{host}:$self->{port}; $err";
-      if ( defined( $self->{on_connect_error} ) ) {
-        $self->{on_connect_error}->( $err, $self->{connect_attempt} );
-      }
-      else {
-        $self->{on_error}->( $err );
+      $self->{on_error}->( $err );
+      $self->_abort_all();
+    },
+
+    on_eof => sub {
+      undef( $self->{handle} );
+      if ( defined( $self->{on_disconnect} ) ) {
+        $self->{on_disconnect}->();
       }
       $self->_abort_all();
-      $self->_try_to_reconnect();
     },
 
     on_error => sub {
@@ -152,15 +125,10 @@ sub _connect {
 
       undef( $self->{handle} );
       $self->{on_error}->( $err );
+      if ( defined( $self->{on_disconnect} ) ) {
+        $self->{on_disconnect}->();
+      }
       $self->_abort_all();
-      $self->_try_to_reconnect();
-    },
-
-    on_eof => sub {
-      undef( $self->{handle} );
-      $self->{on_error}->( 'Connection lost' );
-      $self->_abort_all();
-      $self->_try_to_reconnect();
     },
 
     on_read => $self->_prepare_read(
@@ -169,6 +137,15 @@ sub _connect {
       }
     ),
   );
+
+  # Authenticate
+  if ( defined( $self->{password} ) && $self->{password} ne '' ) {
+    $self->_push_command( {
+      name => 'auth',
+      args => [ $self->{password} ],
+      on_error => $self->{on_error},
+    } );
+  }
 
   return;
 }
@@ -206,10 +183,7 @@ sub _exec_command {
   }
 
   if ( !defined( $self->{handle} ) ) {
-    $cmd->{on_error}->( "Can't execute command '$cmd_name'."
-        . " Connection not established" );
-
-    return;
+    $self->_connect();
   }
 
   $self->_push_command( $cmd );
@@ -498,47 +472,6 @@ sub _abort_all {
 
   undef( $self->{sub_lock} );
   $self->{subs} = {};
-
-  return;
-}
-
-####
-sub _try_to_reconnect {
-  my __PACKAGE__ $self = shift;
-
-  if (
-    $self->{reconnect}
-      && ( !defined( $self->{max_connect_attempts} )
-        || $self->{connect_attempt} < $self->{max_connect_attempts} )
-      ) {
-    $self->_reconnect();
-  }
-  else {
-    if ( defined( $self->{on_stop_reconnect} ) ) {
-      $self->{on_stop_reconnect}->();
-    }
-  }
-
-  return;
-}
-
-####
-sub _reconnect {
-  my __PACKAGE__ $self = shift;
-
-  if ( $self->{connect_attempt} > 0 ) {
-    my $timer;
-    $timer = AnyEvent->timer(
-      after => $self->{reconnect_after},
-      cb => sub {
-        undef( $timer );
-        $self->_connect();
-      },
-    );
-  }
-  else {
-    $self->_connect();
-  }
 
   return;
 }

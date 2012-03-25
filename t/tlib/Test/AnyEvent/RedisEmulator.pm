@@ -13,7 +13,7 @@ use fields qw(
   subs_num
 );
 
-our $VERSION = '0.1000000';
+our $VERSION = '0.100000';
 
 my $PASSWORD = 'test';
 my %COMMANDS = (

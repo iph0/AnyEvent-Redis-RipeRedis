@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 18;
+use Test::More tests => 19;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 
@@ -18,25 +18,25 @@ BEGIN {
 
 can_ok( $t_class, 'new' );
 can_ok( $t_class, 'AUTOLOAD' );
+can_ok( $t_class, 'DESTROY' );
 
 my $cv = AnyEvent->condvar();
 
 my $redis = new_ok( $t_class, [
   host => 'localhost',
   port => '6379',
+  password => 'test',
   encoding => 'utf8',
 
   on_connect => sub {
-    my $attempt = shift;
-    is( $attempt, 1, 'on_connect' );
+    ok( 1, 'on_connect' );
   },
 ] );
 
-# Authenticate
-$redis->auth( 'test', {
+$redis->ping( {
   on_done => sub {
     my $resp = shift;
-    is( $resp, 'OK', 'auth (status reply)' )
+    is( $resp, 'PONG', 'ping (status reply)' )
   },
 } );
 
@@ -61,7 +61,7 @@ $redis->get( 'bar', {
 
 # Set/Get UTF-8 string
 $redis->set( 'ключ', 'Значение' );
-$redis->get( 'ключ', { 
+$redis->get( 'ключ', {
   on_done => sub {
     my $val = shift;
     is( $val, 'Значение', 'set/get UTF-8 string' );
@@ -144,20 +144,20 @@ $redis->exec( {
 } );
 
 # Quit
-$redis->quit( { 
+$redis->quit( {
   on_done => sub {
     my $resp = shift;
     is( $resp, 'OK', 'quit (status reply)' );
-    
+
     $cv->send();
   },
 } );
 
-my $timeout;
-$timeout = AnyEvent->timer(
+my $timer;
+$timer = AnyEvent->timer(
   after => 5,
   cb => sub {
-    undef( $timeout );
+    undef( $timer );
     exit 0; # Emergency exit
   },
 );
