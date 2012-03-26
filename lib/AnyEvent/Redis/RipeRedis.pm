@@ -18,7 +18,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.801000';
+our $VERSION = '0.801001';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -380,12 +380,12 @@ sub _prcoess_response {
   }
 
   if ( %{ $self->{subs} } && $self->_is_sub_message( $data ) ) {
-    if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
+    if ( exists( $self->{subs}{ $data->[1] } ) ) {
       return $self->_process_sub_message( $data );
     }
   }
 
-  my $cmd = $self->{command_queue}[ 0 ];
+  my $cmd = $self->{command_queue}[0];
 
   if ( !defined( $cmd ) ) {
     $self->{on_error}->( "Don't known how process response data."
@@ -421,19 +421,19 @@ sub _process_sub_action {
     my $sub = {};
     if ( defined( $cmd->{on_done} ) ) {
       $sub->{on_done} = $cmd->{on_done};
-      $sub->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
+      $sub->{on_done}->( $data->[1], $data->[2] );
     }
     if ( defined( $cmd->{on_message} ) ) {
       $sub->{on_message} = $cmd->{on_message};
     }
-    $self->{subs}{ $data->[ 1 ] } = $sub;
+    $self->{subs}{ $data->[1] } = $sub;
   }
   else {
     if ( defined( $cmd->{on_done} ) ) {
-      $cmd->{on_done}->( $data->[ 1 ], $data->[ 2 ] );
+      $cmd->{on_done}->( $data->[1], $data->[2] );
     }
-    if ( exists( $self->{subs}{ $data->[ 1 ] } ) ) {
-      delete( $self->{subs}{ $data->[ 1 ] } );
+    if ( exists( $self->{subs}{ $data->[1] } ) ) {
+      delete( $self->{subs}{ $data->[1] } );
     }
   }
 
@@ -449,13 +449,13 @@ sub _process_sub_message {
   my __PACKAGE__ $self = shift;
   my $data = shift;
 
-  my $sub = $self->{subs}{ $data->[ 1 ] };
+  my $sub = $self->{subs}{ $data->[1] };
   if ( exists( $sub->{on_message} ) ) {
-    if ( $data->[ 0 ] eq 'message' ) {
-      $sub->{on_message}->( $data->[ 1 ], $data->[ 2 ] );
+    if ( $data->[0] eq 'message' ) {
+      $sub->{on_message}->( $data->[1], $data->[2] );
     }
     else {
-      $sub->{on_message}->( $data->[ 2 ], $data->[ 3 ], $data->[ 1 ] );
+      $sub->{on_message}->( $data->[2], $data->[3], $data->[1] );
     }
   }
 
@@ -486,8 +486,8 @@ sub _is_sub_action_cmd {
 ####
 sub _is_sub_message {
   my $data = pop;
-  return ref( $data ) eq 'ARRAY' && ( $data->[ 0 ] eq 'message'
-      || $data->[ 0 ] eq 'pmessage' );
+  return ref( $data ) eq 'ARRAY' && ( $data->[0] eq 'message'
+      || $data->[0] eq 'pmessage' );
 }
 
 ####
