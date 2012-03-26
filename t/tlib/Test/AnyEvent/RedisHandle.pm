@@ -26,6 +26,7 @@ $mock->fake_module(
     my $proto = shift;
     my %params = @_;
 
+    $mock->{on_prepare} = $params{on_prepare};
     $mock->{on_connect} = $params{on_connect};
     $mock->{on_connect_error} = $params{on_connect_error};
     $mock->{on_error} = $params{on_error};
@@ -91,7 +92,12 @@ $mock->mock( '_connect', sub {
   }
 
   $self->{_redis_emu} = Test::AnyEvent::RedisEmulator->new();
-  $self->{on_connect}->();
+  if ( defined( $self->{on_prepare} ) ) {
+    $self->{on_prepare}->();
+  }
+  if ( defined( $self->{on_connect} ) ) {
+    $self->{on_connect}->();
+  }
 
   $self->{_process_timer} = AnyEvent->timer(
     after => 0,

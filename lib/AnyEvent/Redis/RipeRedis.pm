@@ -7,6 +7,7 @@ use warnings;
 use fields qw(
   host
   port
+  connection_timeout
   password
   encoding
   on_connect
@@ -18,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.801001';
+our $VERSION = '0.802001';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -64,6 +65,14 @@ sub _validate_new {
   my __PACKAGE__ $self = shift;
   my $params = shift;
 
+  if (
+    defined( $params->{connection_timeout} )
+      && ( !looks_like_number( $params->{connection_timeout} )
+        || $params->{connection_timeout} < 0 )
+      ) {
+    croak 'Connection timeout must be a positive number';
+  }
+
   if ( defined( $params->{encoding} ) ) {
     my $enc = $params->{encoding};
     $params->{encoding} = find_encoding( $enc );
@@ -93,15 +102,9 @@ sub _validate_new {
 sub _connect {
   my __PACKAGE__ $self = shift;
 
-  $self->{handle} = AnyEvent::Handle->new(
+  my %hdl_params = (
     connect => [ $self->{host}, $self->{port} ],
     keepalive => 1,
-
-    on_connect => sub {
-      if ( defined( $self->{on_connect} ) ) {
-        $self->{on_connect}->();
-      }
-    },
 
     on_connect_error => sub {
       my $err = pop;
@@ -138,6 +141,20 @@ sub _connect {
     ),
   );
 
+  if ( defined( $self->{connection_timeout} ) ) {
+    $hdl_params{on_prepare} = sub {
+      return $self->{connection_timeout};
+    };
+  }
+
+  if ( defined( $self->{on_connect} ) ) {
+    $hdl_params{on_connect} = sub {
+      $self->{on_connect}->();
+    };
+  }
+
+  $self->{handle} = AnyEvent::Handle->new( %hdl_params );
+
   # Authenticate
   if ( defined( $self->{password} ) && $self->{password} ne '' ) {
     $self->_push_command( {
@@ -171,7 +188,7 @@ sub _exec_command {
   if ( $self->_is_sub_action_cmd( $cmd_name ) ) {
     if ( $self->{sub_lock} ) {
       croak "Command '$cmd_name' not allowed in this context."
-          . " First, the transaction must be completed.";
+          . ' First, the transaction must be completed';
     }
     $cmd->{resp_remaining} = scalar( @args );
   }

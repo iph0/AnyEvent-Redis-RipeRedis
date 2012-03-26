@@ -25,6 +25,7 @@ my $cv = AnyEvent->condvar();
 my $redis = new_ok( $t_class, [
   host => 'localhost',
   port => '6379',
+  connection_timeout => 5,
   password => 'test',
   encoding => 'utf8',
 

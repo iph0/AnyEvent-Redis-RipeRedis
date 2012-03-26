@@ -223,8 +223,8 @@ sub empty_password_t {
     %GENERIC_PARAMS,
     password => '',
   );
-  
-  $redis->ping( { 
+
+  $redis->ping( {
     on_error => sub {
       my $err = shift;
       my $exp_err = 'ERR operation not permitted';
@@ -236,5 +236,5 @@ sub empty_password_t {
 
   $cv->recv();
 
-  return; 
+  return;
 }

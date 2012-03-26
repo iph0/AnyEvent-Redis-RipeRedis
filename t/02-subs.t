@@ -49,6 +49,18 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
   },
 } );
 
+$redis->subscribe( 'ch_test', {
+  on_done =>  sub {
+    my $ch_name = shift;
+    my $subs_num = shift;
+
+    push( @sub_data, {
+      ch_name => $ch_name,
+      subs_num => $subs_num,
+    } )
+  },
+} );
+
 # Subscribe to channels by pattern
 my @psub_data;
 my @psub_msgs;
@@ -106,10 +118,12 @@ $unsub_timeout = AnyEvent->timer(
           ch_pattern => $ch_pattern,
           subs_num => $subs_num,
         } );
+      },
+    } );
 
-        if ( $subs_num == 0 ) {
-          $cv->send();
-        }
+    $redis->quit( {
+      on_done => sub {
+        $cv->send();
       },
     } );
   }
@@ -135,6 +149,10 @@ my $exp_sub_data = [
     ch_name => 'ch_bar',
     subs_num => 2,
   },
+  {
+    ch_name => 'ch_test',
+    subs_num => 3,
+  },
 ];
 is_deeply( \@sub_data, $exp_sub_data, 'subscribe' );
 
@@ -153,11 +171,11 @@ is_deeply( \@sub_msgs, $exp_sub_msgs, 'message' );
 my $exp_unsub_data = [
   {
     ch_name => 'ch_foo',
-    subs_num => 3,
+    subs_num => 4,
   },
   {
     ch_name => 'ch_bar',
-    subs_num => 2,
+    subs_num => 3,
   },
 ];
 is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
@@ -165,11 +183,11 @@ is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
 my $exp_psub_data = [
   {
     ch_pattern => 'info_*',
-    subs_num => 3,
+    subs_num => 4,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 4,
+    subs_num => 5,
   }
 ];
 is_deeply( \@psub_data, $exp_psub_data, 'psubscribe' );
@@ -191,11 +209,11 @@ is_deeply( \@psub_msgs, $exp_psub_msgs, 'pmessage' );
 my $exp_punsub_data = [
   {
     ch_pattern => 'info_*',
-    subs_num => 1,
+    subs_num => 2,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 0,
+    subs_num => 1,
   },
 ];
 is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe' );
