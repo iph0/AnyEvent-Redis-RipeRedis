@@ -235,17 +235,16 @@ sub t_empty_password {
     password => '',
   );
 
-  my $t_err;
   $redis->ping( {
     on_error => sub {
-      $t_err = shift;
+      my $t_err = shift;
+      is( $t_err, 'ERR operation not permitted', 'Empty password' );
+
       $cv->send();
     }
   } );
 
   $cv->recv();
-
-  is( $t_err, 'ERR operation not permitted', 'Empty password' );
 
   return;
 }
