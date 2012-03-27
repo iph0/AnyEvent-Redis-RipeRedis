@@ -7,8 +7,9 @@ use warnings;
 use fields qw(
   host
   port
-  connection_timeout
   password
+  connection_timeout
+  reconnect
   encoding
   on_connect
   on_disconnect
@@ -19,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.802001';
+our $VERSION = '0.803000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -71,6 +72,10 @@ sub _validate_new {
         || $params->{connection_timeout} < 0 )
       ) {
     croak 'Connection timeout must be a positive number';
+  }
+
+  if ( !defined( $params->{reconnect} ) ) {
+    $params->{reconnect} = 1;
   }
 
   if ( defined( $params->{encoding} ) ) {
@@ -200,7 +205,14 @@ sub _exec_command {
   }
 
   if ( !defined( $self->{handle} ) ) {
-    $self->_connect();
+    if ( $self->{reconnect} ) {
+      $self->_connect();
+    }
+    else {
+      $cmd->{on_error}->( "Can't execute command '$cmd_name'."
+          . " Connection not established" );
+      return;
+    }
   }
 
   $self->_push_command( $cmd );

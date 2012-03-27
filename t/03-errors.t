@@ -43,6 +43,7 @@ sub no_connection_t {
   my $cnt = 0;
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
+    reconnect => 0,
 
     on_error => sub {
       my $err = shift;
@@ -60,11 +61,19 @@ sub no_connection_t {
 
   $cv->recv();
 
+  $redis->ping( {
+    on_error => sub {
+      my $err = shift;
+      push( @data, $err );
+    }
+  } );
+
   Test::AnyEvent::RedisHandle->redis_up();
 
   my @exp_data = (
     "Can't connect to localhost:6379; Connection error",
     "Command 'ping' failed",
+    "Can't execute command 'ping'. Connection not established"
   );
   is_deeply( \@data, \@exp_data, "Can't connect" );
 
@@ -81,6 +90,7 @@ sub reconnect_t {
 
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
+    reconnect => 1,
     password => 'test',
 
     on_connect => sub {

@@ -14,6 +14,7 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
   password => 'your_password',
+  reconnect => 1,
   encoding => 'utf8',
 
   on_connect => sub {
