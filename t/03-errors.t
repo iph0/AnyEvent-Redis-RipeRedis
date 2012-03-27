@@ -20,21 +20,22 @@ $timer = AnyEvent->timer(
   after => 5,
   cb => sub {
     undef( $timer );
+    diag( 'Emergency exit from event loop. Test failed' );
     exit 0; # Emergency exit
   },
 );
 
-no_connection_t();
-reconnect_t();
-broken_connection_t();
-cmd_on_error_t();
-empty_password_t();
+t_no_connection();
+t_reconnect();
+t_broken_connection();
+t_cmd_on_error();
+t_empty_password();
 
 # Subroutines
 
 ####
-sub no_connection_t {
-  my @data;
+sub t_no_connection {
+  my @t_data;
 
   Test::AnyEvent::RedisHandle->redis_down();
 
@@ -47,14 +48,14 @@ sub no_connection_t {
 
     on_error => sub {
       my $err = shift;
-      push( @data, $err );
+      push( @t_data, $err );
     },
   );
 
   $redis->ping( {
     on_error => sub {
       my $err = shift;
-      push( @data, $err );
+      push( @t_data, $err );
       $cv->send();
     }
   } );
@@ -64,25 +65,25 @@ sub no_connection_t {
   $redis->ping( {
     on_error => sub {
       my $err = shift;
-      push( @data, $err );
+      push( @t_data, $err );
     }
   } );
 
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my @exp_data = (
+  my @t_exp_data = (
     "Can't connect to localhost:6379; Connection error",
     "Command 'ping' failed",
     "Can't execute command 'ping'. Connection not established"
   );
-  is_deeply( \@data, \@exp_data, "Can't connect" );
+  is_deeply( \@t_data, \@t_exp_data, "Can't connect" );
 
   return;
 }
 
 ####
-sub reconnect_t {
-  my @data;
+sub t_reconnect {
+  my @t_data;
 
   Test::AnyEvent::RedisHandle->redis_up();
 
@@ -94,11 +95,11 @@ sub reconnect_t {
     password => 'test',
 
     on_connect => sub {
-      push( @data, 'Connected' );
+      push( @t_data, 'Connected' );
     },
 
     on_disconnect => sub {
-      push( @data, 'Disconnected' );
+      push( @t_data, 'Disconnected' );
       Test::AnyEvent::RedisHandle->redis_up();
 
       $cv->send();
@@ -118,7 +119,7 @@ sub reconnect_t {
   $redis->ping( {
     on_done => sub {
       my $resp = shift;
-      push( @data, $resp );
+      push( @t_data, $resp );
 
       $cv->send();
     }
@@ -126,20 +127,20 @@ sub reconnect_t {
 
   $cv->recv();
 
-  my @exp_data = (
+  my @t_exp_data = (
     'Connected',
     'Disconnected',
     'Connected',
     'PONG',
   );
-  is_deeply( \@data, \@exp_data, 'Reconnect' );
+  is_deeply( \@t_data, \@t_exp_data, 'Reconnect' );
 
   return;
 }
 
 ####
-sub broken_connection_t {
-  my @data;
+sub t_broken_connection {
+  my @t_data;
 
   Test::AnyEvent::RedisHandle->redis_up();
 
@@ -150,12 +151,12 @@ sub broken_connection_t {
     password => 'test',
 
     on_connect => sub {
-      push( @data, 'Connected' );
+      push( @t_data, 'Connected' );
     },
 
     on_error => sub {
       my $err = shift;
-      push( @data, $err );
+      push( @t_data, $err );
 
       $cv->send();
     },
@@ -172,18 +173,18 @@ sub broken_connection_t {
 
   Test::AnyEvent::RedisHandle->fix_connection();
 
-  my @exp_data = (
+  my @t_exp_data = (
     'Connected',
     'Error writing to socket',
     "Command 'ping' failed",
   );
-  is_deeply( \@data, \@exp_data, 'Broken connection' );
+  is_deeply( \@t_data, \@t_exp_data, 'Broken connection' );
 
   return;
 }
 
 ####
-sub cmd_on_error_t {
+sub t_cmd_on_error {
   my $cv = AnyEvent->condvar();
 
   my $redis = $t_class->new(
@@ -194,27 +195,27 @@ sub cmd_on_error_t {
   $redis->set( 'bar', 'Some string' );
 
   local $SIG{__WARN__} = sub {
-    my $err = shift;
-    chomp( $err );
-    my $exp_err = 'ERR value is not an integer or out of range';
-    is( $err, $exp_err, 'Default on_error callback' );
+    my $t_err = shift;
+    chomp( $t_err );
+    is( $t_err, 'ERR value is not an integer or out of range',
+        'Default on_error callback' );
   };
   $redis->incr( 'bar' );
 
   $redis->multi();
   $redis->set( {
     on_error => sub {
-      my $err = shift;
-      my $exp_err = "ERR wrong number of arguments for 'set' command";
-      is( $err, $exp_err, 'Local on_error callback (validate time)' );
+      my $t_err = shift;
+      is( $t_err, "ERR wrong number of arguments for 'set' command",
+          'Local on_error callback (validate time)' );
     },
   } );
   $redis->incr( 'bar' );
   $redis->exec( {
     on_error => sub {
-      my $err = shift;
-      my $exp_err = 'ERR value is not an integer or out of range';
-      is( $err, $exp_err, 'Local on_error callback (execute time)' );
+      my $t_err = shift;
+      is( $t_err, 'ERR value is not an integer or out of range',
+          'Local on_error callback (execute time)' );
 
       $cv->send();
     },
@@ -226,7 +227,7 @@ sub cmd_on_error_t {
 }
 
 ####
-sub empty_password_t {
+sub t_empty_password {
   my $cv = AnyEvent->condvar();
 
   my $redis = $t_class->new(
@@ -234,17 +235,17 @@ sub empty_password_t {
     password => '',
   );
 
+  my $t_err;
   $redis->ping( {
     on_error => sub {
-      my $err = shift;
-      my $exp_err = 'ERR operation not permitted';
-      is( $err, $exp_err, 'Empty password' );
-
+      $t_err = shift;
       $cv->send();
     }
   } );
 
   $cv->recv();
+
+  is( $t_err, 'ERR operation not permitted', 'Empty password' );
 
   return;
 }

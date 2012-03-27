@@ -9,6 +9,17 @@ use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
 my $t_class = 'AnyEvent::Redis::RipeRedis';
+
+my $timer;
+$timer = AnyEvent->timer(
+  after => 5,
+  cb => sub {
+    undef( $timer );
+    diag( 'Emergency exit from event loop. Test failed' );
+    exit 0; # Emergency exit
+  },
+);
+
 my $cv = AnyEvent->condvar();
 
 my $redis = $t_class->new(
@@ -25,14 +36,14 @@ my $redis = $t_class->new(
 $redis->auth( 'test' );
 
 # Subscribe to channels by name
-my @sub_data;
-my @sub_msgs;
+my @t_sub_data;
+my @t_sub_msgs;
 $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
 
-    push( @sub_data, {
+    push( @t_sub_data, {
       ch_name => $ch_name,
       subs_num => $subs_num,
     } )
@@ -42,19 +53,18 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
     my $ch_name = shift;
     my $msg = shift;
 
-    push( @sub_msgs, {
+    push( @t_sub_msgs, {
       ch_name => $ch_name,
       message => $msg,
     } );
   },
 } );
-
 $redis->subscribe( 'ch_test', {
   on_done =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
 
-    push( @sub_data, {
+    push( @t_sub_data, {
       ch_name => $ch_name,
       subs_num => $subs_num,
     } )
@@ -62,14 +72,14 @@ $redis->subscribe( 'ch_test', {
 } );
 
 # Subscribe to channels by pattern
-my @psub_data;
-my @psub_msgs;
+my @t_psub_data;
+my @t_psub_msgs;
 $redis->psubscribe( qw( info_* err_* ), {
   on_done =>  sub {
     my $ch_pattern = shift;
     my $subs_num = shift;
 
-    push( @psub_data, {
+    push( @t_psub_data, {
       ch_pattern => $ch_pattern,
       subs_num => $subs_num,
     } )
@@ -80,7 +90,7 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $msg = shift;
     my $ch_pattern = shift;
 
-    push( @psub_msgs, {
+    push( @t_psub_msgs, {
       ch_name => $ch_name,
       message => $msg,
       ch_pattern => $ch_pattern,
@@ -89,20 +99,20 @@ $redis->psubscribe( qw( info_* err_* ), {
 } );
 
 # Unsubscribe after timeout
-my @unsub_data;
-my @punsub_data;
-my $unsub_timeout;
-$unsub_timeout = AnyEvent->timer(
+my @t_unsub_data;
+my @t_punsub_data;
+my $unsub_timer;
+$unsub_timer = AnyEvent->timer(
   after => 0.001,
   cb => sub {
-    undef( $unsub_timeout );
+    undef( $unsub_timer );
 
     $redis->unsubscribe( qw( ch_foo ch_bar ), {
       on_done => sub {
         my $ch_name = shift;
         my $subs_num = shift;
 
-        push( @unsub_data, {
+        push( @t_unsub_data, {
           ch_name => $ch_name,
           subs_num => $subs_num,
         } );
@@ -114,7 +124,7 @@ $unsub_timeout = AnyEvent->timer(
         my $ch_pattern = shift;
         my $subs_num = shift;
 
-        push( @punsub_data, {
+        push( @t_punsub_data, {
           ch_pattern => $ch_pattern,
           subs_num => $subs_num,
         } );
@@ -129,18 +139,9 @@ $unsub_timeout = AnyEvent->timer(
   }
 );
 
-my $timer;
-$timer = AnyEvent->timer(
-  after => 5,
-  cb => sub {
-    undef( $timer );
-    exit 0; # Emergency exit
-  },
-);
-
 $cv->recv();
 
-my $exp_sub_data = [
+my $t_exp_sub_data = [
   {
     ch_name => 'ch_foo',
     subs_num => 1,
@@ -154,9 +155,9 @@ my $exp_sub_data = [
     subs_num => 3,
   },
 ];
-is_deeply( \@sub_data, $exp_sub_data, 'subscribe' );
+is_deeply( \@t_sub_data, $t_exp_sub_data, 'subscribe' );
 
-my $exp_sub_msgs = [
+my $t_exp_sub_msgs = [
   {
     ch_name => 'ch_foo',
     message => 'test',
@@ -166,9 +167,9 @@ my $exp_sub_msgs = [
     message => 'test',
   },
 ];
-is_deeply( \@sub_msgs, $exp_sub_msgs, 'message' );
+is_deeply( \@t_sub_msgs, $t_exp_sub_msgs, 'message' );
 
-my $exp_unsub_data = [
+my $t_exp_unsub_data = [
   {
     ch_name => 'ch_foo',
     subs_num => 4,
@@ -178,9 +179,9 @@ my $exp_unsub_data = [
     subs_num => 3,
   },
 ];
-is_deeply( \@unsub_data, $exp_unsub_data, 'unsubscribe' );
+is_deeply( \@t_unsub_data, $t_exp_unsub_data, 'unsubscribe' );
 
-my $exp_psub_data = [
+my $t_exp_psub_data = [
   {
     ch_pattern => 'info_*',
     subs_num => 4,
@@ -190,9 +191,9 @@ my $exp_psub_data = [
     subs_num => 5,
   }
 ];
-is_deeply( \@psub_data, $exp_psub_data, 'psubscribe' );
+is_deeply( \@t_psub_data, $t_exp_psub_data, 'psubscribe' );
 
-my $exp_psub_msgs = [
+my $t_exp_psub_msgs = [
   {
     ch_name => 'info_some',
     message => 'test',
@@ -204,9 +205,9 @@ my $exp_psub_msgs = [
     ch_pattern => 'err_*',
   },
 ];
-is_deeply( \@psub_msgs, $exp_psub_msgs, 'pmessage' );
+is_deeply( \@t_psub_msgs, $t_exp_psub_msgs, 'pmessage' );
 
-my $exp_punsub_data = [
+my $t_exp_punsub_data = [
   {
     ch_pattern => 'info_*',
     subs_num => 2,
@@ -216,4 +217,4 @@ my $exp_punsub_data = [
     subs_num => 1,
   },
 ];
-is_deeply( \@punsub_data, $exp_punsub_data, 'punsubscribe' );
+is_deeply( \@t_punsub_data, $t_exp_punsub_data, 'punsubscribe' );
