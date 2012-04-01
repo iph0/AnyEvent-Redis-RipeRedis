@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 7;
+use Test::More tests => 6;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -26,10 +26,6 @@ my $redis = $t_class->new(
   host => 'localhost',
   port => '6379',
   password => 'test',
-
-  on_connect => sub {
-    ok( 1, 'on_connect' );
-  },
 );
 
 # Authenticate

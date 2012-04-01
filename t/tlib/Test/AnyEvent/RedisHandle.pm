@@ -177,22 +177,26 @@ $mock->mock( '_read', sub {
 ####
 sub redis_down {
   $REDIS_IS_DOWN = 1;
+  return;
 }
 
 ####
 sub redis_up {
   $REDIS_IS_DOWN = 0;
   $CONN_IS_BROKEN = 0;
+  return;
 }
 
 ####
 sub break_connection {
   $CONN_IS_BROKEN = 1;
+  return;
 }
 
 ####
 sub fix_connection {
   $CONN_IS_BROKEN = 0;
+  return;
 }
 
 1;

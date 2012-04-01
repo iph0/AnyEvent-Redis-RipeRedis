@@ -12,7 +12,6 @@ my $t_class;
 
 BEGIN {
   $t_class = 'AnyEvent::Redis::RipeRedis';
-
   use_ok( $t_class );
 }
 
@@ -30,8 +29,9 @@ $timer = AnyEvent->timer(
   },
 );
 
-my $cv = AnyEvent->condvar();
+my $cv;
 
+$cv = AnyEvent->condvar();
 my $redis = new_ok( $t_class, [
   host => 'localhost',
   port => '6379',
@@ -40,83 +40,113 @@ my $redis = new_ok( $t_class, [
   encoding => 'utf8',
 
   on_connect => sub {
-    ok( 1, 'Connected' );
+    ok( 1, 'Connected', );
+    $cv->send();
   },
 ] );
+$cv->recv();
 
+# Ping (status reply)
+$cv = AnyEvent->condvar();
 $redis->ping( {
   on_done => sub {
     my $t_resp = shift;
-    is( $t_resp, 'PONG', 'ping (status reply)' )
+    is( $t_resp, 'PONG', 'ping (status reply)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
-# Increment
+# Increment (numeric reply)
+$cv = AnyEvent->condvar();
 $redis->incr( 'foo', {
   on_done => sub {
     my $t_val = shift;
     is( $t_val, 1, 'incr (numeric reply)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Set value
 $redis->set( 'bar', 'Some string' );
 
-# Get value
+# Get value (bulk reply)
+$cv = AnyEvent->condvar();
 $redis->get( 'bar', {
   on_done => sub {
-    my $t_val = shift;
-    is( $t_val, 'Some string', 'get (bulk reply)' );
+    my $t_str = shift;
+    is( $t_str, 'Some string', 'get (bulk reply)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Set/Get UTF-8 string
+$cv = AnyEvent->condvar();
 $redis->set( 'ключ', 'Значение' );
 $redis->get( 'ключ', {
   on_done => sub {
-    my $t_val = shift;
-    is( $t_val, 'Значение', 'set/get UTF-8 string' );
+    my $t_str = shift;
+    is( $t_str, 'Значение', 'set/get UTF-8 string' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Get non existent key
+$cv = AnyEvent->condvar();
 $redis->get( 'non_existent', {
   on_done => sub {
-    my $t_val = shift;
-    is( $t_val, undef, 'get (non existent key)' );
+    my $t_str = 'not_undef';
+    $t_str = shift;
+    is( $t_str, undef, 'get (non existent key)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Get list of values
+$cv = AnyEvent->condvar();
 for ( my $i = 2; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i" );
 }
 $redis->lpush( 'list', 'element_1' );
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
-    my $t_list = shift;
-    my @t_exp_list = qw( element_1 element_2 element_3 );
-    is_deeply( $t_list, \@t_exp_list, 'lrange (multi-bulk reply)' );
+    my $t_data = shift;
+    my $t_exp_data = [ qw( element_1 element_2 element_3 ) ];
+    is_deeply( $t_data, $t_exp_data, 'lrange (multi-bulk reply)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Fetch from empty list
+$cv = AnyEvent->condvar();
 $redis->lrange( 'non_existent', 0, -1, {
   on_done => sub {
-    my $t_list = shift;
-    is_deeply( $t_list, [], 'lrange (empty list)' );
+    my $t_data = shift;
+    is_deeply( $t_data, [], 'lrange (empty list)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Get from empty list
+$cv = AnyEvent->condvar();
 $redis->brpop( 'non_existent', '5', {
   on_done => sub {
-    my $t_val = shift;
-    is( $t_val, undef, 'brpop (empty list)' );
+    my $t_data = 'not_undef';
+    $t_data = shift;
+    is( $t_data, undef, 'brpop (empty list)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Transaction
+$cv = AnyEvent->condvar();
 $redis->multi();
 $redis->incr( 'foo' );
 $redis->lrange( 'list', 0, -1 );
@@ -134,17 +164,18 @@ $redis->exec( {
       [ qw( element_1 element_2 element_3 ) ],
     ];
     is_deeply( $t_data, $t_exp_data, 'exec (nested multi-bulk reply)' );
+    $cv->send();
   },
 } );
+$cv->recv();
 
 # Quit
+$cv = AnyEvent->condvar();
 $redis->quit( {
   on_done => sub {
     my $t_resp = shift;
     is( $t_resp, 'OK', 'quit (status reply)' );
-
     $cv->send();
   },
 } );
-
 $cv->recv();

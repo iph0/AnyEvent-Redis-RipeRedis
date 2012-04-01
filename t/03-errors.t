@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 7;
+use Test::More tests => 6;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -101,7 +101,6 @@ sub t_reconnect {
     on_disconnect => sub {
       push( @t_data, 'Disconnected' );
       Test::AnyEvent::RedisHandle->redis_up();
-
       $cv->send();
     },
   );
@@ -120,7 +119,6 @@ sub t_reconnect {
     on_done => sub {
       my $resp = shift;
       push( @t_data, $resp );
-
       $cv->send();
     }
   } );
@@ -157,7 +155,6 @@ sub t_broken_connection {
     on_error => sub {
       my $err = shift;
       push( @t_data, $err );
-
       $cv->send();
     },
   );
@@ -185,7 +182,7 @@ sub t_broken_connection {
 
 ####
 sub t_cmd_on_error {
-  my $cv = AnyEvent->condvar();
+  my $cv;
 
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
@@ -198,30 +195,36 @@ sub t_cmd_on_error {
     my $t_err = shift;
     chomp( $t_err );
     is( $t_err, 'ERR value is not an integer or out of range',
-        'Default on_error callback' );
+        "Default 'on_error' callback" );
+    $cv->send();
   };
+  $cv = AnyEvent->condvar();
   $redis->incr( 'bar' );
+  $cv->recv();
 
+  $cv = AnyEvent->condvar();
+  my @t_errors;
   $redis->multi();
   $redis->set( {
     on_error => sub {
-      my $t_err = shift;
-      is( $t_err, "ERR wrong number of arguments for 'set' command",
-          'Local on_error callback (validate time)' );
+      my $err = shift;
+      push( @t_errors, $err );
     },
   } );
   $redis->incr( 'bar' );
   $redis->exec( {
     on_error => sub {
-      my $t_err = shift;
-      is( $t_err, 'ERR value is not an integer or out of range',
-          'Local on_error callback (execute time)' );
-
+      my $err = shift;
+      push( @t_errors, $err );
       $cv->send();
     },
   } );
-
   $cv->recv();
+  my $t_exp_errors = [
+    "ERR wrong number of arguments for 'set' command",
+    'ERR value is not an integer or out of range',
+  ];
+  is_deeply( \@t_errors, $t_exp_errors, "Local 'on_error' callback" );
 
   return;
 }
@@ -229,7 +232,7 @@ sub t_cmd_on_error {
 ####
 sub t_empty_password {
   my $cv = AnyEvent->condvar();
-
+  
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
     password => '',
@@ -239,11 +242,9 @@ sub t_empty_password {
     on_error => sub {
       my $t_err = shift;
       is( $t_err, 'ERR operation not permitted', 'Empty password' );
-
       $cv->send();
     }
   } );
-
   $cv->recv();
 
   return;
