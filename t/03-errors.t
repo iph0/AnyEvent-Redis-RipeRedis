@@ -71,12 +71,12 @@ sub t_no_connection {
 
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my @t_exp_data = (
+  my $t_exp_data = [
     "Can't connect to localhost:6379; Connection error",
     "Command 'ping' failed",
     "Can't execute command 'ping'. Connection not established"
-  );
-  is_deeply( \@t_data, \@t_exp_data, "Can't connect" );
+  ];
+  is_deeply( \@t_data, $t_exp_data, "Can't connect" );
 
   return;
 }
@@ -125,13 +125,13 @@ sub t_reconnect {
 
   $cv->recv();
 
-  my @t_exp_data = (
+  my $t_exp_data = [
     'Connected',
     'Disconnected',
     'Connected',
     'PONG',
-  );
-  is_deeply( \@t_data, \@t_exp_data, 'Reconnect' );
+  ];
+  is_deeply( \@t_data, $t_exp_data, 'Reconnect' );
 
   return;
 }
@@ -170,12 +170,12 @@ sub t_broken_connection {
 
   Test::AnyEvent::RedisHandle->fix_connection();
 
-  my @t_exp_data = (
+  my $t_exp_data = [
     'Connected',
     'Error writing to socket',
     "Command 'ping' failed",
-  );
-  is_deeply( \@t_data, \@t_exp_data, 'Broken connection' );
+  ];
+  is_deeply( \@t_data, $t_exp_data, 'Broken connection' );
 
   return;
 }
