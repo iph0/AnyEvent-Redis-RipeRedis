@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803000';
+our $VERSION = '0.803002';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -32,6 +32,13 @@ my $DEFAULT = {
   port => '6379',
   reconnect_after => 5,
 };
+
+my %SUB_ACTION_COMMANDS = (
+  subscribe => 1,
+  psubscribe => 1,
+  unsubscribe => 1,
+  punsubscribe => 1,
+);
 
 my $EOL = "\r\n";
 my $EOL_LENGTH = length( $EOL );
@@ -190,7 +197,7 @@ sub _exec_command {
     %{ $params },
   };
 
-  if ( $self->_is_sub_action_cmd( $cmd_name ) ) {
+  if ( exists( $SUB_ACTION_COMMANDS{ $cmd_name } ) ) {
     if ( $self->{sub_lock} ) {
       croak "Command '$cmd_name' not allowed in this context."
           . ' First, the transaction must be completed';
@@ -255,16 +262,19 @@ sub _serialize_command {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  my @args = grep { defined( $_ ) } @{ $cmd->{args} };
-  my $bulk_len = scalar( @args ) + 1;
-  my $cmd_szd = "*$bulk_len$EOL";
-  foreach my $tkn ( $cmd->{name}, @args ) {
-    if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
-      $tkn = $self->{encoding}->encode( $tkn );
+  my $cmd_szd = '';
+  my $mbulk_len = 0;
+  foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
+    if ( defined( $tkn ) ) {
+      if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
+        $tkn = $self->{encoding}->encode( $tkn );
+      }
+      my $tkn_len =  length( $tkn );
+      $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
+      ++$mbulk_len;
     }
-    my $tkn_len =  length( $tkn );
-    $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
   }
+  $cmd_szd = "*$mbulk_len$EOL$cmd_szd";
 
   return $cmd_szd;
 }
@@ -422,7 +432,7 @@ sub _prcoess_response {
     return;
   }
 
-  if ( $self->_is_sub_action_cmd( $cmd->{name} ) ) {
+  if ( exists( $SUB_ACTION_COMMANDS{ $cmd->{name} } ) ) {
     return $self->_process_sub_action( $cmd, $data );
   }
 
@@ -503,13 +513,6 @@ sub _abort_all {
   $self->{subs} = {};
 
   return;
-}
-
-####
-sub _is_sub_action_cmd {
-  my $cmd_name = pop;
-  return $cmd_name eq 'subscribe' || $cmd_name eq 'unsubscribe'
-      || $cmd_name eq 'psubscribe' || $cmd_name eq 'punsubscribe';
 }
 
 ####
