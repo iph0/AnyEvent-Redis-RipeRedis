@@ -20,18 +20,17 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803003';
+our $VERSION = '0.803004';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util 'looks_like_number';
 use Carp qw( croak confess );
 
-my $DEFAULT = {
+my %DEFAULT = (
   host => 'localhost',
   port => '6379',
-  reconnect_after => 5,
-};
+);
 
 my %SUB_ACTION_COMMANDS = (
   subscribe => 1,
@@ -72,6 +71,14 @@ sub new {
 sub _validate_new {
   my __PACKAGE__ $self = shift;
   my $params = shift;
+
+  if ( !defined( $params->{host} ) || $params->{host} eq '' ) {
+    $params->{host} = $DEFAULT{host};
+  }
+
+  if ( !defined( $params->{port} ) || $params->{port} eq '' ) {
+    $params->{port} = $DEFAULT{port};
+  }
 
   if (
     defined( $params->{connection_timeout} )
@@ -266,16 +273,15 @@ sub _serialize_command {
   my $mbulk_len = 0;
   foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
     if ( defined( $tkn ) ) {
+      if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
+        $tkn = $self->{encoding}->encode( $tkn );
+      }
       my $tkn_len = length( $tkn );
       $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
       ++$mbulk_len;
     }
   }
-  $cmd_szd = "*$mbulk_len$EOL$cmd_szd";  
-  
-  if ( defined( $self->{encoding} ) && is_utf8( $cmd_szd ) ) {
-    $cmd_szd = $self->{encoding}->encode( $cmd_szd );
-  }
+  $cmd_szd = "*$mbulk_len$EOL$cmd_szd";
 
   return $cmd_szd;
 }
