@@ -20,12 +20,12 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803004';
+our $VERSION = '0.803005';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util 'looks_like_number';
-use Carp qw( croak confess );
+use Carp 'croak';
 
 my %DEFAULT = (
   host => 'localhost',
