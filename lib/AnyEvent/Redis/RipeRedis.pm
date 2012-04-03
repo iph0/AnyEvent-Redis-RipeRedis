@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803005';
+our $VERSION = '0.803007';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -367,9 +367,7 @@ sub _unshift_read {
   my $read_cb;
   my @data_list;
   my @errors;
-
-  my $remaining = $mbulk_len;
-
+  my $remaining_num = $mbulk_len;
   my $cb_wrap = sub {
     my $data = shift;
     my $is_err = shift;
@@ -381,14 +379,12 @@ sub _unshift_read {
       push( @data_list, $data );
     }
 
-    --$remaining;
-
-    if ( ref( $data ) eq 'ARRAY' && @{ $data } && $remaining > 0 ) {
+    --$remaining_num;
+    if ( ref( $data ) eq 'ARRAY' && @{ $data } && $remaining_num > 0 ) {
       $hdl->unshift_read( $read_cb );
     }
-    elsif ( $remaining == 0 ) {
-      undef( $read_cb );
-
+    elsif ( $remaining_num == 0 ) {
+      undef( $read_cb ); # Collect garbage
       if ( @errors ) {
         my $err = join( "\n", @errors );
         $cb->( $err, 1 );
