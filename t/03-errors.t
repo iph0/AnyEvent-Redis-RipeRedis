@@ -182,7 +182,7 @@ sub t_broken_connection {
 
 ####
 sub t_cmd_on_error {
-  my $cv;
+  my $cv = AnyEvent->condvar();
 
   my $redis = $t_class->new(
     %GENERIC_PARAMS,
@@ -196,13 +196,9 @@ sub t_cmd_on_error {
     chomp( $t_err );
     is( $t_err, 'ERR value is not an integer or out of range',
         "Default 'on_error' callback" );
-    $cv->send();
   };
-  $cv = AnyEvent->condvar();
   $redis->incr( 'bar' );
-  $cv->recv();
 
-  $cv = AnyEvent->condvar();
   my @t_errors;
   $redis->multi();
   $redis->set( {
@@ -219,7 +215,9 @@ sub t_cmd_on_error {
       $cv->send();
     },
   } );
+
   $cv->recv();
+  
   my $t_exp_errors = [
     "ERR wrong number of arguments for 'set' command",
     'ERR value is not an integer or out of range',
@@ -245,6 +243,7 @@ sub t_empty_password {
       $cv->send();
     }
   } );
+  
   $cv->recv();
 
   return;

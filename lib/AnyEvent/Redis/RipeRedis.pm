@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803007';
+our $VERSION = '0.803008';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -159,13 +159,11 @@ sub _connect {
       }
     ),
   );
-
   if ( defined( $self->{connection_timeout} ) ) {
     $hdl_params{on_prepare} = sub {
       return $self->{connection_timeout};
     };
   }
-
   if ( defined( $self->{on_connect} ) ) {
     $hdl_params{on_connect} = sub {
       $self->{on_connect}->();
@@ -203,7 +201,6 @@ sub _exec_command {
     args => \@args,
     %{ $params },
   };
-
   if ( exists( $SUB_ACTION_COMMANDS{ $cmd_name } ) ) {
     if ( $self->{sub_lock} ) {
       croak "Command '$cmd_name' not allowed in this context."
@@ -365,22 +362,25 @@ sub _unshift_read {
   my $cb = shift;
 
   my $read_cb;
-  my @data_list;
+  my @data;
   my @errors;
   my $remaining_num = $mbulk_len;
   my $cb_wrap = sub {
-    my $data = shift;
+    my $data_chunk = shift;
     my $is_err = shift;
 
     if ( $is_err ) {
-      push( @errors, $data );
+      push( @errors, $data_chunk );
     }
     else {
-      push( @data_list, $data );
+      push( @data, $data_chunk );
     }
 
     --$remaining_num;
-    if ( ref( $data ) eq 'ARRAY' && @{ $data } && $remaining_num > 0 ) {
+    if ( 
+      ref( $data_chunk ) eq 'ARRAY' && @{ $data_chunk } 
+        && $remaining_num > 0 
+        ) {
       $hdl->unshift_read( $read_cb );
     }
     elsif ( $remaining_num == 0 ) {
@@ -390,7 +390,7 @@ sub _unshift_read {
         $cb->( $err, 1 );
       }
       else {
-        $cb->( \@data_list );
+        $cb->( \@data );
       }
 
       return 1;
