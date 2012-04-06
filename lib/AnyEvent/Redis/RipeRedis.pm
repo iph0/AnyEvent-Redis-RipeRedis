@@ -3,7 +3,6 @@ package AnyEvent::Redis::RipeRedis;
 use 5.006000;
 use strict;
 use warnings;
-
 use fields qw(
   host
   port

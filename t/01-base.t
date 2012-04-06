@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use utf8;
 
+# TODO make AE wrapper function for testing
+
 use lib 't/tlib';
 use Test::More tests => 16;
 use Test::AnyEvent::RedisHandle;
