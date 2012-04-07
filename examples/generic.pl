@@ -64,7 +64,7 @@ $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $data = shift;
 
-    foreach my $val ( @{ $data } ) {
+    foreach my $val ( @{$data} ) {
       say $val;
     }
   },
@@ -99,9 +99,9 @@ $redis->exec( {
   on_done => sub {
     my $data = shift;
 
-    foreach my $chunk ( @{ $data } ) {
+    foreach my $chunk ( @{$data} ) {
       if ( ref( $chunk ) eq 'ARRAY' ) {
-        foreach my $val ( @{ $chunk } ) {
+        foreach my $val ( @{$chunk} ) {
           say $val;
         }
       }

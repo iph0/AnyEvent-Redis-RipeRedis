@@ -142,7 +142,7 @@ sub process_command {
 
   my $resp;
   if ( defined( $cmd ) ) {
-    if ( exists( $COMMANDS{ $cmd->{name} } ) ) {
+    if ( exists( $COMMANDS{$cmd->{name}} ) ) {
       $resp = eval {
         $self->_exec_command( $cmd );
       };
@@ -151,7 +151,8 @@ sub process_command {
       }
     }
     else {
-      ( my $msg = $ERR_MESSAGES{unknown_cmd} ) =~ s/%c/$cmd->{name}/go;
+      ( my $msg = $ERR_MESSAGES{unknown_cmd} )
+          =~ s/%c/$cmd->{name}/go;
       $resp = {
         type => '-',
         data => $msg,
@@ -171,7 +172,7 @@ sub process_command {
   }
   else {
     $resp_szd = '';
-    foreach my $resp_el ( @{ $resp } ) {
+    foreach my $resp_el ( @{$resp} ) {
       $resp_szd .= $self->_serialize_response( $resp_el );
     }
   }
@@ -206,7 +207,7 @@ sub _parse_command {
   }
   my $args = $self->_parse_mbulk( $cmd_szd, $mbulk_len );
   my $cmd = {
-    name => shift( @{ $args } ),
+    name => shift( @{$args} ),
     args => $args,
   };
 
@@ -259,14 +260,14 @@ sub _exec_command {
     };
   }
 
-  my $cmd_h = $COMMANDS{ $cmd->{name} };
+  my $cmd_h = $COMMANDS{$cmd->{name}};
 
   if ( exists( $cmd_h->{validate} ) ) {
     $cmd_h->{validate}->( $self, $cmd );
   }
 
   if ( $self->{transaction_began} && $cmd->{name} ne 'exec' ) {
-    push( @{ $self->{commands_queue} }, $cmd );
+    push( @{$self->{commands_queue}}, $cmd );
 
     return {
       type => '+',
@@ -300,10 +301,10 @@ sub _serialize_response {
     if ( !defined( $resp->{data} ) || $resp->{data} eq '' ) {
       return "*-1$EOL";
     }
-    my $mbulk_len = scalar( @{ $resp->{data} } );
+    my $mbulk_len = scalar( @{$resp->{data}} );
     if ( $mbulk_len > 0 ) {
       my $data_szd = "*$mbulk_len$EOL";
-      foreach my $val ( @{ $resp->{data} } ) {
+      foreach my $val ( @{$resp->{data}} ) {
         if ( ref( $val ) eq 'HASH' ) {
           $data_szd .= $self->_serialize_response( $val );
         }
@@ -326,11 +327,12 @@ sub _serialize_response {
 ####
 sub _validate_auth {
   my $cmd = pop;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $pass = shift( @args );
 
   if ( !defined( $pass ) || $pass eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -345,7 +347,7 @@ sub _validate_auth {
 sub _exec_auth {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $pass = shift( @args );
 
   if ( $pass ne $PASSWORD ) {
@@ -374,11 +376,12 @@ sub _exec_ping {
 ####
 sub _validate_incr {
   my $cmd = pop;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
   if ( !defined( $key ) || $key eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -393,18 +396,18 @@ sub _validate_incr {
 sub _exec_incr {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
   my $storage = $self->{storage};
-  if ( defined( $storage->{ $key } ) ) {
-    if ( ref( $storage->{ $key } ) ) {
+  if ( defined( $storage->{$key} ) ) {
+    if ( ref( $storage->{$key} ) ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{wrong_value},
       };
     }
-    elsif ( $storage->{ $key } =~ m/[^0-9]/o ) {
+    elsif ( $storage->{$key} =~ m/[^0-9]/o ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{not_integer},
@@ -412,21 +415,21 @@ sub _exec_incr {
     }
   }
   else {
-    $storage->{ $key } = 0;
+    $storage->{$key} = 0;
   }
 
-  ++$storage->{ $key };
+  $storage->{$key}++;
 
   return {
     type => ':',
-    data => $storage->{ $key },
+    data => $storage->{$key},
   };
 }
 
 ####
 sub _validate_set {
   my $cmd = pop;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
   my $val = shift( @args );
 
@@ -434,7 +437,8 @@ sub _validate_set {
     !defined( $key ) || $key eq ''
       || !defined( $val ) || $val eq ''
       ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -449,11 +453,11 @@ sub _validate_set {
 sub _exec_set {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
   my $val = shift( @args );
 
-  $self->{storage}{ $key } = $val;
+  $self->{storage}{$key} = $val;
 
   return {
     type => '+',
@@ -464,11 +468,12 @@ sub _exec_set {
 ####
 sub _validate_get {
   my $cmd = pop;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
   if ( !defined( $key ) || $key eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -483,17 +488,17 @@ sub _validate_get {
 sub _exec_get {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
   my $storage = $self->{storage};
-  if ( !defined( $storage->{ $key } ) ) {
+  if ( !defined( $storage->{$key} ) ) {
     return {
       type => '$',
       data => undef,
     };
   }
-  elsif ( ref( $storage->{ $key } ) ) {
+  elsif ( ref( $storage->{$key} ) ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{wrong_value},
@@ -502,14 +507,14 @@ sub _exec_get {
 
   return {
     type => '$',
-    data => $storage->{ $key },
+    data => $storage->{$key},
   };
 }
 
 ####
 sub _validate_push {
   my $cmd = pop;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
   my $val = shift( @args );
 
@@ -517,7 +522,8 @@ sub _validate_push {
     !defined( $key ) || $key eq ''
       || !defined( $val ) || $val eq ''
       ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -532,13 +538,13 @@ sub _validate_push {
 sub _exec_push {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
   my $val = shift( @args );
 
   my $storage = $self->{storage};
-  if ( defined( $storage->{ $key } ) ) {
-    if ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
+  if ( defined( $storage->{$key} ) ) {
+    if ( ref( $storage->{$key} ) ne 'ARRAY' ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{wrong_value},
@@ -546,14 +552,14 @@ sub _exec_push {
     }
   }
   else {
-    $storage->{ $key } = [];
+    $storage->{$key} = [];
   }
 
   if ( index( $cmd->{name}, 'r' ) == 0 ) {
-    push( @{ $storage->{ $key } }, $val );
+    push( @{$storage->{$key}}, $val );
   }
   else {
-    unshift( @{ $storage->{ $key } }, $val );
+    unshift( @{$storage->{$key}}, $val );
   }
 
   return {
@@ -565,7 +571,7 @@ sub _exec_push {
 ####
 sub _validate_bpop {
   my $cmd = pop;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $timeout = pop( @args );
   my @keys = @args;
 
@@ -573,7 +579,8 @@ sub _validate_bpop {
     scalar( @keys ) == 0
       || !defined( $timeout ) || $timeout eq ''
       ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -594,16 +601,16 @@ sub _validate_bpop {
 sub _exec_bpop {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $timeout = pop( @args ); # Timeout will be ignored
   my @keys = @args;
   my $storage = $self->{storage};
 
   foreach my $key ( @keys ) {
-    if ( !defined( $storage->{ $key } ) ) {
+    if ( !defined( $storage->{$key} ) ) {
       next;
     }
-    elsif ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
+    elsif ( ref( $storage->{$key} ) ne 'ARRAY' ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{wrong_value},
@@ -613,10 +620,10 @@ sub _exec_bpop {
     my $val;
 
     if ( index( $cmd->{name}, 'br' ) == 0 ) {
-      $val = pop( @{ $storage->{ $key } } );
+      $val = pop( @{$storage->{$key}} );
     }
     else {
-      $val = shift( @{ $storage->{ $key } } );
+      $val = shift( @{$storage->{$key}} );
     }
 
     return {
@@ -635,7 +642,7 @@ sub _exec_bpop {
 sub _validate_lrange {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
   my $start = shift( @args );
   my $stop = shift( @args );
@@ -645,7 +652,8 @@ sub _validate_lrange {
       || !defined( $start ) || $start eq ''
       || !defined( $stop ) || $stop eq ''
       ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -660,7 +668,7 @@ sub _validate_lrange {
 sub _exec_lrange {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @args = @{ $cmd->{args} };
+  my @args = @{$cmd->{args}};
   my $key = shift( @args );
   my $start = shift( @args );
   my $stop = shift( @args );
@@ -672,13 +680,13 @@ sub _exec_lrange {
   }
 
   my $storage = $self->{storage};
-  if ( !defined( $storage->{ $key } ) ) {
+  if ( !defined( $storage->{$key} ) ) {
     return {
       type => '*',
       data => [],
     };
   }
-  elsif ( ref( $storage->{ $key } ) ne 'ARRAY' ) {
+  elsif ( ref( $storage->{$key} ) ne 'ARRAY' ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{wrong_value},
@@ -686,10 +694,10 @@ sub _exec_lrange {
   }
 
   if ( $stop < 0 ) {
-    $stop = scalar( @{ $storage->{ $key } } ) + $stop;
+    $stop = scalar( @{$storage->{$key}} ) + $stop;
   }
 
-  my @list = @{ $storage->{ $key } }[ $start .. $stop ];
+  my @list = @{$storage->{$key}}[ $start .. $stop ];
 
   return {
     type => '*',
@@ -713,9 +721,9 @@ sub _exec_exec {
   my __PACKAGE__ $self = shift;
 
   my @data_list;
-  if ( @{ $self->{commands_queue} } ) {
-    while ( my $cmd = shift( @{ $self->{commands_queue} } ) ) {
-      my $resp = $COMMANDS{ $cmd->{name} }{exec}->( $self, $cmd );
+  if ( @{$self->{commands_queue}} ) {
+    while ( my $cmd = shift( @{$self->{commands_queue}} ) ) {
+      my $resp = $COMMANDS{$cmd->{name}}{exec}->( $self, $cmd );
       push( @data_list, $resp );
     }
   }
@@ -731,10 +739,11 @@ sub _exec_exec {
 ####
 sub _validate_sub {
   my $cmd = pop;
-  my @ch_proto = @{ $cmd->{args} };
+  my @ch_proto = @{$cmd->{args}};
 
   if ( scalar( @ch_proto ) == 0 ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -749,12 +758,12 @@ sub _validate_sub {
 sub _exec_sub {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @ch_proto = @{ $cmd->{args} };
+  my @ch_proto = @{$cmd->{args}};
 
   my @data;
   foreach my $ch_proto ( @ch_proto ) {
-    if ( !exists( $self->{subs}{ $ch_proto } ) ) {
-      $self->{subs}{ $ch_proto } = 1;
+    if ( !exists( $self->{subs}{$ch_proto} ) ) {
+      $self->{subs}{$ch_proto} = 1;
       ++$self->{subs_num};
     }
     push( @data, {
@@ -799,12 +808,12 @@ sub _exec_sub {
 sub _exec_unsub {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
-  my @ch_proto = @{ $cmd->{args} };
+  my @ch_proto = @{$cmd->{args}};
 
   my @data;
   foreach my $ch_proto ( @ch_proto ) {
-    if ( exists( $self->{subs}{ $ch_proto } ) ) {
-      delete( $self->{subs}{ $ch_proto } );
+    if ( exists( $self->{subs}{$ch_proto} ) ) {
+      delete( $self->{subs}{$ch_proto} );
       --$self->{subs_num};
     }
     push( @data, {

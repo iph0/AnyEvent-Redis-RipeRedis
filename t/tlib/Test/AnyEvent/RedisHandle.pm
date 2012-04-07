@@ -59,7 +59,7 @@ $mock->mock( 'push_write', sub {
   my $self = shift;
   my $cmd_szd = shift;
 
-  push( @{ $self->{_write_queue} }, $cmd_szd );
+  push( @{$self->{_write_queue}}, $cmd_szd );
 
   return;
 } );
@@ -69,7 +69,7 @@ $mock->mock( 'unshift_read', sub {
   my $self = shift;
   my $cb = shift;
 
-  unshift( @{ $self->{_read_queue} }, $cb );
+  unshift( @{$self->{_read_queue}}, $cb );
   $self->{_continue_read} = 1;
 
   return;
@@ -103,7 +103,7 @@ $mock->mock( '_connect', sub {
     after => 0,
     interval => 0.001,
     cb => sub {
-      if ( @{ $self->{_write_queue} } ) {
+      if ( @{$self->{_write_queue}} ) {
         $self->_write();
       }
       if ( $self->{_continue_read} ) {
@@ -111,7 +111,7 @@ $mock->mock( '_connect', sub {
       }
       if (
         $REDIS_IS_DOWN
-          && !@{ $self->{_write_queue} }
+          && !@{$self->{_write_queue}}
           && !$self->{_continue_read}
           && $self->{_redis_emu}
           ) {
@@ -134,7 +134,7 @@ $mock->mock( '_write', sub {
     return;
   }
 
-  my $cmd_szd = shift( @{ $self->{_write_queue} } );
+  my $cmd_szd = shift( @{$self->{_write_queue}} );
   $self->{rbuf} .= $self->{_redis_emu}->process_command( $cmd_szd );
   if ( !$self->{_continue_read} ) {
     $self->{_continue_read} = 1;
@@ -153,8 +153,8 @@ $mock->mock( '_read', sub {
     return;
   }
 
-  if ( @{ $self->{_read_queue} } && !defined( $self->{_curr_on_read} ) ) {
-    $self->{_curr_on_read} = shift( @{ $self->{_read_queue} } );
+  if ( @{$self->{_read_queue}} && !defined( $self->{_curr_on_read} ) ) {
+    $self->{_curr_on_read} = shift( @{$self->{_read_queue}} );
   }
   if ( defined( $self->{_curr_on_read} ) ) {
     if ( !$self->{_curr_on_read}->( $self ) ) {

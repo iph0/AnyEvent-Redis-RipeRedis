@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803010';
+our $VERSION = '0.803011';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -108,7 +108,10 @@ sub _validate_new {
   }
 
   foreach my $cb_name ( qw( on_connect on_disconnect on_error ) ) {
-    if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
+    if (
+      defined( $params->{$cb_name} )
+        && ref( $params->{$cb_name} ) ne 'CODE' 
+        ) {
       croak "'$cb_name' callback must be a CODE reference";
     }
   }
@@ -159,7 +162,7 @@ sub _connect {
       $self->_abort_all();
     },
 
-    on_read => $self->_prepare_read(
+    on_read => $self->_prepare_read_cb(
       sub {
         return $self->_prcoess_response( @_ );
       }
@@ -205,9 +208,9 @@ sub _exec_command {
   my $cmd = {
     name => $cmd_name,
     args => \@args,
-    %{ $params },
+    %{$params},
   };
-  if ( exists( $SUB_ACTION_CMDS{ $cmd_name } ) ) {
+  if ( exists( $SUB_ACTION_CMDS{$cmd_name} ) ) {
     if ( $self->{sub_lock} ) {
       croak "Command '$cmd_name' not allowed in this context."
           . ' First, the transaction must be completed';
@@ -243,7 +246,10 @@ sub _validate_exec_cmd {
   my $params = shift;
 
   foreach my $cb_name ( qw( on_done on_message on_error ) ) {
-    if ( defined( $params->{ $cb_name } ) && ref( $params->{ $cb_name } ) ne 'CODE' ) {
+    if (
+      defined( $params->{$cb_name} )
+        && ref( $params->{$cb_name} ) ne 'CODE' 
+        ) {
       croak "'$cb_name' callback must be a CODE reference";
     }
   }
@@ -260,37 +266,29 @@ sub _push_command {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  push( @{ $self->{command_queue} }, $cmd );
-  my $cmd_szd = $self->_serialize_command( $cmd );
-  $self->{handle}->push_write( $cmd_szd );
-
-  return;
-}
-
-####
-sub _serialize_command {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
+  push( @{$self->{command_queue}}, $cmd );
 
   my $cmd_szd = '';
-  my $mbulk_len = 0;
-  foreach my $tkn ( $cmd->{name}, @{ $cmd->{args} } ) {
+  my $m_bulk_len = 0;
+  foreach my $tkn ( $cmd->{name}, @{$cmd->{args}} ) {
     if ( defined( $tkn ) ) {
       if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
         $tkn = $self->{encoding}->encode( $tkn );
       }
       my $tkn_len = length( $tkn );
       $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
-      ++$mbulk_len;
+      ++$m_bulk_len;
     }
   }
-  $cmd_szd = "*$mbulk_len$EOL$cmd_szd";
+  $cmd_szd = "*$m_bulk_len$EOL$cmd_szd";
+  
+  $self->{handle}->push_write( $cmd_szd );
 
-  return $cmd_szd;
+  return;
 }
 
 ####
-sub _prepare_read {
+sub _prepare_read_cb {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
 
@@ -302,7 +300,10 @@ sub _prepare_read {
     while ( 1 ) {
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + $EOL_LEN;
-        if ( length( substr( $hdl->{rbuf}, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
+        if (
+          length( substr( $hdl->{rbuf}, 0, $bulk_eol_len ) )
+              == $bulk_eol_len 
+            ) {
           my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
           substr( $hdl->{rbuf}, 0, $EOL_LEN, '' );
           chomp( $data );
@@ -340,12 +341,12 @@ sub _prepare_read {
           }
         }
         elsif ( $type eq '*' ) {
-          my $mbulk_len = $data;
-          if ( $mbulk_len > 0 ) {
-            $self->_unshift_read( $hdl, $mbulk_len, $cb );
+          my $m_bulk_len = $data;
+          if ( $m_bulk_len > 0 ) {
+            $self->_unshift_read_cb( $hdl, $m_bulk_len, $cb );
             return 1;
           }
-          elsif ( $mbulk_len < 0 ) {
+          elsif ( $m_bulk_len < 0 ) {
             return 1 if $cb->();
           }
           else {
@@ -361,16 +362,16 @@ sub _prepare_read {
 }
 
 ####
-sub _unshift_read {
+sub _unshift_read_cb {
   my __PACKAGE__ $self = shift;
   my $hdl = shift;
-  my $mbulk_len = shift;
+  my $m_bulk_len = shift;
   my $cb = shift;
 
   my $read_cb;
   my @data;
   my @errors;
-  my $remaining_num = $mbulk_len;
+  my $remaining_num = $m_bulk_len;
   my $cb_wrap = sub {
     my $data_chunk = shift;
     my $is_err = shift;
@@ -382,9 +383,9 @@ sub _unshift_read {
       push( @data, $data_chunk );
     }
 
-    --$remaining_num;
+    $remaining_num--;
     if (
-      ref( $data_chunk ) eq 'ARRAY' && @{ $data_chunk }
+      ref( $data_chunk ) eq 'ARRAY' && @{$data_chunk}
         && $remaining_num > 0
         ) {
       $hdl->unshift_read( $read_cb );
@@ -402,8 +403,9 @@ sub _unshift_read {
       return 1;
     }
   };
-
-  $read_cb = $self->_prepare_read( $cb_wrap );
+  
+  $read_cb = $self->_prepare_read_cb( $cb_wrap );
+  
   $hdl->unshift_read( $read_cb );
 
   return;
@@ -416,7 +418,7 @@ sub _prcoess_response {
   my $is_err = shift;
 
   if ( $is_err ) {
-    my $cmd = shift( @{ $self->{command_queue} } );
+    my $cmd = shift( @{$self->{command_queue}} );
     if ( defined( $cmd ) ) {
       $cmd->{on_error}->( $data );
     }
@@ -427,8 +429,8 @@ sub _prcoess_response {
     return;
   }
 
-  if ( %{ $self->{subs} } && $self->_is_sub_message( $data ) ) {
-    if ( exists( $self->{subs}{ $data->[1] } ) ) {
+  if ( %{$self->{subs}} && $self->_is_sub_message( $data ) ) {
+    if ( exists( $self->{subs}{$data->[1]} ) ) {
       return $self->_process_sub_message( $data );
     }
   }
@@ -438,10 +440,11 @@ sub _prcoess_response {
   if ( !defined( $cmd ) ) {
     $self->{on_error}->( "Don't known how process response data."
       . " Command queue is empty" );
+    
     return;
   }
 
-  if ( exists( $SUB_ACTION_CMDS{ $cmd->{name} } ) ) {
+  if ( exists( $SUB_ACTION_CMDS{$cmd->{name}} ) ) {
     return $self->_process_sub_action( $cmd, $data );
   }
 
@@ -449,7 +452,7 @@ sub _prcoess_response {
     $cmd->{on_done}->( $data );
   }
 
-  shift( @{ $self->{command_queue} } );
+  shift( @{$self->{command_queue}} );
 
   if ( $cmd->{name} eq 'quit' ) {
     undef( $self->{handle} );
@@ -474,19 +477,19 @@ sub _process_sub_action {
     if ( defined( $cmd->{on_message} ) ) {
       $sub->{on_message} = $cmd->{on_message};
     }
-    $self->{subs}{ $data->[1] } = $sub;
+    $self->{subs}{$data->[1]} = $sub;
   }
   else {
     if ( defined( $cmd->{on_done} ) ) {
       $cmd->{on_done}->( $data->[1], $data->[2] );
     }
-    if ( exists( $self->{subs}{ $data->[1] } ) ) {
-      delete( $self->{subs}{ $data->[1] } );
+    if ( exists( $self->{subs}{$data->[1]} ) ) {
+      delete( $self->{subs}{$data->[1]} );
     }
   }
 
   if ( --$cmd->{resp_remaining} == 0 ) {
-    shift( @{ $self->{command_queue} } );
+    shift( @{$self->{command_queue}} );
   }
 
   return;
@@ -497,7 +500,7 @@ sub _process_sub_message {
   my __PACKAGE__ $self = shift;
   my $data = shift;
 
-  my $sub = $self->{subs}{ $data->[1] };
+  my $sub = $self->{subs}{$data->[1]};
   if ( exists( $sub->{on_message} ) ) {
     if ( $data->[0] eq 'message' ) {
       $sub->{on_message}->( $data->[1], $data->[2] );
@@ -514,7 +517,7 @@ sub _process_sub_message {
 sub _abort_all {
   my __PACKAGE__ $self = shift;
 
-  while ( my $cmd = shift( @{ $self->{command_queue} } ) ) {
+  while ( my $cmd = shift( @{$self->{command_queue}} ) ) {
     $cmd->{on_error}->( "Command '$cmd->{name}' failed" );
   }
 
@@ -545,10 +548,10 @@ sub AUTOLOAD {
 
   do {
     no strict 'refs';
-    *{ $AUTOLOAD } = $sub;
+    *{$AUTOLOAD} = $sub;
   };
 
-  goto &{ $sub };
+  goto &{$sub};
 }
 
 ####
