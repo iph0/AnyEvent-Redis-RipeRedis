@@ -30,7 +30,7 @@ sub t_no_connection {
   Test::AnyEvent::RedisHandle->redis_down();
 
   my @t_data;
-  
+
   my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
@@ -59,13 +59,12 @@ sub t_no_connection {
 
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $ex_data = [
+  is_deeply( \@t_data, [
     "Can't connect to localhost:6379; Connection error",
     "Command 'ping' failed",
     "Can't execute command 'ping'. Connection not established"
-  ];
-  is_deeply( \@t_data, $ex_data, "Can't connect" );
-  
+  ], "Can't connect" );
+
   return;
 }
 
@@ -109,13 +108,12 @@ sub t_reconnect {
   } );
   ev_loop( $cv );
 
-  my $ex_data = [
+  is_deeply( \@t_data, [
     'Connected',
     'Disconnected',
     'Connected',
     'PONG',
-  ];
-  is_deeply( \@t_data, $ex_data, 'Reconnect' );
+  ], 'Reconnect' );
 
   return;
 }
@@ -151,12 +149,11 @@ sub t_broken_connection {
 
   Test::AnyEvent::RedisHandle->fix_connection();
 
-  my $ex_data = [
+  is_deeply( \@t_data, [
     'Connected',
     'Error writing to socket',
     "Command 'ping' failed",
-  ];
-  is_deeply( \@t_data, $ex_data, 'Broken connection' );
+  ], 'Broken connection' );
 
   return;
 }
@@ -169,7 +166,7 @@ sub t_cmd_on_error {
     password => 'test',
   );
   $redis->set( 'bar', 'Some string' );
-  
+
   my $t_err;
   $cv = AnyEvent->condvar();
   local $SIG{__WARN__} = sub {
@@ -179,6 +176,7 @@ sub t_cmd_on_error {
   };
   $redis->incr( 'bar' );
   ev_loop( $cv );
+
   is( $t_err, 'ERR value is not an integer or out of range',
       "Default 'on_error' callback" );
 
@@ -200,11 +198,11 @@ sub t_cmd_on_error {
     },
   } );
   ev_loop( $cv );
-  my $ex_errors = [
+
+  is_deeply( \@t_errors, [
     "ERR wrong number of arguments for 'set' command",
     'ERR value is not an integer or out of range',
-  ];
-  is_deeply( \@t_errors, $ex_errors, "'on_error' callback in the method of the command" );
+  ], "'on_error' callback in the method of the command" );
 
   return;
 }
@@ -224,6 +222,7 @@ sub t_empty_password {
     }
   } );
   ev_loop( $cv );
+
   is( $t_err, 'ERR operation not permitted', 'Empty password' );
 
   return;

@@ -63,6 +63,7 @@ sub t_ping {
     },
   } );
   ev_loop( $cv );
+  
   is( $t_data, 'PONG', 'ping (status reply)' );
 
   return;
@@ -79,6 +80,7 @@ sub t_incr {
     },
   } );
   ev_loop( $cv );
+  
   is( $t_data, 1, 'incr (numeric reply)' );
 
   return;
@@ -96,6 +98,7 @@ sub t_set_get {
     },
   } );
   ev_loop( $cv );
+  
   is( $t_data, 'Some string', 'get (bulk reply)' );
 
   return;
@@ -113,6 +116,7 @@ sub t_set_get_utf8 {
     },
   } );
   ev_loop( $cv );
+
   is( $t_data, 'Значение', 'set/get UTF-8 string' );
 
   return;
@@ -129,6 +133,7 @@ sub t_get_non_existent {
     },
   } );
   ev_loop( $cv );
+
   is( $t_data, undef, 'get (non existent key)' );
 
   return;
@@ -149,12 +154,12 @@ sub t_lrange {
     },
   } );
   ev_loop( $cv );
-  my $ex_data = [ qw(
+  
+  is_deeply( $t_data, [ qw(
     element_1
     element_2
     element_3
-  ) ];
-  is_deeply( $t_data, $ex_data, 'lrange (multi-bulk reply)' );
+  ) ], 'lrange (multi-bulk reply)' );
 
   return;
 }
@@ -170,6 +175,7 @@ sub t_get_empty_list {
     },
   } );
   ev_loop( $cv );
+
   is_deeply( $t_data, [], 'lrange (empty list)' );
 
   return;
@@ -186,7 +192,8 @@ sub t_mbulk_undef {
     },
   } );
   ev_loop( $cv );
-  is( $t_data, undef, 'brpop (empty list)' );
+
+  is( $t_data, undef, 'brpop (multi-bulk undef)' );
 
   return;
 }
@@ -208,14 +215,22 @@ sub t_transaction {
     },
   } );
   ev_loop( $cv );
-  my $ex_data = [
+
+  is_deeply( $t_data, [
     2,
-    [ qw( element_1 element_2 element_3 ) ],
+    [ qw( 
+      element_1 
+      element_2
+      element_3
+    ) ],
     [],
     'Some string',
-    [ qw( element_1 element_2 element_3 ) ],
-  ];
-  is_deeply( $t_data, $ex_data, 'exec (nested multi-bulk reply)' );
+    [ qw(
+      element_1
+      element_2
+      element_3
+    ) ],
+  ], 'exec (nested multi-bulk reply)' );
 
   return;
 }
@@ -231,6 +246,7 @@ sub t_quit {
     },
   } );
   ev_loop( $cv );
+  
   is( $t_data, 'OK', 'quit (status reply)' );
 
   return;

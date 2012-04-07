@@ -128,7 +128,7 @@ $unsub_timer = AnyEvent->timer(
 
 ev_loop( $cv );
 
-my $ex_sub_data = [
+is_deeply( \@t_sub_data, [
   {
     ch_name => 'ch_foo',
     subs_num => 1,
@@ -141,10 +141,9 @@ my $ex_sub_data = [
     ch_name => 'ch_test',
     subs_num => 3,
   },
-];
-is_deeply( \@t_sub_data, $ex_sub_data, 'subscribe' );
+], 'subscribe' );
 
-my $ex_sub_msgs = [
+is_deeply( \@t_sub_msgs, [
   {
     ch_name => 'ch_foo',
     message => 'test',
@@ -153,10 +152,9 @@ my $ex_sub_msgs = [
     ch_name => 'ch_bar',
     message => 'test',
   },
-];
-is_deeply( \@t_sub_msgs, $ex_sub_msgs, 'message' );
+], 'message' );
 
-my $ex_unsub_data = [
+is_deeply( \@t_unsub_data, [
   {
     ch_name => 'ch_foo',
     subs_num => 4,
@@ -165,10 +163,9 @@ my $ex_unsub_data = [
     ch_name => 'ch_bar',
     subs_num => 3,
   },
-];
-is_deeply( \@t_unsub_data, $ex_unsub_data, 'unsubscribe' );
+], 'unsubscribe' );
 
-my $ex_psub_data = [
+is_deeply( \@t_psub_data, [
   {
     ch_pattern => 'info_*',
     subs_num => 4,
@@ -177,10 +174,9 @@ my $ex_psub_data = [
     ch_pattern => 'err_*',
     subs_num => 5,
   }
-];
-is_deeply( \@t_psub_data, $ex_psub_data, 'psubscribe' );
+], 'psubscribe' );
 
-my $ex_psub_msgs = [
+is_deeply( \@t_psub_msgs, [
   {
     ch_name => 'info_some',
     message => 'test',
@@ -191,10 +187,9 @@ my $ex_psub_msgs = [
     message => 'test',
     ch_pattern => 'err_*',
   },
-];
-is_deeply( \@t_psub_msgs, $ex_psub_msgs, 'pmessage' );
+], 'pmessage' );
 
-my $ex_punsub_data = [
+is_deeply( \@t_punsub_data, [
   {
     ch_pattern => 'info_*',
     subs_num => 2,
@@ -203,5 +198,4 @@ my $ex_punsub_data = [
     ch_pattern => 'err_*',
     subs_num => 1,
   },
-];
-is_deeply( \@t_punsub_data, $ex_punsub_data, 'punsubscribe' );
+], 'punsubscribe' );
