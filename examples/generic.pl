@@ -28,24 +28,24 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 # Increment
 $redis->incr( 'foo', {
   on_done => sub {
-    my $val = shift;
-    say $val;
+    my $data = shift;
+    say $data;
   },
 } );
 
 # Set value
 $redis->set( 'bar', 'Some string', {
   on_done => sub {
-    my $resp = shift;
-    say $resp;
+    my $data = shift;
+    say $data;
   },
 } );
 
 # Get value
 $redis->get( 'bar', {
   on_done => sub {
-    my $val = shift;
-    say $val;
+    my $data = shift;
+    say $data;
   },
 } );
 
@@ -53,8 +53,8 @@ $redis->get( 'bar', {
 for ( my $i = 1; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i", {
     on_done => sub {
-      my $resp = shift;
-      say $resp;
+      my $data = shift;
+      say $data;
     },
   } );
 }
@@ -62,9 +62,9 @@ for ( my $i = 1; $i <= 3; $i++ ) {
 # Get list of values
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
-    my $list = shift;
+    my $data = shift;
 
-    foreach my $val ( @{ $list } ) {
+    foreach my $val ( @{ $data } ) {
       say $val;
     }
   },
@@ -73,40 +73,40 @@ $redis->lrange( 'list', 0, -1, {
 # Transaction
 $redis->multi( {
   on_done => sub {
-    my $resp = shift;
-    say $resp;
+    my $data = shift;
+    say $data;
   },
 } );
 $redis->incr( 'foo', {
   on_done => sub {
-    my $resp = shift;
-    say $resp;
+    my $data = shift;
+    say $data;
   },
 } );
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
-    my $resp = shift;
-    say $resp;
+    my $data = shift;
+    say $data;
   },
 } );
 $redis->get( 'bar', {
   on_done => sub {
-    my $resp = shift;
-    say $resp;
+    my $data = shift;
+    say $data;
   },
 } );
 $redis->exec( {
   on_done => sub {
-    my $data_list = shift;
+    my $data = shift;
 
-    foreach my $data ( @{ $data_list } ) {
-      if ( ref( $data ) eq 'ARRAY' ) {
-        foreach my $val ( @{ $data } ) {
+    foreach my $chunk ( @{ $data } ) {
+      if ( ref( $chunk ) eq 'ARRAY' ) {
+        foreach my $val ( @{ $chunk } ) {
           say $val;
         }
       }
       else {
-        say $data;
+        say $chunk;
       }
     }
   },
@@ -116,8 +116,8 @@ $redis->exec( {
 foreach my $key ( qw( foo bar list ) ) {
   $redis->del( $key, {
     on_done => sub {
-      my $is_del = shift;
-      say $is_del;
+      my $data = shift;
+      say $data;
     }
   } );
 }
@@ -125,8 +125,8 @@ foreach my $key ( qw( foo bar list ) ) {
 # Disconnect
 $redis->quit( {
   on_done => sub {
-    my $resp = shift;
-    say $resp;
+    my $data = shift;
+    say $data;
     $cv->send();
   }
 } );

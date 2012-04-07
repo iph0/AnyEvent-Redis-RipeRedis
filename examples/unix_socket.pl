@@ -38,8 +38,8 @@ $timer = AnyEvent->timer(
   cb => sub {
     $redis->incr( 'foo', {
       on_done => sub {
-        my $val = shift;
-        say $val;
+        my $data = shift;
+        say $data;
       },
     } );
   },
