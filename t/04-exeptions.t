@@ -8,141 +8,216 @@ use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $t_class = 'AnyEvent::Redis::RipeRedis';
+my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
-my $redis;
-my $line;
+t_conn_timeout();
+t_encoding();
+t_on_connect();
+t_on_disconnect();
+t_on_error();
+t_on_done();
+t_cmd_on_error();
+t_on_message();
+t_sub_after_multi();
 
 
-# Connection timeout
+# Subroutines
 
-eval {
-  $line = __LINE__ + 1;
-  $redis = $t_class->new(
-    connection_timeout => 'invalid_timeout',
-  );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "Connection timeout must be a positive number at $0 line $line";
-  is( $@, $exp_msg, 'Invalid connection timeout (character string)' );
+####
+sub t_conn_timeout {
+  my $t_err;
+  my $line;
+  my $ex_err;
+  
+  eval {
+    $line = __LINE__ + 1;
+    my $redis = $T_CLASS->new(
+      connection_timeout => 'invalid_timeout',
+    );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  $ex_err = "Connection timeout must be a positive number at $0 line $line";
+  is( $t_err, $ex_err, 'Invalid connection timeout (character string)' );
+
+  undef( $t_err );
+  eval {
+    $line = __LINE__ + 1;
+    my $redis = $T_CLASS->new(
+      connection_timeout => -5,
+    );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  $ex_err = "Connection timeout must be a positive number at $0 line $line";
+  is( $t_err, $ex_err, 'Invalid connection timeout (negative number)' );
+
+  return;
 }
 
-eval {
-  $line = __LINE__ + 1;
-  $redis = $t_class->new(
-    connection_timeout => -5,
-  );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "Connection timeout must be a positive number at $0 line $line";
-  is( $@, $exp_msg, 'Invalid connection timeout (negative number)' );
-}
+####
+sub t_encoding {
+  my $t_err;
+  my $line;
+  eval {  
+    $line = __LINE__ + 1;
+    my $redis = $T_CLASS->new(
+      encoding => 'invalid_enc',
+    );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "Encoding 'invalid_enc' not found at $0 line $line";
+  is( $t_err, $ex_err, 'Invalid encoding' );
 
-
-# Invalid encoding
-eval {
-  $line = __LINE__ + 1;
-  $redis = $t_class->new(
-    encoding => 'invalid_enc',
-  );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "Encoding 'invalid_enc' not found at $0 line $line";
-  is( $@, $exp_msg, 'Invalid encoding' );
+  return;
 }
 
 # Invalid "on_connect"
-eval {
-  $line = __LINE__ + 1;
-  $redis = $t_class->new(
-    on_connect => 'invalid',
-  );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "'on_connect' callback must be a CODE reference at $0 line $line";
-  is( $@, $exp_msg, "Invalid 'on_connect' callback" );
+####
+sub t_on_connect {
+  my $t_err;
+  my $line;
+  eval {  
+    $line = __LINE__ + 1;
+    my $redis = $T_CLASS->new(
+      on_connect => 'invalid',
+    );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "'on_connect' callback must be a CODE reference at $0 line $line";
+  is( $t_err, $ex_err, "Invalid 'on_connect' callback" );
+
+  return;
 }
 
-# Invalid "on_disconnect"
-eval {
-  $line = __LINE__ + 1;
-  $redis = $t_class->new(
-    on_disconnect => {},
-  );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "'on_disconnect' callback must be a CODE reference at $0 line $line";
-  is( $@, $exp_msg, "Invalid 'on_disconnect' callback" );
+####
+sub t_on_disconnect {
+  my $t_err;
+  my $line;
+  eval {
+    $line = __LINE__ + 1;
+    my $redis = $T_CLASS->new(
+      on_disconnect => {},
+    );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "'on_disconnect' callback must be a CODE reference at $0 line $line";
+  is( $t_err, $ex_err, "Invalid 'on_disconnect' callback" );
+
+  return;
+}
+
+####
+sub t_on_error {
+  my $t_err;
+  my $line;
+  eval {  
+    $line = __LINE__ + 1;
+    my $redis = $T_CLASS->new(
+      on_error => [],
+    );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "'on_error' callback must be a CODE reference at $0 line $line";
+  is( $t_err, $ex_err, "Invalid 'on_error' callback in the constructor" );
+
+  return;
+}
+
+####
+sub t_on_done {
+  my $t_err;
+  my $line;
+  eval {
+    my $redis = $T_CLASS->new();
+    $line = __LINE__ + 1;
+    $redis->incr( 'foo', {
+      on_done => {},
+    } );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "'on_done' callback must be a CODE reference at $0 line $line";
+  is( $t_err, $ex_err, "Invalid 'on_done' callback" );
+
+  return;
 }
 
 # Invalid "on_error"
-eval {
-  $line = __LINE__ + 1;
-  $redis = $t_class->new(
-    on_error => [],
-  );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "'on_error' callback must be a CODE reference at $0 line $line";
-  is( $@, $exp_msg, "Invalid 'on_error' callback" );
+sub t_cmd_on_error {
+  my $t_err;
+  my $line;
+  eval {
+    my $redis = $T_CLASS->new();
+    $line = __LINE__ + 1;
+    $redis->incr( 'foo', {
+      on_error => [],
+    } );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "'on_error' callback must be a CODE reference at $0 line $line";
+  is( $t_err, $ex_err, "Invalid 'on_error' callback in the method of the command" );
+
+  return;
 }
 
-$redis = $t_class->new();
+####
+sub t_on_message {
+  my $t_err;
+  my $line;
+  eval {
+    my $redis = $T_CLASS->new();
+    $line = __LINE__ + 1;
+    $redis->subscribe( 'channel', {
+      on_message => 'invalid',
+    } );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "'on_message' callback must be a CODE reference at $0 line $line";
+  is( $t_err, $ex_err, "Invalid 'on_message' callback" );
 
-# Invalid "on_done"
-eval {
-  $line = __LINE__ + 1;
-  $redis->incr( 'foo', {
-    on_done => {},
-  } );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "'on_done' callback must be a CODE reference at $0 line $line";
-  is( $@, $exp_msg, "Invalid 'on_done' callback" );
+  return;
 }
 
-# Invalid "on_error"
-eval {
-  $line = __LINE__ + 1;
-  $redis->incr( 'foo', {
-    on_error => [],
-  } );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "'on_error' callback must be a CODE reference at $0 line $line";
-  is( $@, $exp_msg, "Invalid 'on_error' callback" );
-}
-
-# Invalid "on_message"
-eval {
-  $line = __LINE__ + 1;
-  $redis->subscribe( 'channel', {
-    on_message => 'invalid',
-  } );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "'on_message' callback must be a CODE reference at $0 line $line";
-  is( $@, $exp_msg, "Invalid 'on_message' callback" );
-}
-
-# Subscription in transactional context
-$redis->multi();
-eval {
-  $line = __LINE__ + 1;
-  $redis->subscribe( 'channel' );
-};
-if ( $@ ) {
-  chomp( $@ );
-  my $exp_msg = "Command 'subscribe' not allowed in this context."
+####
+sub t_sub_after_multi {
+  my $t_err;
+  my $line;
+  my $redis = $T_CLASS->new();
+  $redis->multi();
+  eval {
+    $line = __LINE__ + 1;
+    $redis->subscribe( 'channel' );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_err = $@;
+  }
+  my $ex_err = "Command 'subscribe' not allowed in this context."
       . " First, the transaction must be completed at $0 line $line";
-  is( $@, $exp_msg, 'Invalid context for subscribtion' );
+  is( $t_err, $ex_err, 'Invalid context for subscribtion' );
 }

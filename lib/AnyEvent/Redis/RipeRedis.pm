@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803008';
+our $VERSION = '0.803010';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -31,7 +31,7 @@ my %DEFAULT = (
   port => '6379',
 );
 
-my %SUB_ACTION_COMMANDS = (
+my %SUB_ACTION_CMDS = (
   subscribe => 1,
   psubscribe => 1,
   unsubscribe => 1,
@@ -39,7 +39,7 @@ my %SUB_ACTION_COMMANDS = (
 );
 
 my $EOL = "\r\n";
-my $EOL_LENGTH = length( $EOL );
+my $EOL_LEN = length( $EOL );
 
 
 # Constructor
@@ -51,8 +51,15 @@ sub new {
 
   $params = $self->_validate_new( $params );
 
-  my @keys = keys( %{ $params } );
-  @{ $self }{ @keys } = @{ $params }{ @keys };
+  $self->{host} = $params->{host};
+  $self->{port} = $params->{port};
+  $self->{password} = $params->{password};
+  $self->{connection_timeout} = $params->{connection_timeout};
+  $self->{reconnect} = $params->{reconnect};
+  $self->{encoding} = $params->{encoding};
+  $self->{on_connect} = $params->{on_connect};
+  $self->{on_disconnect} = $params->{on_disconnect};
+  $self->{on_error} = $params->{on_error};
   $self->{handle} = undef;
   $self->{command_queue} = [];
   $self->{sub_lock} = undef;
@@ -200,7 +207,7 @@ sub _exec_command {
     args => \@args,
     %{ $params },
   };
-  if ( exists( $SUB_ACTION_COMMANDS{ $cmd_name } ) ) {
+  if ( exists( $SUB_ACTION_CMDS{ $cmd_name } ) ) {
     if ( $self->{sub_lock} ) {
       croak "Command '$cmd_name' not allowed in this context."
           . ' First, the transaction must be completed';
@@ -294,12 +301,12 @@ sub _prepare_read {
 
     while ( 1 ) {
       if ( defined( $bulk_len ) ) {
-        my $bulk_eol_len = $bulk_len + $EOL_LENGTH;
+        my $bulk_eol_len = $bulk_len + $EOL_LEN;
         if ( length( substr( $hdl->{rbuf}, 0, $bulk_eol_len ) ) == $bulk_eol_len ) {
           my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
-          substr( $hdl->{rbuf}, 0, $EOL_LENGTH, '' );
+          substr( $hdl->{rbuf}, 0, $EOL_LEN, '' );
           chomp( $data );
-          if ( $self->{encoding} ) {
+          if ( defined( $self->{encoding} ) ) {
             $data = $self->{encoding}->decode( $data );
           }
           undef( $bulk_len );
@@ -316,7 +323,7 @@ sub _prepare_read {
       if ( $eol_pos >= 0 ) {
         my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
-        substr( $hdl->{rbuf}, 0, $EOL_LENGTH, '' );
+        substr( $hdl->{rbuf}, 0, $EOL_LEN, '' );
 
         if ( $type eq '+' || $type eq ':' ) {
           return 1 if $cb->( $data );
@@ -376,9 +383,9 @@ sub _unshift_read {
     }
 
     --$remaining_num;
-    if ( 
-      ref( $data_chunk ) eq 'ARRAY' && @{ $data_chunk } 
-        && $remaining_num > 0 
+    if (
+      ref( $data_chunk ) eq 'ARRAY' && @{ $data_chunk }
+        && $remaining_num > 0
         ) {
       $hdl->unshift_read( $read_cb );
     }
@@ -434,7 +441,7 @@ sub _prcoess_response {
     return;
   }
 
-  if ( exists( $SUB_ACTION_COMMANDS{ $cmd->{name} } ) ) {
+  if ( exists( $SUB_ACTION_CMDS{ $cmd->{name} } ) ) {
     return $self->_process_sub_action( $cmd, $data );
   }
 

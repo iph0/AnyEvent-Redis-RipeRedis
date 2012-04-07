@@ -5,24 +5,15 @@ use warnings;
 use lib 't/tlib';
 use Test::More tests => 6;
 use Test::AnyEvent::RedisHandle;
+use Test::AnyEvent;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $t_class = 'AnyEvent::Redis::RipeRedis';
+my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
 my %GENERIC_PARAMS = (
   host => 'localhost',
   port => '6379',
-);
-
-my $timer;
-$timer = AnyEvent->timer(
-  after => 5,
-  cb => sub {
-    undef( $timer );
-    diag( 'Emergency exit from event loop. Test failed' );
-    exit 0; # Emergency exit
-  },
 );
 
 t_no_connection();
@@ -31,18 +22,17 @@ t_broken_connection();
 t_cmd_on_error();
 t_empty_password();
 
+
 # Subroutines
 
 ####
 sub t_no_connection {
-  my @t_data;
-
   Test::AnyEvent::RedisHandle->redis_down();
 
+  my @t_data;
+  
   my $cv = AnyEvent->condvar();
-
-  my $cnt = 0;
-  my $redis = $t_class->new(
+  my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     reconnect => 0,
 
@@ -51,7 +41,6 @@ sub t_no_connection {
       push( @t_data, $err );
     },
   );
-
   $redis->ping( {
     on_error => sub {
       my $err = shift;
@@ -59,8 +48,7 @@ sub t_no_connection {
       $cv->send();
     }
   } );
-
-  $cv->recv();
+  ev_loop( $cv );
 
   $redis->ping( {
     on_error => sub {
@@ -71,25 +59,25 @@ sub t_no_connection {
 
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $t_exp_data = [
+  my $ex_data = [
     "Can't connect to localhost:6379; Connection error",
     "Command 'ping' failed",
     "Can't execute command 'ping'. Connection not established"
   ];
-  is_deeply( \@t_data, $t_exp_data, "Can't connect" );
-
+  is_deeply( \@t_data, $ex_data, "Can't connect" );
+  
   return;
 }
 
 ####
 sub t_reconnect {
-  my @t_data;
-
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $cv = AnyEvent->condvar();
+  my $cv;
+  my @t_data;
 
-  my $redis = $t_class->new(
+  $cv = AnyEvent->condvar();
+  my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     reconnect => 1,
     password => 'test',
@@ -104,17 +92,14 @@ sub t_reconnect {
       $cv->send();
     },
   );
-
   $redis->ping( {
     on_done => sub {
       Test::AnyEvent::RedisHandle->redis_down();
     }
   } );
-
-  $cv->recv();
+  ev_loop( $cv );
 
   $cv = AnyEvent->condvar();
-
   $redis->ping( {
     on_done => sub {
       my $resp = shift;
@@ -122,29 +107,27 @@ sub t_reconnect {
       $cv->send();
     }
   } );
+  ev_loop( $cv );
 
-  $cv->recv();
-
-  my $t_exp_data = [
+  my $ex_data = [
     'Connected',
     'Disconnected',
     'Connected',
     'PONG',
   ];
-  is_deeply( \@t_data, $t_exp_data, 'Reconnect' );
+  is_deeply( \@t_data, $ex_data, 'Reconnect' );
 
   return;
 }
 
 ####
 sub t_broken_connection {
-  my @t_data;
-
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $cv = AnyEvent->condvar();
+  my @t_data;
 
-  my $redis = $t_class->new(
+  my $cv = AnyEvent->condvar();
+  my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
 
@@ -158,48 +141,49 @@ sub t_broken_connection {
       $cv->send();
     },
   );
-
   $redis->ping( {
     on_done => sub {
       Test::AnyEvent::RedisHandle->break_connection();
       $redis->ping();
     },
   } );
-
-  $cv->recv();
+  ev_loop( $cv );
 
   Test::AnyEvent::RedisHandle->fix_connection();
 
-  my $t_exp_data = [
+  my $ex_data = [
     'Connected',
     'Error writing to socket',
     "Command 'ping' failed",
   ];
-  is_deeply( \@t_data, $t_exp_data, 'Broken connection' );
+  is_deeply( \@t_data, $ex_data, 'Broken connection' );
 
   return;
 }
 
 ####
 sub t_cmd_on_error {
-  my $cv = AnyEvent->condvar();
-
-  my $redis = $t_class->new(
+  my $cv;
+  my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
   );
-
   $redis->set( 'bar', 'Some string' );
-
+  
+  my $t_err;
+  $cv = AnyEvent->condvar();
   local $SIG{__WARN__} = sub {
-    my $t_err = shift;
+    $t_err = shift;
     chomp( $t_err );
-    is( $t_err, 'ERR value is not an integer or out of range',
-        "Default 'on_error' callback" );
+    $cv->send();
   };
   $redis->incr( 'bar' );
+  ev_loop( $cv );
+  is( $t_err, 'ERR value is not an integer or out of range',
+      "Default 'on_error' callback" );
 
   my @t_errors;
+  $cv = AnyEvent->condvar();
   $redis->multi();
   $redis->set( {
     on_error => sub {
@@ -215,36 +199,32 @@ sub t_cmd_on_error {
       $cv->send();
     },
   } );
-
-  $cv->recv();
-  
-  my $t_exp_errors = [
+  ev_loop( $cv );
+  my $ex_errors = [
     "ERR wrong number of arguments for 'set' command",
     'ERR value is not an integer or out of range',
   ];
-  is_deeply( \@t_errors, $t_exp_errors, "Local 'on_error' callback" );
+  is_deeply( \@t_errors, $ex_errors, "'on_error' callback in the method of the command" );
 
   return;
 }
 
 ####
 sub t_empty_password {
+  my $t_err;
   my $cv = AnyEvent->condvar();
-  
-  my $redis = $t_class->new(
+  my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => '',
   );
-
   $redis->ping( {
     on_error => sub {
-      my $t_err = shift;
-      is( $t_err, 'ERR operation not permitted', 'Empty password' );
+      $t_err = shift;
       $cv->send();
     }
   } );
-  
-  $cv->recv();
+  ev_loop( $cv );
+  is( $t_err, 'ERR operation not permitted', 'Empty password' );
 
   return;
 }

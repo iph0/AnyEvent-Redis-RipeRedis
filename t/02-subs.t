@@ -5,24 +5,15 @@ use warnings;
 use lib 't/tlib';
 use Test::More tests => 6;
 use Test::AnyEvent::RedisHandle;
+use Test::AnyEvent;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $t_class = 'AnyEvent::Redis::RipeRedis';
-
-my $timer;
-$timer = AnyEvent->timer(
-  after => 5,
-  cb => sub {
-    undef( $timer );
-    diag( 'Emergency exit from event loop. Test failed' );
-    exit 0; # Emergency exit
-  },
-);
+my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
 my $cv = AnyEvent->condvar();
 
-my $redis = $t_class->new(
+my $redis = $T_CLASS->new(
   host => 'localhost',
   port => '6379',
   password => 'test',
@@ -135,9 +126,9 @@ $unsub_timer = AnyEvent->timer(
   }
 );
 
-$cv->recv();
+ev_loop( $cv );
 
-my $t_exp_sub_data = [
+my $ex_sub_data = [
   {
     ch_name => 'ch_foo',
     subs_num => 1,
@@ -151,9 +142,9 @@ my $t_exp_sub_data = [
     subs_num => 3,
   },
 ];
-is_deeply( \@t_sub_data, $t_exp_sub_data, 'subscribe' );
+is_deeply( \@t_sub_data, $ex_sub_data, 'subscribe' );
 
-my $t_exp_sub_msgs = [
+my $ex_sub_msgs = [
   {
     ch_name => 'ch_foo',
     message => 'test',
@@ -163,9 +154,9 @@ my $t_exp_sub_msgs = [
     message => 'test',
   },
 ];
-is_deeply( \@t_sub_msgs, $t_exp_sub_msgs, 'message' );
+is_deeply( \@t_sub_msgs, $ex_sub_msgs, 'message' );
 
-my $t_exp_unsub_data = [
+my $ex_unsub_data = [
   {
     ch_name => 'ch_foo',
     subs_num => 4,
@@ -175,9 +166,9 @@ my $t_exp_unsub_data = [
     subs_num => 3,
   },
 ];
-is_deeply( \@t_unsub_data, $t_exp_unsub_data, 'unsubscribe' );
+is_deeply( \@t_unsub_data, $ex_unsub_data, 'unsubscribe' );
 
-my $t_exp_psub_data = [
+my $ex_psub_data = [
   {
     ch_pattern => 'info_*',
     subs_num => 4,
@@ -187,9 +178,9 @@ my $t_exp_psub_data = [
     subs_num => 5,
   }
 ];
-is_deeply( \@t_psub_data, $t_exp_psub_data, 'psubscribe' );
+is_deeply( \@t_psub_data, $ex_psub_data, 'psubscribe' );
 
-my $t_exp_psub_msgs = [
+my $ex_psub_msgs = [
   {
     ch_name => 'info_some',
     message => 'test',
@@ -201,9 +192,9 @@ my $t_exp_psub_msgs = [
     ch_pattern => 'err_*',
   },
 ];
-is_deeply( \@t_psub_msgs, $t_exp_psub_msgs, 'pmessage' );
+is_deeply( \@t_psub_msgs, $ex_psub_msgs, 'pmessage' );
 
-my $t_exp_punsub_data = [
+my $ex_punsub_data = [
   {
     ch_pattern => 'info_*',
     subs_num => 2,
@@ -213,4 +204,4 @@ my $t_exp_punsub_data = [
     subs_num => 1,
   },
 ];
-is_deeply( \@t_punsub_data, $t_exp_punsub_data, 'punsubscribe' );
+is_deeply( \@t_punsub_data, $ex_punsub_data, 'punsubscribe' );
