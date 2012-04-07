@@ -110,7 +110,7 @@ sub _validate_new {
   foreach my $cb_name ( qw( on_connect on_disconnect on_error ) ) {
     if (
       defined( $params->{$cb_name} )
-        && ref( $params->{$cb_name} ) ne 'CODE' 
+        && ref( $params->{$cb_name} ) ne 'CODE'
         ) {
       croak "'$cb_name' callback must be a CODE reference";
     }
@@ -248,7 +248,7 @@ sub _validate_exec_cmd {
   foreach my $cb_name ( qw( on_done on_message on_error ) ) {
     if (
       defined( $params->{$cb_name} )
-        && ref( $params->{$cb_name} ) ne 'CODE' 
+        && ref( $params->{$cb_name} ) ne 'CODE'
         ) {
       croak "'$cb_name' callback must be a CODE reference";
     }
@@ -281,7 +281,7 @@ sub _push_command {
     }
   }
   $cmd_szd = "*$m_bulk_len$EOL$cmd_szd";
-  
+
   $self->{handle}->push_write( $cmd_szd );
 
   return;
@@ -302,7 +302,7 @@ sub _prepare_read_cb {
         my $bulk_eol_len = $bulk_len + $EOL_LEN;
         if (
           length( substr( $hdl->{rbuf}, 0, $bulk_eol_len ) )
-              == $bulk_eol_len 
+              == $bulk_eol_len
             ) {
           my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
           substr( $hdl->{rbuf}, 0, $EOL_LEN, '' );
@@ -403,9 +403,9 @@ sub _unshift_read_cb {
       return 1;
     }
   };
-  
+
   $read_cb = $self->_prepare_read_cb( $cb_wrap );
-  
+
   $hdl->unshift_read( $read_cb );
 
   return;
@@ -440,7 +440,7 @@ sub _prcoess_response {
   if ( !defined( $cmd ) ) {
     $self->{on_error}->( "Don't known how process response data."
       . " Command queue is empty" );
-    
+
     return;
   }
 

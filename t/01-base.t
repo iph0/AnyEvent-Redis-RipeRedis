@@ -63,7 +63,7 @@ sub t_ping {
     },
   } );
   ev_loop( $cv );
-  
+
   is( $t_data, 'PONG', 'ping (status reply)' );
 
   return;
@@ -80,7 +80,7 @@ sub t_incr {
     },
   } );
   ev_loop( $cv );
-  
+
   is( $t_data, 1, 'incr (numeric reply)' );
 
   return;
@@ -98,7 +98,7 @@ sub t_set_get {
     },
   } );
   ev_loop( $cv );
-  
+
   is( $t_data, 'Some string', 'get (bulk reply)' );
 
   return;
@@ -154,7 +154,7 @@ sub t_lrange {
     },
   } );
   ev_loop( $cv );
-  
+
   is_deeply( $t_data, [ qw(
     element_1
     element_2
@@ -218,8 +218,8 @@ sub t_transaction {
 
   is_deeply( $t_data, [
     2,
-    [ qw( 
-      element_1 
+    [ qw(
+      element_1
       element_2
       element_3
     ) ],
@@ -246,7 +246,7 @@ sub t_quit {
     },
   } );
   ev_loop( $cv );
-  
+
   is( $t_data, 'OK', 'quit (status reply)' );
 
   return;

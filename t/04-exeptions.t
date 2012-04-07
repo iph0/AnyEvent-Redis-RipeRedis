@@ -75,7 +75,7 @@ sub t_encoding {
     chomp( $@ );
     $t_err = $@;
   }
-  
+
   is( $t_err, "Encoding 'invalid_enc' not found at $0 line $line",
       'Invalid encoding' );
 
@@ -139,7 +139,7 @@ sub t_on_error {
     chomp( $@ );
     $t_err = $@;
   }
-  
+
   is( $t_err, "'on_error' callback must be a CODE reference at $0 line $line",
       "Invalid 'on_error' callback in the constructor" );
 
@@ -161,7 +161,7 @@ sub t_on_done {
     chomp( $@ );
     $t_err = $@;
   }
-  
+
   is( $t_err, "'on_done' callback must be a CODE reference at $0 line $line",
       "Invalid 'on_done' callback" );
 
@@ -183,7 +183,7 @@ sub t_cmd_on_error {
     chomp( $@ );
     $t_err = $@;
   }
-  
+
   is( $t_err, "'on_error' callback must be a CODE reference at $0 line $line",
       "Invalid 'on_error' callback in the method of the command" );
 
@@ -205,7 +205,7 @@ sub t_on_message {
     chomp( $@ );
     $t_err = $@;
   }
-  
+
   is( $t_err, "'on_message' callback must be a CODE reference at $0 line $line",
       "Invalid 'on_message' callback" );
 
@@ -226,7 +226,7 @@ sub t_sub_after_multi {
     chomp( $@ );
     $t_err = $@;
   }
-  
+
   is( $t_err, "Command 'subscribe' not allowed in this context."
       . " First, the transaction must be completed at $0 line $line",
       'Invalid context for subscribtion' );
