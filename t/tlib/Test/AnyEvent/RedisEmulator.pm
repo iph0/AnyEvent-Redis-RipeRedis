@@ -13,7 +13,7 @@ use fields qw(
   subs_num
 );
 
-our $VERSION = '0.100000';
+our $VERSION = '0.100003';
 
 my $PASSWORD = 'test';
 my %COMMANDS = (
@@ -201,11 +201,11 @@ sub _parse_command {
   if ( $type ne '*' ) {
     return;
   }
-  my $mbulk_len = $token;
-  if ( $mbulk_len =~ m/[^0-9]/o || $mbulk_len == 0 ) {
+  my $m_bulk_len = $token;
+  if ( $m_bulk_len =~ m/[^0-9]/o || $m_bulk_len == 0 ) {
     return;
   }
-  my $args = $self->_parse_mbulk( $cmd_szd, $mbulk_len );
+  my $args = $self->_parse_m_bulk( $cmd_szd, $m_bulk_len );
   my $cmd = {
     name => shift( @{$args} ),
     args => $args,
@@ -215,13 +215,13 @@ sub _parse_command {
 }
 
 ####
-sub _parse_mbulk {
-  my $mbulk_len = pop;
+sub _parse_m_bulk {
+  my $m_bulk_len = pop;
   my $cmd_szd = pop;
 
   my @args;
   my $bulk_len;
-  my $args_remaining = $mbulk_len;
+  my $args_remaining = $m_bulk_len;
   while ( $args_remaining ) {
     if ( $bulk_len ) {
       my $arg = substr( $cmd_szd, 0, $bulk_len, '' );
@@ -301,9 +301,9 @@ sub _serialize_response {
     if ( !defined( $resp->{data} ) || $resp->{data} eq '' ) {
       return "*-1$EOL";
     }
-    my $mbulk_len = scalar( @{$resp->{data}} );
-    if ( $mbulk_len > 0 ) {
-      my $data_szd = "*$mbulk_len$EOL";
+    my $m_bulk_len = scalar( @{$resp->{data}} );
+    if ( $m_bulk_len > 0 ) {
+      my $data_szd = "*$m_bulk_len$EOL";
       foreach my $val ( @{$resp->{data}} ) {
         if ( ref( $val ) eq 'HASH' ) {
           $data_szd .= $self->_serialize_response( $val );
