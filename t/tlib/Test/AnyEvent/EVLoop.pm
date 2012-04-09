@@ -1,4 +1,4 @@
-package Test::AnyEvent;
+package Test::AnyEvent::EVLoop;
 
 use 5.006000;
 use strict;

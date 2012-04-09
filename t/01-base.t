@@ -5,8 +5,8 @@ use utf8;
 
 use lib 't/tlib';
 use Test::More tests => 16;
-use Test::AnyEvent;
 use Test::AnyEvent::RedisHandle;
+use Test::AnyEvent::EVLoop;
 use AnyEvent;
 
 my $T_CLASS;

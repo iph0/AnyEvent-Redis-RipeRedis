@@ -5,7 +5,7 @@ use warnings;
 use lib 't/tlib';
 use Test::More tests => 6;
 use Test::AnyEvent::RedisHandle;
-use Test::AnyEvent;
+use Test::AnyEvent::EVLoop;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
