@@ -60,8 +60,8 @@ sub t_no_connection {
   Test::AnyEvent::RedisHandle->redis_up();
 
   is_deeply( \@t_data, [
-    "Can't connect to localhost:6379; Connection error",
-    "Command 'ping' failed",
+    "Can't connect to localhost:6379. Server not responding",
+    "Can't connect to localhost:6379. Server not responding. Command 'ping' failed",
     "Can't execute command 'ping'. Connection not established"
   ], "Can't connect" );
 
@@ -151,8 +151,8 @@ sub t_broken_connection {
 
   is_deeply( \@t_data, [
     'Connected',
-    'Error writing to socket',
-    "Command 'ping' failed",
+    "Can't write to socket",
+    "Can't write to socket. Command 'ping' failed",
   ], 'Broken connection' );
 
   return;

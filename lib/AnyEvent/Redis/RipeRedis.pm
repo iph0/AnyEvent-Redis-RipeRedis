@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.803011';
+our $VERSION = '0.804000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -138,9 +138,9 @@ sub _connect {
       my $err = pop;
 
       undef( $self->{handle} );
-      $err = "Can't connect to $self->{host}:$self->{port}; $err";
+      $err = "Can't connect to $self->{host}:$self->{port}. $err";
       $self->{on_error}->( $err );
-      $self->_abort_all();
+      $self->_abort_all( $err );
     },
 
     on_eof => sub {
@@ -148,7 +148,7 @@ sub _connect {
       if ( defined( $self->{on_disconnect} ) ) {
         $self->{on_disconnect}->();
       }
-      $self->_abort_all();
+      $self->_abort_all( 'Connection closed by remote host' );
     },
 
     on_error => sub {
@@ -159,7 +159,7 @@ sub _connect {
       if ( defined( $self->{on_disconnect} ) ) {
         $self->{on_disconnect}->();
       }
-      $self->_abort_all();
+      $self->_abort_all( $err );
     },
 
     on_read => $self->_prepare_read_cb(
@@ -456,7 +456,7 @@ sub _prcoess_response {
 
   if ( $cmd->{name} eq 'quit' ) {
     undef( $self->{handle} );
-    $self->_abort_all();
+    $self->_abort_all( "Connection closed by client" );
   }
 
   return;
@@ -516,9 +516,10 @@ sub _process_sub_message {
 ####
 sub _abort_all {
   my __PACKAGE__ $self = shift;
+  my $err = shift;
 
   while ( my $cmd = shift( @{$self->{command_queue}} ) ) {
-    $cmd->{on_error}->( "Command '$cmd->{name}' failed" );
+    $cmd->{on_error}->( "$err. Command '$cmd->{name}' failed" );
   }
 
   undef( $self->{sub_lock} );

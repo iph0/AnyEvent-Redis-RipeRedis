@@ -80,7 +80,7 @@ $mock->mock( '_connect', sub {
   my $self = shift;
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
-    my $msg = 'Connection error';
+    my $msg = 'Server not responding';
     if ( exists( $self->{on_connect_error} ) ) {
       $self->{on_connect_error}->( $self, $msg );
     }
@@ -130,7 +130,7 @@ $mock->mock( '_write', sub {
 
   if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
     undef( $self->{_redis_emu} );
-    $self->{on_error}->( $self, 'Error writing to socket' );
+    $self->{on_error}->( $self, "Can't write to socket" );
     return;
   }
 
