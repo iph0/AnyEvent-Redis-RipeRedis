@@ -61,7 +61,7 @@ sub t_no_connection {
 
   is_deeply( \@t_data, [
     "Can't connect to localhost:6379. Server not responding",
-    "Can't connect to localhost:6379. Server not responding. Command 'ping' failed",
+    "Can't connect to localhost:6379. Server not responding. Command 'ping' aborted",
     "Can't execute command 'ping'. Connection not established"
   ], "Can't connect" );
 
@@ -152,7 +152,7 @@ sub t_broken_connection {
   is_deeply( \@t_data, [
     'Connected',
     "Can't write to socket",
-    "Can't write to socket. Command 'ping' failed",
+    "Can't write to socket. Command 'ping' aborted",
   ], 'Broken connection' );
 
   return;

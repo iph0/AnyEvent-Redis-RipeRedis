@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804000';
+our $VERSION = '0.804001';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -81,11 +81,9 @@ sub _validate_new {
   if ( !defined( $params->{host} ) || $params->{host} eq '' ) {
     $params->{host} = $DEFAULT{host};
   }
-
   if ( !defined( $params->{port} ) || $params->{port} eq '' ) {
     $params->{port} = $DEFAULT{port};
   }
-
   if (
     defined( $params->{connection_timeout} )
       && ( !looks_like_number( $params->{connection_timeout} )
@@ -93,11 +91,9 @@ sub _validate_new {
       ) {
     croak 'Connection timeout must be a positive number';
   }
-
   if ( !defined( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
   }
-
   if ( defined( $params->{encoding} ) ) {
     my $enc = $params->{encoding};
     $params->{encoding} = find_encoding( $enc );
@@ -106,7 +102,6 @@ sub _validate_new {
       croak "Encoding '$enc' not found";
     }
   }
-
   foreach my $cb_name ( qw( on_connect on_disconnect on_error ) ) {
     if (
       defined( $params->{$cb_name} )
@@ -519,7 +514,7 @@ sub _abort_all {
   my $err = shift;
 
   while ( my $cmd = shift( @{$self->{command_queue}} ) ) {
-    $cmd->{on_error}->( "$err. Command '$cmd->{name}' failed" );
+    $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
   }
 
   undef( $self->{sub_lock} );
