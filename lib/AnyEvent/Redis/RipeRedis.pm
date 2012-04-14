@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804001';
+our $VERSION = '0.804100';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -558,27 +558,278 @@ __END__
 
 =head1 NAME
 
-AnyEvent::Redis::RipeRedis - Non-blocking Redis client with self reconnect
-feature on loss connection
+AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect feature
 
 =head1 SYNOPSIS
 
+  use AnyEvent;
   use AnyEvent::Redis::RipeRedis;
+
+  my $cv = AnyEvent->condvar();
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => 'localhost',
+    port => '6379',
+    password => 'your_password',
+    encoding => 'utf8',
+
+    on_connect => sub {
+      say 'Connected';
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  );
+
+  # Set value
+  $redis->set( 'bar', 'Some string', {
+    on_done => sub {
+      my $data = shift;
+      say $data;
+      $cv->send();
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+      $cv->croak();
+    },
+  } );
+
+  $cv->recv();
 
 =head1 DESCRIPTION
 
+Require Redis 1.2 or higher.
+
+=head1 CONSTRUCTOR
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => 'localhost',
+    port => '6379',
+    password => 'your_password',
+    connection_timeout => 5,
+    reconnect => 1,
+    encoding => 'utf8',
+
+    on_connect => sub {
+      say 'Connected';
+    },
+
+    on_disconnect => sub {
+      say 'Disconnected';
+    }
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  );
+
+
+=head2 host
+
+Server hostname (default: 127.0.0.1)
+
+=head2 port
+
+Server port (default: 6379)
+
+=head2 password
+
+Password for authentication. Also you can use AUTH command.
+
+=head2 connection_timeout
+
+Connection timeout. If after this timeout client could not
+connect to the server, callback "on_error" will be called.
+
+=head2 reconnect
+
+If this parameter is TRUE, client in case of lost connection will automatically
+reconnect during executing next command. If this parameter is FALSE, client don't
+reconnect automaticaly. By default is TRUE.
+
+=head2 encoding
+
+Will be used to encode strings before sending them to the server and to decode
+strings after receiving them from the server. If this parameter not specified,
+encode and decode operations not performed.
+
+=head2 on_connect
+
+This callback will be called when connection will be established
+
+=head2 on_disconnect
+
+This callback will be called in case of disconnection
+
+=head2 on_error
+
+This callback will be called if occurred any errors
+
+=head1 EXECUTE REDIS COMMANDS
+
+Full list of Redis commands: L<http://redis.io/commands>
+
+=head2 <command>( [ @cmd_args[, \%params ] ] )
+
+  # Increment
+  $redis->incr( 'foo', {
+    on_done => sub {
+      my $data = shift;
+      say $data;
+    },
+  } );
+
+  # Set value
+  $redis->set( 'bar', 'Some string', {
+    on_done => sub {
+      my $data = shift;
+      say $data;
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  } );
+
+  # Get value
+  $redis->get( 'bar', {
+    on_done => sub {
+      my $data = shift;
+      say $data;
+    },
+  } );
+
+  # Push values
+  for ( my $i = 1; $i <= 3; $i++ ) {
+    $redis->rpush( 'list', "element_$i", {
+      on_done => sub {
+        my $data = shift;
+        say $data;
+      },
+    } );
+  }
+
+  # Get list of values
+  $redis->lrange( 'list', 0, -1, {
+    on_done => sub {
+      my $data = shift;
+      foreach my $val ( @{ $data } ) {
+        say $val;
+      }
+    },
+  } );
+
+=head1 SUBSCRIPTION
+
+=head2 subscribe( @channels[, \%params ] )
+
+Subscribe to channel by name
+
+  $redis->subscribe( qw( ch_foo ch_bar ), {
+    on_done =>  sub {
+      my $ch_name = shift;
+      my $subs_num = shift;
+
+      say "Subscribed: $ch_name. Active: $subs_num";
+    },
+
+    on_message => sub {
+      my $ch_name = shift;
+      my $msg = shift;
+
+      say "$ch_name: $msg";
+    },
+  } );
+
+=head2 psubscribe( @patterns[, \%params ] )
+
+Subscribe to group of channels by pattern
+
+  $redis->psubscribe( qw( info_* err_* ), {
+    on_done =>  sub {
+      my $ch_pattern = shift;
+      my $subs_num = shift;
+
+      say "Subscribed: $ch_pattern. Active: $subs_num";
+    },
+
+    on_message => sub {
+      my $ch_name = shift;
+      my $msg = shift;
+      my $ch_pattern = shift;
+
+      say "$ch_name ($ch_pattern): $msg";
+    },
+  } );
+
+=head2 unsubscribe( @channels[, \%params ] )
+
+Unsubscribe from channel by name
+
+  $redis->unsubscribe( qw( ch_foo ch_bar ), {
+    on_done => sub {
+      my $ch_name = shift;
+      my $subs_num = shift;
+
+      say "Unsubscribed: $ch_name. Active: $subs_num";
+    },
+  } );
+
+=head2 punsubscribe( @patterns[, \%params ] )
+
+Unsubscribe from group of channels by pattern
+
+  $redis->punsubscribe( qw( info_* err_* ), {
+    on_done => sub {
+      my $ch_pattern = shift;
+      my $subs_num = shift;
+
+      say "Unsubscribed: $ch_pattern. Active: $subs_num";
+    },
+  } );
+
+=head1 CONNECTION VIA UNIX-SOCKET
+
+Redis 2.2 and higher support connection via unix domain socket. To connect via
+a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
+"port" you must specify the path to the socket.
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => 'unix/',
+    port => '/tmp/redis.sock',
+  );
+
 =head1 SEE ALSO
 
-Redis, AnyEvent::Redis, AnyEvent
+AnyEvent::Redis, AnyEvent
 
 =head1 AUTHOR
 
 Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 
+=head2 Special thanks to:
+
+=over
+
+=item Alexey Shrub
+
+=item Vadim Vlasov
+
+=back
+
+
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights reserved.
+Copyright (c) 2012, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights
+reserved.
 
-This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+This module is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
 
 =cut
