@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804100';
+our $VERSION = '0.804101';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -670,9 +670,7 @@ This callback will be called in case of disconnection
 
 This callback will be called if occurred any errors
 
-=head1 EXECUTE REDIS COMMANDS
-
-Full list of Redis commands: L<http://redis.io/commands>
+=head1 COMMAND EXECUTION
 
 =head2 <command>( [ @cmd_args[, \%params ] ] )
 
@@ -725,7 +723,9 @@ Full list of Redis commands: L<http://redis.io/commands>
     },
   } );
 
-=head1 SUBSCRIPTION
+Full list of Redis commands can be found here: L<http://redis.io/commands>
+
+=head1 SUBSCRIPTIONS
 
 =head2 subscribe( @channels[, \%params ] )
 
@@ -796,7 +796,7 @@ Unsubscribe from group of channels by pattern
 
 =head1 CONNECTION VIA UNIX-SOCKET
 
-Redis 2.2 and higher support connection via unix domain socket. To connect via
+Redis 2.2 and higher support connection via UNIX domain socket. To connect via
 a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
 "port" you must specify the path to the socket.
 
@@ -807,7 +807,7 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
 
 =head1 SEE ALSO
 
-AnyEvent::Redis, AnyEvent
+AnyEvent, AnyEvent::Redis, Redis, Redis::hiredis
 
 =head1 AUTHOR
 
