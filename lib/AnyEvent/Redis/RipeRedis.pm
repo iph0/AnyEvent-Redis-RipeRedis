@@ -602,7 +602,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
 
 =head1 DESCRIPTION
 
-Require Redis 1.2 or higher.
+Non-blocking Redis client with auto reconnect feature. Require Redis 1.2 or higher.
 
 =head1 CONSTRUCTOR
 
