@@ -600,10 +600,6 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
 
   $cv->recv();
 
-=head1 DESCRIPTION
-
-Non-blocking Redis client with auto reconnect feature. Require Redis 1.2 or higher.
-
 =head1 CONSTRUCTOR
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
@@ -804,6 +800,10 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
     host => 'unix/',
     port => '/tmp/redis.sock',
   );
+
+=head1 REQUIREMENTS
+
+Redis 1.2 or higher and any supported event loop
 
 =head1 SEE ALSO
 
