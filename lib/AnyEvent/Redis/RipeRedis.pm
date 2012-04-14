@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804102';
+our $VERSION = '0.804103';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -623,7 +623,6 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
       warn "$err\n";
     },
   );
-
 
 =head2 host
 
