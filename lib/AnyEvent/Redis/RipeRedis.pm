@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804105';
+our $VERSION = '0.804106';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -603,7 +603,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
 =head1 DESCRIPTION
 
 AnyEvent::Redis::RipeRedis is a non-blocking Redis client with auto reconnect
-feature. It supports sbscriptions, transactions, has simple API and it faster
+feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.
 
 Requires Redis 1.2 or higher and any supported event loop.
