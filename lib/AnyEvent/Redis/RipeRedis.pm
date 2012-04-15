@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804103';
+our $VERSION = '0.804104';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -574,7 +574,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
     encoding => 'utf8',
 
     on_connect => sub {
-      say 'Connected';
+      print "Connected\n";
     },
 
     on_error => sub {
@@ -587,7 +587,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
   $redis->set( 'bar', 'Some string', {
     on_done => sub {
       my $data = shift;
-      say $data;
+      print "$data\n";
       $cv->send();
     },
 
@@ -600,6 +600,14 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
 
   $cv->recv();
 
+=head1 DESCRIPTION
+
+AnyEvent::Redis::RipeRedis is a non-blocking Redis client with auto reconnect
+feature. It supports sbscriptions, transactions, has simple API and it faster
+than AnyEvent::Redis.
+
+Requires Redis 1.2 or higher and any supported event loop.
+
 =head1 CONSTRUCTOR
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
@@ -611,11 +619,11 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect featu
     encoding => 'utf8',
 
     on_connect => sub {
-      say 'Connected';
+      print "Connected\n";
     },
 
     on_disconnect => sub {
-      say 'Disconnected';
+      print "Disconnected\n";
     }
 
     on_error => sub {
@@ -634,7 +642,9 @@ Server port (default: 6379)
 
 =head2 password
 
-Password for authentication. Also you can use AUTH command.
+Authentication password. If it specified client sends AUTH command after
+establishing a connection. If it not specified you can send AUTH command
+yourself.
 
 =head2 connection_timeout
 
@@ -673,15 +683,7 @@ This callback will be called if occurred any errors
   $redis->incr( 'foo', {
     on_done => sub {
       my $data = shift;
-      say $data;
-    },
-  } );
-
-  # Set value
-  $redis->set( 'bar', 'Some string', {
-    on_done => sub {
-      my $data = shift;
-      say $data;
+      print "$data\n";
     },
 
     on_error => sub {
@@ -690,11 +692,14 @@ This callback will be called if occurred any errors
     },
   } );
 
+  # Set value
+  $redis->set( 'bar', 'Some string' );
+
   # Get value
   $redis->get( 'bar', {
     on_done => sub {
       my $data = shift;
-      say $data;
+      print "$data\n";
     },
   } );
 
@@ -703,7 +708,7 @@ This callback will be called if occurred any errors
     $redis->rpush( 'list', "element_$i", {
       on_done => sub {
         my $data = shift;
-        say $data;
+        print "$data\n";
       },
     } );
   }
@@ -713,8 +718,13 @@ This callback will be called if occurred any errors
     on_done => sub {
       my $data = shift;
       foreach my $val ( @{ $data } ) {
-        say $val;
+        print "$val\n";
       }
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
     },
   } );
 
@@ -731,14 +741,14 @@ Subscribe to channel by name
       my $ch_name = shift;
       my $subs_num = shift;
 
-      say "Subscribed: $ch_name. Active: $subs_num";
+      print "Subscribed: $ch_name. Active: $subs_num\n";
     },
 
     on_message => sub {
       my $ch_name = shift;
       my $msg = shift;
 
-      say "$ch_name: $msg";
+      print "$ch_name: $msg\n";
     },
   } );
 
@@ -751,7 +761,7 @@ Subscribe to group of channels by pattern
       my $ch_pattern = shift;
       my $subs_num = shift;
 
-      say "Subscribed: $ch_pattern. Active: $subs_num";
+      print "Subscribed: $ch_pattern. Active: $subs_num\n";
     },
 
     on_message => sub {
@@ -759,7 +769,12 @@ Subscribe to group of channels by pattern
       my $msg = shift;
       my $ch_pattern = shift;
 
-      say "$ch_name ($ch_pattern): $msg";
+      print "$ch_name ($ch_pattern): $msg\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
     },
   } );
 
@@ -772,7 +787,12 @@ Unsubscribe from channel by name
       my $ch_name = shift;
       my $subs_num = shift;
 
-      say "Unsubscribed: $ch_name. Active: $subs_num";
+      print "Unsubscribed: $ch_name. Active: $subs_num\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
     },
   } );
 
@@ -785,7 +805,12 @@ Unsubscribe from group of channels by pattern
       my $ch_pattern = shift;
       my $subs_num = shift;
 
-      say "Unsubscribed: $ch_pattern. Active: $subs_num";
+      print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
     },
   } );
 
@@ -799,10 +824,6 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
     host => 'unix/',
     port => '/tmp/redis.sock',
   );
-
-=head1 REQUIREMENTS
-
-Redis 1.2 or higher and any supported event loop
 
 =head1 SEE ALSO
 
