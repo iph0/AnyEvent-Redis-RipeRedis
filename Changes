@@ -1,7 +1,10 @@
 Revision history for Perl extension AnyEvent::Redis::RipeRedis.
 
-0.804102 Sat Apr 14 15:48:46 2012
-  - First release
+0.804105 Sun Apr 15 13:49:10 2012
+  - Some fixes in POD
 
 0.804103 Sat Apr 14 21:49:18 2012
   - Test 04-exeptions.t fixed. Thanks to Andreas J. König
+
+0.804102 Sat Apr 14 15:48:46 2012
+  - First release

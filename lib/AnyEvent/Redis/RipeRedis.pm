@@ -19,7 +19,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804104';
+our $VERSION = '0.804105';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -642,8 +642,8 @@ Server port (default: 6379)
 
 =head2 password
 
-Authentication password. If it specified client sends AUTH command after
-establishing a connection. If it not specified you can send AUTH command
+Authentication password. If it specified, client sends AUTH command after
+establishing a connection. If it not specified, you can send AUTH command
 yourself.
 
 =head2 connection_timeout
