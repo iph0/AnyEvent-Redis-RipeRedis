@@ -30,6 +30,8 @@ sub t_conn_timeout {
 
   eval {
     my $redis = $T_CLASS->new(
+      host => '',
+      port => '',
       connection_timeout => 'invalid_timeout',
     );
   };

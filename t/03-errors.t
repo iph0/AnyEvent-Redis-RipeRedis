@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -20,6 +20,7 @@ t_no_connection();
 t_reconnect();
 t_broken_connection();
 t_cmd_on_error();
+t_invalid_password();
 t_empty_password();
 
 
@@ -208,6 +209,36 @@ sub t_cmd_on_error {
 }
 
 ####
+sub t_invalid_password {
+  my $t_err;
+  my $cv = AnyEvent->condvar();
+  my @t_errors;
+  my $redis = $T_CLASS->new(
+    %GENERIC_PARAMS,
+    password => 'invalid',
+    on_error => sub {
+      my $t_err = shift;
+      push( @t_errors, $t_err );
+    },
+  );
+  $redis->ping( {
+    on_error => sub {
+      my $t_err = shift;
+      push( @t_errors, $t_err );
+      $cv->send();
+    }
+  } );
+  ev_loop( $cv );
+
+  is_deeply( \@t_errors, [
+    'ERR invalid password',
+    'ERR operation not permitted',
+  ], 'Invalid password' );
+
+  return;
+}
+
+####
 sub t_empty_password {
   my $t_err;
   my $cv = AnyEvent->condvar();
@@ -227,3 +258,5 @@ sub t_empty_password {
 
   return;
 }
+
+

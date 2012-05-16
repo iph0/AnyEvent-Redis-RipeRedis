@@ -14,8 +14,8 @@ my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 my $cv = AnyEvent->condvar();
 
 my $redis = $T_CLASS->new(
-  host => 'localhost',
-  port => '6379',
+  host => '',
+  port => '',
   password => 'test',
 );
 

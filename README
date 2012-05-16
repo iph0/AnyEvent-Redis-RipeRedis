@@ -1,5 +1,11 @@
-AnyEvent-Redis-RipeRedis version 0.804106
+AnyEvent-Redis-RipeRedis version 0.805000
 ======================
+
+DESCRIPTION
+
+AnyEvent::Redis::RipeRedis is a non-blocking Redis client with auto reconnect
+feature. It supports subscriptions, transactions, has simple API and it faster
+than AnyEvent::Redis.
 
 INSTALLATION
 

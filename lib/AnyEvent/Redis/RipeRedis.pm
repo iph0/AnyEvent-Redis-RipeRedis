@@ -7,6 +7,7 @@ use fields qw(
   host
   port
   password
+  need_auth
   connection_timeout
   reconnect
   encoding
@@ -19,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.804106';
+our $VERSION = '0.805000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -53,7 +54,10 @@ sub new {
 
   $self->{host} = $params->{host};
   $self->{port} = $params->{port};
-  $self->{password} = $params->{password};
+  if ( defined( $params->{password} ) && $params->{password} ne '' ) {
+    $self->{password} = $params->{password};
+    $self->{need_auth} = 1;
+  }
   $self->{connection_timeout} = $params->{connection_timeout};
   $self->{reconnect} = $params->{reconnect};
   $self->{encoding} = $params->{encoding};
@@ -66,6 +70,9 @@ sub new {
   $self->{subs} = {};
 
   $self->_connect();
+  if ( $self->{need_auth} ) {
+    $self->_auth();
+  }
 
   return $self;
 }
@@ -132,29 +139,29 @@ sub _connect {
     on_connect_error => sub {
       my $err = pop;
 
-      undef( $self->{handle} );
+      $self->_reset_handle();
       $err = "Can't connect to $self->{host}:$self->{port}. $err";
       $self->{on_error}->( $err );
-      $self->_abort_all( $err );
+      $self->_abort_commands( $err );
     },
 
     on_eof => sub {
-      undef( $self->{handle} );
+      $self->_reset_handle();
       if ( defined( $self->{on_disconnect} ) ) {
         $self->{on_disconnect}->();
       }
-      $self->_abort_all( 'Connection closed by remote host' );
+      $self->_abort_commands( 'Connection closed by remote host' );
     },
 
     on_error => sub {
       my $err = pop;
 
-      undef( $self->{handle} );
+      $self->_reset_handle();
       $self->{on_error}->( $err );
       if ( defined( $self->{on_disconnect} ) ) {
         $self->{on_disconnect}->();
       }
-      $self->_abort_all( $err );
+      $self->_abort_commands( $err );
     },
 
     on_read => $self->_prepare_read_cb(
@@ -173,17 +180,27 @@ sub _connect {
       $self->{on_connect}->();
     };
   }
-
   $self->{handle} = AnyEvent::Handle->new( %hdl_params );
 
-  # Authenticate
-  if ( defined( $self->{password} ) && $self->{password} ne '' ) {
-    $self->_push_command( {
-      name => 'auth',
-      args => [ $self->{password} ],
-      on_error => $self->{on_error},
-    } );
-  }
+  return;
+}
+
+####
+sub _auth {
+  my __PACKAGE__ $self = shift;
+
+  $self->_push_command( {
+    name => 'auth',
+    args => [ $self->{password} ],
+
+    on_error => sub {
+      my $err = shift;
+
+      $self->{need_auth} = 1;
+      $self->{on_error}->( $err );
+    },
+  } );
+  undef( $self->{need_auth} );
 
   return;
 }
@@ -228,6 +245,9 @@ sub _exec_command {
           . " Connection not established" );
       return;
     }
+  }
+  if ( $self->{need_auth} ) {
+    $self->_auth();
   }
 
   $self->_push_command( $cmd );
@@ -450,8 +470,8 @@ sub _prcoess_response {
   shift( @{$self->{command_queue}} );
 
   if ( $cmd->{name} eq 'quit' ) {
-    undef( $self->{handle} );
-    $self->_abort_all( "Connection closed by client" );
+    $self->_reset_handle();
+    $self->_abort_commands( "Connection closed by client" );
   }
 
   return;
@@ -509,16 +529,27 @@ sub _process_sub_message {
 }
 
 ####
-sub _abort_all {
+sub _reset_handle {
+  my __PACKAGE__ $self = shift;
+
+  undef( $self->{handle} );
+  if ( defined( $self->{password} ) ) {
+    $self->{need_auth} = 1;
+  }
+  undef( $self->{sub_lock} );
+  $self->{subs} = {};
+
+  return;
+}
+
+####
+sub _abort_commands {
   my __PACKAGE__ $self = shift;
   my $err = shift;
 
   while ( my $cmd = shift( @{$self->{command_queue}} ) ) {
     $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
   }
-
-  undef( $self->{sub_lock} );
-  $self->{subs} = {};
 
   return;
 }
@@ -840,6 +871,8 @@ Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 =item Alexey Shrub
 
 =item Vadim Vlasov
+
+=item Konstantin Uvarin
 
 =back
 
