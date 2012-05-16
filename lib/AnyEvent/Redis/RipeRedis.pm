@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.805001';
+our $VERSION = '0.805002';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -858,7 +858,7 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
 
 =head1 SEE ALSO
 
-AnyEvent, AnyEvent::Redis, Redis, Redis::hiredis
+L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>, L<Redis::hiredis>
 
 =head1 AUTHOR
 
