@@ -10,6 +10,6 @@ Revision history for Perl extension AnyEvent::Redis::RipeRedis.
   - [BUGFIX] Automatic authentication now works correctly in case, when Redis
   server needs some time to load data file in memory.
 
-0.805100 THu May 16 12:27:05 2012
+0.805101 THu May 17 12:27:05 2012
  - [BUGFIX] Prevented an infinite loop in method _abort_commands() in case, when
  commands was executed in 'on_error' callback wihtout delay.
