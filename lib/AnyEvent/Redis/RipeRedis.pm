@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.805002';
+our $VERSION = '0.805100';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -547,7 +547,9 @@ sub _abort_commands {
   my __PACKAGE__ $self = shift;
   my $err = shift;
 
-  while ( my $cmd = shift( @{$self->{command_queue}} ) ) {
+  my @cmd_queue = @{$self->{command_queue}};
+  $self->{command_queue} = [];
+  foreach my $cmd ( @cmd_queue ) {
     $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
   }
 
