@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.805103';
+our $VERSION = '0.805200';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -189,6 +189,7 @@ sub _connect {
 sub _auth {
   my __PACKAGE__ $self = shift;
 
+  undef( $self->{need_auth} );
   $self->_push_command( {
     name => 'auth',
     args => [ $self->{password} ],
@@ -200,7 +201,6 @@ sub _auth {
       $self->{on_error}->( $err );
     },
   } );
-  undef( $self->{need_auth} );
 
   return;
 }
