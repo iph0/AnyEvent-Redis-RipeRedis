@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.805200';
+our $VERSION = '0.805201';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -657,7 +657,7 @@ Requires Redis 1.2 or higher and any supported event loop.
 
     on_disconnect => sub {
       print "Disconnected\n";
-    }
+    },
 
     on_error => sub {
       my $err = shift;

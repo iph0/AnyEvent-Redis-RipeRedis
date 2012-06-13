@@ -12,4 +12,7 @@ Revision history for Perl extension AnyEvent::Redis::RipeRedis.
  commands was executed in 'on_error' callback wihtout delay.
 
 0.805200 Tue May 29 11:02:30 2012
- - Fixed probable race condition in auto-authentication
+ - [BUGFIX] Fixed probable race condition in auto-authentication
+
+0.805201 Wed Jun 13 10:14:00 2012
+ - Minor fix in POD
