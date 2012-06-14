@@ -25,8 +25,7 @@ t_sub_after_multi();
 
 ####
 sub t_conn_timeout {
-  my $t_err;
-  my $exp_err;
+  my $t_except;
 
   eval {
     my $redis = $T_CLASS->new(
@@ -35,13 +34,13 @@ sub t_conn_timeout {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^Connection timeout must be a positive number/o,
+  ok( $t_except =~ m/^Connection timeout must be a positive number/o,
       'Invalid connection timeout (character string)' );
 
-  undef( $t_err );
+  undef( $t_except );
   eval {
     my $redis = $T_CLASS->new(
       connection_timeout => -5,
@@ -49,10 +48,10 @@ sub t_conn_timeout {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^Connection timeout must be a positive number/o,
+  ok( $t_except =~ m/^Connection timeout must be a positive number/o,
       'Invalid connection timeout (negative number)' );
 
   return;
@@ -60,7 +59,7 @@ sub t_conn_timeout {
 
 ####
 sub t_encoding {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       encoding => 'invalid_enc',
@@ -68,10 +67,10 @@ sub t_encoding {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^Encoding 'invalid_enc' not found/o,
+  ok( $t_except =~ m/^Encoding 'invalid_enc' not found/o,
       'Invalid encoding' );
 
   return;
@@ -80,7 +79,7 @@ sub t_encoding {
 # Invalid "on_connect"
 ####
 sub t_on_connect {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       on_connect => 'invalid',
@@ -88,10 +87,10 @@ sub t_on_connect {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^'on_connect' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_connect' callback must be a CODE reference/o,
       "Invalid 'on_connect' callback" );
 
   return;
@@ -99,7 +98,7 @@ sub t_on_connect {
 
 ####
 sub t_on_disconnect {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       on_disconnect => {},
@@ -107,10 +106,10 @@ sub t_on_disconnect {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^'on_disconnect' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_disconnect' callback must be a CODE reference/o,
       "Invalid 'on_disconnect' callback" );
 
   return;
@@ -118,7 +117,7 @@ sub t_on_disconnect {
 
 ####
 sub t_on_error {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       on_error => [],
@@ -126,10 +125,10 @@ sub t_on_error {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^'on_error' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_error' callback must be a CODE reference/o,
       "Invalid 'on_error' callback in the constructor" );
 
   return;
@@ -137,7 +136,7 @@ sub t_on_error {
 
 ####
 sub t_on_done {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new();
     $redis->incr( 'foo', {
@@ -146,10 +145,10 @@ sub t_on_done {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^'on_done' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_done' callback must be a CODE reference/o,
       "Invalid 'on_done' callback" );
 
   return;
@@ -157,7 +156,7 @@ sub t_on_done {
 
 # Invalid "on_error"
 sub t_cmd_on_error {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new();
     $redis->incr( 'foo', {
@@ -166,10 +165,10 @@ sub t_cmd_on_error {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^'on_error' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_error' callback must be a CODE reference/o,
       "Invalid 'on_error' callback in the method of the command" );
 
   return;
@@ -177,7 +176,7 @@ sub t_cmd_on_error {
 
 ####
 sub t_on_message {
-  my $t_err;
+  my $t_except;
   eval {
     my $redis = $T_CLASS->new();
     $redis->subscribe( 'channel', {
@@ -186,10 +185,10 @@ sub t_on_message {
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  ok( $t_err =~ m/^'on_message' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_message' callback must be a CODE reference/o,
       "Invalid 'on_message' callback" );
 
   return;
@@ -197,20 +196,24 @@ sub t_on_message {
 
 ####
 sub t_sub_after_multi {
-  my $t_err;
   my $redis = $T_CLASS->new();
-  $redis->multi();
+  $redis->multi( {
+    on_error => sub {
+      return; # Ignore error
+    }
+  } );
+  my $t_except;
   eval {
     $redis->subscribe( 'channel' );
   };
   if ( $@ ) {
     chomp( $@ );
-    $t_err = $@;
+    $t_except = $@;
   }
 
-  my $exp_err = quotemeta( "Command 'subscribe' not allowed in this context."
+  my $exp_except = quotemeta( "Command 'subscribe' not allowed in this context."
       . " First, the transaction must be completed" );
-  ok( $t_err =~ m/^$exp_err/o, 'Invalid context for subscribtion' );
+  ok( $t_except =~ m/^$exp_except/o, 'Invalid context for subscribtion' );
 
   return;
 }

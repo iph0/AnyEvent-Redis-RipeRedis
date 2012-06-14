@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.805201';
+our $VERSION = '0.805300';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -470,8 +470,7 @@ sub _prcoess_response {
   shift( @{$self->{command_queue}} );
 
   if ( $cmd->{name} eq 'quit' ) {
-    $self->_reset_handle();
-    $self->_abort_commands( "Connection closed by client" );
+    $self->_disconnect();
   }
 
   return;
@@ -547,10 +546,12 @@ sub _abort_commands {
   my __PACKAGE__ $self = shift;
   my $err = shift;
 
-  my @cmd_queue = @{$self->{command_queue}};
-  $self->{command_queue} = [];
-  foreach my $cmd ( @cmd_queue ) {
-    $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
+  if ( defined( $self->{command_queue} ) ) {
+    my @cmd_queue = @{$self->{command_queue}};
+    $self->{command_queue} = [];
+    foreach my $cmd ( @cmd_queue ) {
+      $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
+    }
   }
 
   return;
@@ -561,6 +562,16 @@ sub _is_sub_message {
   my $data = pop;
   return ref( $data ) eq 'ARRAY' && ( $data->[0] eq 'message'
       || $data->[0] eq 'pmessage' );
+}
+
+####
+sub _disconnect {
+  my __PACKAGE__ $self = shift;
+
+  $self->_reset_handle();
+  $self->_abort_commands( "Connection closed by client" );
+
+  return;
 }
 
 ####
@@ -584,7 +595,13 @@ sub AUTOLOAD {
 }
 
 ####
-sub DESTROY {}
+sub DESTROY {
+  my __PACKAGE__ $self = shift;
+
+  $self->_disconnect();
+
+  return;
+}
 
 1;
 __END__
