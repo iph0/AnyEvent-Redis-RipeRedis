@@ -9,7 +9,7 @@ README
 t/01-base.t
 t/02-subs.t
 t/03-errors.t
-t/04-exeptions.t
+t/04-exceptions.t
 t/05-pod.t
 t/tlib/Test/AnyEvent/EVLoop.pm
 t/tlib/Test/AnyEvent/RedisEmulator.pm
