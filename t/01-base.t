@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 16;
+use Test::More tests => 17;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -17,6 +17,7 @@ BEGIN {
 }
 
 can_ok( $T_CLASS, 'new' );
+can_ok( $T_CLASS, 'disconnect' );
 can_ok( $T_CLASS, 'AUTOLOAD' );
 can_ok( $T_CLASS, 'DESTROY' );
 

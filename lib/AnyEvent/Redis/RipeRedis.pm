@@ -20,7 +20,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.805300';
+our $VERSION = '0.806000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -75,6 +75,22 @@ sub new {
   }
 
   return $self;
+}
+
+
+# Public method
+
+####
+sub disconnect {
+  my __PACKAGE__ $self = shift;
+
+  $self->_reset_handle();
+  if ( defined( $self->{on_disconnect} ) ) {
+    $self->{on_disconnect}->();
+  }
+  $self->_abort_commands( "Connection closed by client" );
+
+  return;
 }
 
 
@@ -470,7 +486,7 @@ sub _prcoess_response {
   shift( @{$self->{command_queue}} );
 
   if ( $cmd->{name} eq 'quit' ) {
-    $self->_disconnect();
+    $self->disconnect();
   }
 
   return;
@@ -546,12 +562,10 @@ sub _abort_commands {
   my __PACKAGE__ $self = shift;
   my $err = shift;
 
-  if ( defined( $self->{command_queue} ) ) {
-    my @cmd_queue = @{$self->{command_queue}};
-    $self->{command_queue} = [];
-    foreach my $cmd ( @cmd_queue ) {
-      $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
-    }
+  my @cmd_queue = @{$self->{command_queue}};
+  $self->{command_queue} = [];
+  foreach my $cmd ( @cmd_queue ) {
+    $cmd->{on_error}->( "$err. Command '$cmd->{name}' aborted" );
   }
 
   return;
@@ -562,16 +576,6 @@ sub _is_sub_message {
   my $data = pop;
   return ref( $data ) eq 'ARRAY' && ( $data->[0] eq 'message'
       || $data->[0] eq 'pmessage' );
-}
-
-####
-sub _disconnect {
-  my __PACKAGE__ $self = shift;
-
-  $self->_reset_handle();
-  $self->_abort_commands( "Connection closed by client" );
-
-  return;
 }
 
 ####
@@ -595,13 +599,7 @@ sub AUTOLOAD {
 }
 
 ####
-sub DESTROY {
-  my __PACKAGE__ $self = shift;
-
-  $self->_disconnect();
-
-  return;
-}
+sub DESTROY {}
 
 1;
 __END__
@@ -874,6 +872,19 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
     host => 'unix/',
     port => '/tmp/redis.sock',
   );
+
+=head1 DISCONNECTION FROM SERVER
+
+To disconnect from Redis server you must call method disconnect() or you can
+send 'QUIT' command.
+
+  $redis->disconnect()
+
+  $redis->quit( {
+    on_done => sub {
+      print "Disconnected\n";
+    }
+  } );
 
 =head1 SEE ALSO
 

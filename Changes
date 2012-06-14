@@ -17,6 +17,5 @@ Revision history for Perl extension AnyEvent::Redis::RipeRedis.
 0.805201 Wed Jun 13 10:14:00 2012
  - Minor fix in POD.
 
-0.805300 Thu Jun 14 15:47:10
-  - [FEATURE] Now, when AnyEvent::Redis::RipeRedis object destroying, all not
-  completed commands was obviously aborted.
+0.806000 Thu Jun 14 15:47:10 2012
+  - [FEATURE] Added public method disconnect()

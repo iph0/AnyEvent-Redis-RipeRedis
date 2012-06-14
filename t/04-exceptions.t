@@ -59,12 +59,12 @@ sub t_conn_timeout {
 
 ####
 sub t_encoding {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       encoding => 'invalid_enc',
     );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -79,12 +79,12 @@ sub t_encoding {
 # Invalid "on_connect"
 ####
 sub t_on_connect {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       on_connect => 'invalid',
     );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -98,12 +98,12 @@ sub t_on_connect {
 
 ####
 sub t_on_disconnect {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       on_disconnect => {},
     );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -117,12 +117,12 @@ sub t_on_disconnect {
 
 ####
 sub t_on_error {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new(
       on_error => [],
     );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -136,13 +136,13 @@ sub t_on_error {
 
 ####
 sub t_on_done {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new();
     $redis->incr( 'foo', {
       on_done => {},
     } );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -156,13 +156,13 @@ sub t_on_done {
 
 # Invalid "on_error"
 sub t_cmd_on_error {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new();
     $redis->incr( 'foo', {
       on_error => [],
     } );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -176,13 +176,13 @@ sub t_cmd_on_error {
 
 ####
 sub t_on_message {
-  my $t_except;
   eval {
     my $redis = $T_CLASS->new();
     $redis->subscribe( 'channel', {
       on_message => 'invalid',
     } );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
@@ -197,15 +197,11 @@ sub t_on_message {
 ####
 sub t_sub_after_multi {
   my $redis = $T_CLASS->new();
-  $redis->multi( {
-    on_error => sub {
-      return; # Ignore error
-    }
-  } );
-  my $t_except;
+  $redis->multi();
   eval {
     $redis->subscribe( 'channel' );
   };
+  my $t_except;
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;

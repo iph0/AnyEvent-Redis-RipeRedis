@@ -16,11 +16,11 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   encoding => 'utf8',
 
   on_connect => sub {
-    say 'Connected to Redis';
+    say 'Connected to Redis server';
   },
 
   on_disconnect => sub {
-    say 'Disconnected from Redis';
+    say 'Disconnected from Redis server';
   },
 
   on_error => sub {
@@ -111,3 +111,5 @@ my $term_watcher = AnyEvent->signal(
 );
 
 $cv->recv();
+
+$redis->disconnect();
