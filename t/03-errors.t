@@ -37,6 +37,11 @@ sub t_no_connection {
     %GENERIC_PARAMS,
     reconnect => 0,
 
+    on_connect_error => sub {
+      my $err = shift;
+      push( @t_data, $err );
+    },
+
     on_error => sub {
       my $err = shift;
       push( @t_data, $err );

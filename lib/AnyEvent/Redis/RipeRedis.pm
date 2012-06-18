@@ -13,6 +13,7 @@ use fields qw(
   encoding
   on_connect
   on_disconnect
+  on_connect_error
   on_error
   handle
   command_queue
@@ -20,7 +21,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.806000';
+our $VERSION = '0.807000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -63,6 +64,7 @@ sub new {
   $self->{encoding} = $params->{encoding};
   $self->{on_connect} = $params->{on_connect};
   $self->{on_disconnect} = $params->{on_disconnect};
+  $self->{on_connect_error} = $params->{on_connect_error};
   $self->{on_error} = $params->{on_error};
   $self->{handle} = undef;
   $self->{command_queue} = [];
@@ -125,7 +127,9 @@ sub _validate_new {
       croak "Encoding '$enc' not found";
     }
   }
-  foreach my $cb_name ( qw( on_connect on_disconnect on_error ) ) {
+  foreach my $cb_name (
+    qw( on_connect on_disconnect on_connect_error on_error )
+      ) {
     if (
       defined( $params->{$cb_name} )
         && ref( $params->{$cb_name} ) ne 'CODE'
@@ -139,6 +143,9 @@ sub _validate_new {
       my $err = shift;
       warn "$err\n";
     };
+  }
+  if ( !defined( $params->{on_connect_error} ) ) {
+    $params->{on_connect_error} = $params->{on_error};
   }
 
   return $params;
@@ -157,7 +164,7 @@ sub _connect {
 
       $self->_reset_handle();
       $err = "Can't connect to $self->{host}:$self->{port}. $err";
-      $self->{on_error}->( $err );
+      $self->{on_connect_error}->( $err );
       $self->_abort_commands( $err );
     },
 
@@ -227,7 +234,7 @@ sub _exec_command {
   my $cmd_name = shift;
   my @args = @_;
   my $params = {};
-  if ( ref( $args[ -1 ] ) eq 'HASH' ) {
+  if ( ref( $args[-1] ) eq 'HASH' ) {
     $params = pop( @args );
   }
 
@@ -674,6 +681,11 @@ Requires Redis 1.2 or higher and any supported event loop.
       print "Disconnected\n";
     },
 
+    on_connect_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+
     on_error => sub {
       my $err = shift;
       warn "$err\n";
@@ -719,9 +731,13 @@ This callback will be called when connection will be established
 
 This callback will be called in case of disconnection
 
+=head2 on_connect_error
+
+This callback is called when the connection could not be established.
+
 =head2 on_error
 
-This callback will be called if occurred any errors
+This callback is called when occurred any errors
 
 =head1 COMMAND EXECUTION
 
