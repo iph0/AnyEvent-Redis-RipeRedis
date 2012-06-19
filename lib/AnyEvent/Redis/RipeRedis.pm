@@ -7,7 +7,6 @@ use fields qw(
   host
   port
   password
-  need_auth
   connection_timeout
   reconnect
   encoding
@@ -16,12 +15,13 @@ use fields qw(
   on_connect_error
   on_error
   handle
+  need_auth
   command_queue
   sub_lock
   subs
 );
 
-our $VERSION = '0.807000';
+our $VERSION = '0.807100';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -86,11 +86,13 @@ sub new {
 sub disconnect {
   my __PACKAGE__ $self = shift;
 
-  $self->_reset_handle();
+  if ( !defined( $self->{handle} ) ) {
+    return;
+  }
+  $self->_abort_all( "Connection closed by client" );
   if ( defined( $self->{on_disconnect} ) ) {
     $self->{on_disconnect}->();
   }
-  $self->_abort_commands( "Connection closed by client" );
 
   return;
 }
@@ -162,29 +164,26 @@ sub _connect {
     on_connect_error => sub {
       my $err = pop;
 
-      $self->_reset_handle();
       $err = "Can't connect to $self->{host}:$self->{port}. $err";
+      $self->_abort_all( $err );
       $self->{on_connect_error}->( $err );
-      $self->_abort_commands( $err );
     },
 
     on_eof => sub {
-      $self->_reset_handle();
+      $self->_abort_all( 'Connection closed by remote host' );
       if ( defined( $self->{on_disconnect} ) ) {
         $self->{on_disconnect}->();
       }
-      $self->_abort_commands( 'Connection closed by remote host' );
     },
 
     on_error => sub {
       my $err = pop;
 
-      $self->_reset_handle();
+      $self->_abort_all( $err );
       $self->{on_error}->( $err );
       if ( defined( $self->{on_disconnect} ) ) {
         $self->{on_disconnect}->();
       }
-      $self->_abort_commands( $err );
     },
 
     on_read => $self->_prepare_read_cb(
@@ -551,8 +550,9 @@ sub _process_sub_message {
 }
 
 ####
-sub _reset_handle {
+sub _abort_all {
   my __PACKAGE__ $self = shift;
+  my $err = shift;
 
   undef( $self->{handle} );
   if ( defined( $self->{password} ) ) {
@@ -560,15 +560,6 @@ sub _reset_handle {
   }
   undef( $self->{sub_lock} );
   $self->{subs} = {};
-
-  return;
-}
-
-####
-sub _abort_commands {
-  my __PACKAGE__ $self = shift;
-  my $err = shift;
-
   my @cmd_queue = @{$self->{command_queue}};
   $self->{command_queue} = [];
   foreach my $cmd ( @cmd_queue ) {
@@ -725,15 +716,16 @@ encode and decode operations not performed.
 
 =head2 on_connect
 
-This callback will be called when connection will be established
+This callback will be called when connection will be established.
 
 =head2 on_disconnect
 
-This callback will be called in case of disconnection
+This callback will be called in case of disconnection.
 
 =head2 on_connect_error
 
 This callback is called when the connection could not be established.
+IF this collback isn't specified, then C<on_error> will be called.
 
 =head2 on_error
 
@@ -891,16 +883,16 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
 
 =head1 DISCONNECTION FROM SERVER
 
-To disconnect from Redis server you must call method disconnect() or you can
-send 'QUIT' command.
-
-  $redis->disconnect()
+To disconnect from Redis server you can send C<quit> command or you also can
+call method C<disconnect()>
 
   $redis->quit( {
     on_done => sub {
       print "Disconnected\n";
     }
   } );
+
+  $redis->disconnect()
 
 =head1 SEE ALSO
 
