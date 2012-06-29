@@ -21,7 +21,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.807100';
+our $VERSION = '0.807200';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -473,26 +473,21 @@ sub _prcoess_response {
   }
 
   my $cmd = $self->{command_queue}[0];
-
   if ( !defined( $cmd ) ) {
     $self->{on_error}->( "Don't known how process response data."
       . " Command queue is empty" );
 
     return;
   }
-
   if ( exists( $SUB_ACTION_CMDS{$cmd->{name}} ) ) {
     return $self->_process_sub_action( $cmd, $data );
   }
-
-  if ( defined( $cmd->{on_done} ) ) {
-    $cmd->{on_done}->( $data );
-  }
-
   shift( @{$self->{command_queue}} );
-
   if ( $cmd->{name} eq 'quit' ) {
     $self->disconnect();
+  }
+  if ( defined( $cmd->{on_done} ) ) {
+    $cmd->{on_done}->( $data );
   }
 
   return;

@@ -24,6 +24,10 @@ Revision history for Perl extension AnyEvent::Redis::RipeRedis.
   - [FEATURE] Added callback 'on_connect_error' in constructor
 
 0.807100 Wed Jun 20 10:38:50 2012
-  - Now, ff some error ocurred or if connection was closed, then uncompleted
+  - [FIX] Now, if some error ocurred or if connection was closed, then uncompleted
   commands will be aborted before calling on_error, on_connect_error
-  or on_disconnect callbacks
+  or on_disconnect callbacks, to avoid unexpected behavior.
+
+0.807200 Fri Jun 29 22:12:40 2012
+  - [FIX] Now, on_done callback calls at the end of processing of response, 
+  to avoid unexpected behavior.
