@@ -90,7 +90,7 @@ sub t_on_connect {
     $t_except = $@;
   }
 
-  ok( $t_except =~ m/^'on_connect' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_connect' callback must be a code reference/o,
       "Invalid 'on_connect' callback" );
 
   return;
@@ -109,7 +109,7 @@ sub t_on_disconnect {
     $t_except = $@;
   }
 
-  ok( $t_except =~ m/^'on_disconnect' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_disconnect' callback must be a code reference/o,
       "Invalid 'on_disconnect' callback" );
 
   return;
@@ -128,7 +128,7 @@ sub t_on_error {
     $t_except = $@;
   }
 
-  ok( $t_except =~ m/^'on_error' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_error' callback must be a code reference/o,
       "Invalid 'on_error' callback in the constructor" );
 
   return;
@@ -148,7 +148,7 @@ sub t_on_done {
     $t_except = $@;
   }
 
-  ok( $t_except =~ m/^'on_done' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_done' callback must be a code reference/o,
       "Invalid 'on_done' callback" );
 
   return;
@@ -168,7 +168,7 @@ sub t_cmd_on_error {
     $t_except = $@;
   }
 
-  ok( $t_except =~ m/^'on_error' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_error' callback must be a code reference/o,
       "Invalid 'on_error' callback in the method of the command" );
 
   return;
@@ -188,7 +188,7 @@ sub t_on_message {
     $t_except = $@;
   }
 
-  ok( $t_except =~ m/^'on_message' callback must be a CODE reference/o,
+  ok( $t_except =~ m/^'on_message' callback must be a code reference/o,
       "Invalid 'on_message' callback" );
 
   return;

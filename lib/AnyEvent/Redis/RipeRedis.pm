@@ -21,12 +21,12 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.807200';
+our $VERSION = '0.807201';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
-use Scalar::Util 'looks_like_number';
-use Carp 'croak';
+use Scalar::Util qw( looks_like_number );
+use Carp qw( croak );
 
 my %DEFAULT = (
   host => 'localhost',
@@ -55,7 +55,10 @@ sub new {
 
   $self->{host} = $params->{host};
   $self->{port} = $params->{port};
-  if ( defined( $params->{password} ) && $params->{password} ne '' ) {
+  if (
+    defined( $params->{password} ) && !ref( $params->{password} )
+      && $params->{password} ne ''
+      ) {
     $self->{password} = $params->{password};
     $self->{need_auth} = 1;
   }
@@ -102,15 +105,8 @@ sub disconnect {
 
 ####
 sub _validate_new {
-  my __PACKAGE__ $self = shift;
-  my $params = shift;
+  my $params = pop;
 
-  if ( !defined( $params->{host} ) || $params->{host} eq '' ) {
-    $params->{host} = $DEFAULT{host};
-  }
-  if ( !defined( $params->{port} ) || $params->{port} eq '' ) {
-    $params->{port} = $DEFAULT{port};
-  }
   if (
     defined( $params->{connection_timeout} )
       && ( !looks_like_number( $params->{connection_timeout} )
@@ -118,10 +114,10 @@ sub _validate_new {
       ) {
     croak 'Connection timeout must be a positive number';
   }
-  if ( !defined( $params->{reconnect} ) ) {
+  if ( !exists( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
   }
-  if ( defined( $params->{encoding} ) ) {
+  if ( defined( $params->{encoding} ) && $params->{encoding} ne '' ) {
     my $enc = $params->{encoding};
     $params->{encoding} = find_encoding( $enc );
 
@@ -129,17 +125,29 @@ sub _validate_new {
       croak "Encoding '$enc' not found";
     }
   }
-  foreach my $cb_name (
+  foreach my $name (
     qw( on_connect on_disconnect on_connect_error on_error )
       ) {
     if (
-      defined( $params->{$cb_name} )
-        && ref( $params->{$cb_name} ) ne 'CODE'
+      defined( $params->{$name} )
+        && ref( $params->{$name} ) ne 'CODE'
         ) {
-      croak "'$cb_name' callback must be a CODE reference";
+      croak "'$name' callback must be a code reference";
     }
   }
 
+  if (
+    !defined( $params->{host} )
+      || ref( $params->{host} ) || $params->{host} eq ''
+      ) {
+    $params->{host} = $DEFAULT{host};
+  }
+  if (
+    !defined( $params->{port} )
+      || ref( $params->{port} ) || $params->{port} eq ''
+      ) {
+    $params->{port} = $DEFAULT{port};
+  }
   if ( !defined( $params->{on_error} ) ) {
     $params->{on_error} = sub {
       my $err = shift;
@@ -192,6 +200,7 @@ sub _connect {
       }
     ),
   );
+
   if ( defined( $self->{connection_timeout} ) ) {
     $hdl_params{on_prepare} = sub {
       return $self->{connection_timeout};
@@ -202,6 +211,7 @@ sub _connect {
       $self->{on_connect}->();
     };
   }
+
   $self->{handle} = AnyEvent::Handle->new( %hdl_params );
 
   return;
@@ -282,12 +292,12 @@ sub _validate_exec_cmd {
   my __PACKAGE__ $self = shift;
   my $params = shift;
 
-  foreach my $cb_name ( qw( on_done on_message on_error ) ) {
+  foreach my $name ( qw( on_done on_message on_error ) ) {
     if (
-      defined( $params->{$cb_name} )
-        && ref( $params->{$cb_name} ) ne 'CODE'
+      defined( $params->{$name} )
+        && ref( $params->{$name} ) ne 'CODE'
         ) {
-      croak "'$cb_name' callback must be a CODE reference";
+      croak "'$name' callback must be a code reference";
     }
   }
 
