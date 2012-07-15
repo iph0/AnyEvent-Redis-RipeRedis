@@ -31,3 +31,6 @@ Revision history for Perl extension AnyEvent::Redis::RipeRedis.
 0.807200 Fri Jun 29 22:12:40 2012
   - [FIX] Now, on_done callback calls at the end of processing of response, 
   to avoid unexpected behavior.
+
+0.807210 Sun Jul 15 15:30:00 2012
+  - Refactoring
