@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 7;
+use Test::More tests => 8;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -22,6 +22,7 @@ t_broken_connection();
 t_cmd_on_error();
 t_invalid_password();
 t_empty_password();
+t_sub_after_multi();
 
 
 # Subroutines
@@ -264,4 +265,28 @@ sub t_empty_password {
   return;
 }
 
+####
+sub t_sub_after_multi {
+  my $t_err;
+  my $cv = AnyEvent->condvar();
+  my $redis = $T_CLASS->new();
+  $redis->multi();
+  $redis->subscribe( 'channel', {
+    on_error => sub {
+      $t_err = shift;
+      $cv->send();
+    }
+  } );
+  ev_loop( $cv );
 
+  my $t_except;
+  if ( $@ ) {
+    chomp( $@ );
+    $t_except = $@;
+  }
+
+  is( $t_err, "Command 'subscribe' not allowed after 'multi' command. First, the"
+      . " transaction must be completed", 'Invalid context for subscribtion' );
+
+  return;
+}

@@ -21,17 +21,19 @@ use fields qw(
   subs
 );
 
-our $VERSION = '0.807211';
+our $VERSION = '0.807220';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number );
 use Carp qw( croak );
 
-my %DEFAULT = (
-  host => 'localhost',
-  port => '6379',
-);
+use constant {
+  DEFAULT_HOST => 'localhost',
+  DEFAULT_PORT => 6379,
+  EOL => "\r\n",
+  EOL_LEN => 2,
+};
 
 my %SUB_ACTION_CMDS = (
   subscribe => 1,
@@ -39,9 +41,6 @@ my %SUB_ACTION_CMDS = (
   unsubscribe => 1,
   punsubscribe => 1,
 );
-
-my $EOL = "\r\n";
-my $EOL_LEN = length( $EOL );
 
 
 # Constructor
@@ -56,8 +55,8 @@ sub new {
   $self->{host} = $params->{host};
   $self->{port} = $params->{port};
   if (
-    defined( $params->{password} ) && !ref( $params->{password} )
-      && $params->{password} ne ''
+    defined( $params->{password} ) and !ref( $params->{password} )
+      and $params->{password} ne ''
       ) {
     $self->{password} = $params->{password};
     $self->{need_auth} = 1;
@@ -109,20 +108,24 @@ sub _validate_new {
 
   if (
     defined( $params->{connection_timeout} )
-      && ( !looks_like_number( $params->{connection_timeout} )
-        || $params->{connection_timeout} < 0 )
+      and ( !looks_like_number( $params->{connection_timeout} )
+        or $params->{connection_timeout} < 0 )
       ) {
     croak 'Connection timeout must be a positive number';
   }
   if ( !exists( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
   }
-  if ( defined( $params->{encoding} ) && $params->{encoding} ne '' ) {
-    my $enc = $params->{encoding};
-    $params->{encoding} = find_encoding( $enc );
-
-    if ( !defined( $params->{encoding} ) ) {
-      croak "Encoding '$enc' not found";
+  if ( defined( $params->{encoding} ) ) {
+    if ( ref( $params->{encoding} ) ) {
+      croak "Encoding name must be a scalar";
+    }
+    elsif ( $params->{encoding} ne '' ) {
+      my $enc = $params->{encoding};
+      $params->{encoding} = find_encoding( $enc );
+      if ( !defined( $params->{encoding} ) ) {
+        croak "Encoding '$enc' not found";
+      }
     }
   }
   foreach my $name (
@@ -130,23 +133,24 @@ sub _validate_new {
       ) {
     if (
       defined( $params->{$name} )
-        && ref( $params->{$name} ) ne 'CODE'
+        and ref( $params->{$name} ) ne 'CODE'
         ) {
       croak "'$name' callback must be a code reference";
     }
   }
 
+  # Set defaults
   if (
     !defined( $params->{host} )
-      || ref( $params->{host} ) || $params->{host} eq ''
+      or ref( $params->{host} ) or $params->{host} eq ''
       ) {
-    $params->{host} = $DEFAULT{host};
+    $params->{host} = DEFAULT_HOST;
   }
   if (
     !defined( $params->{port} )
-      || ref( $params->{port} ) || $params->{port} eq ''
+      or ref( $params->{port} ) or $params->{port} eq ''
       ) {
-    $params->{port} = $DEFAULT{port};
+    $params->{port} = DEFAULT_PORT;
   }
   if ( !defined( $params->{on_error} ) ) {
     $params->{on_error} = sub {
@@ -256,8 +260,8 @@ sub _exec_command {
   };
   if ( exists( $SUB_ACTION_CMDS{$cmd_name} ) ) {
     if ( $self->{sub_lock} ) {
-      croak "Command '$cmd_name' not allowed in this context."
-          . ' First, the transaction must be completed';
+      $cmd->{on_error}->( "Command '$cmd_name' not allowed after 'multi' command."
+          . ' First, the transaction must be completed' );
     }
     $cmd->{resp_remaining} = scalar( @args );
   }
@@ -295,7 +299,7 @@ sub _validate_exec_cmd {
   foreach my $name ( qw( on_done on_message on_error ) ) {
     if (
       defined( $params->{$name} )
-        && ref( $params->{$name} ) ne 'CODE'
+        and ref( $params->{$name} ) ne 'CODE'
         ) {
       croak "'$name' callback must be a code reference";
     }
@@ -319,15 +323,15 @@ sub _push_command {
   my $m_bulk_len = 0;
   foreach my $tkn ( $cmd->{name}, @{$cmd->{args}} ) {
     if ( defined( $tkn ) ) {
-      if ( defined( $self->{encoding} ) && is_utf8( $tkn ) ) {
+      if ( defined( $self->{encoding} ) and is_utf8( $tkn ) ) {
         $tkn = $self->{encoding}->encode( $tkn );
       }
       my $tkn_len = length( $tkn );
-      $cmd_szd .= "\$$tkn_len$EOL$tkn$EOL";
+      $cmd_szd .= "\$$tkn_len" . EOL . $tkn . EOL;
       ++$m_bulk_len;
     }
   }
-  $cmd_szd = "*$m_bulk_len$EOL$cmd_szd";
+  $cmd_szd = "*$m_bulk_len" . EOL . $cmd_szd;
 
   $self->{handle}->push_write( $cmd_szd );
 
@@ -346,13 +350,13 @@ sub _prepare_read_cb {
 
     while ( 1 ) {
       if ( defined( $bulk_len ) ) {
-        my $bulk_eol_len = $bulk_len + $EOL_LEN;
+        my $bulk_eol_len = $bulk_len + EOL_LEN;
         if (
           length( substr( $hdl->{rbuf}, 0, $bulk_eol_len ) )
               == $bulk_eol_len
             ) {
           my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
-          substr( $hdl->{rbuf}, 0, $EOL_LEN, '' );
+          substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
           chomp( $data );
           if ( defined( $self->{encoding} ) ) {
             $data = $self->{encoding}->decode( $data );
@@ -366,14 +370,14 @@ sub _prepare_read_cb {
         }
       }
 
-      my $eol_pos = index( $hdl->{rbuf}, $EOL );
+      my $eol_pos = index( $hdl->{rbuf}, EOL );
 
       if ( $eol_pos >= 0 ) {
         my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
-        substr( $hdl->{rbuf}, 0, $EOL_LEN, '' );
+        substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
 
-        if ( $type eq '+' || $type eq ':' ) {
+        if ( $type eq '+' or $type eq ':' ) {
           return 1 if $cb->( $data );
         }
         elsif ( $type eq '-' ) {
@@ -432,8 +436,8 @@ sub _unshift_read_cb {
 
     $remaining_num--;
     if (
-      ref( $data_chunk ) eq 'ARRAY' && @{$data_chunk}
-        && $remaining_num > 0
+      ref( $data_chunk ) eq 'ARRAY' and @{$data_chunk}
+        and $remaining_num > 0
         ) {
       $hdl->unshift_read( $read_cb );
     }
@@ -476,7 +480,7 @@ sub _prcoess_response {
     return;
   }
 
-  if ( %{$self->{subs}} && $self->_is_sub_message( $data ) ) {
+  if ( %{$self->{subs}} and $self->_is_sub_message( $data ) ) {
     if ( exists( $self->{subs}{$data->[1]} ) ) {
       return $self->_process_sub_message( $data );
     }
@@ -509,7 +513,7 @@ sub _process_sub_action {
   my $cmd = shift;
   my $data = shift;
 
-  if ( $cmd->{name} eq 'subscribe' || $cmd->{name} eq 'psubscribe' ) {
+  if ( $cmd->{name} eq 'subscribe' or $cmd->{name} eq 'psubscribe' ) {
     my $sub = {};
     if ( defined( $cmd->{on_done} ) ) {
       $sub->{on_done} = $cmd->{on_done};
@@ -577,8 +581,8 @@ sub _abort_all {
 ####
 sub _is_sub_message {
   my $data = pop;
-  return ref( $data ) eq 'ARRAY' && ( $data->[0] eq 'message'
-      || $data->[0] eq 'pmessage' );
+  return ( ref( $data ) eq 'ARRAY' and ( $data->[0] eq 'message'
+      or $data->[0] eq 'pmessage' ) );
 }
 
 ####

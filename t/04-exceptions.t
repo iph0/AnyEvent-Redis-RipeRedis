@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 10;
+use Test::More tests => 9;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -18,7 +18,6 @@ t_on_error();
 t_on_done();
 t_cmd_on_error();
 t_on_message();
-t_sub_after_multi();
 
 
 # Subroutines
@@ -190,26 +189,6 @@ sub t_on_message {
 
   ok( $t_except =~ m/^'on_message' callback must be a code reference/o,
       "Invalid 'on_message' callback" );
-
-  return;
-}
-
-####
-sub t_sub_after_multi {
-  my $redis = $T_CLASS->new();
-  $redis->multi();
-  eval {
-    $redis->subscribe( 'channel' );
-  };
-  my $t_except;
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-
-  my $exp_except = quotemeta( "Command 'subscribe' not allowed in this context."
-      . " First, the transaction must be completed" );
-  ok( $t_except =~ m/^$exp_except/o, 'Invalid context for subscribtion' );
 
   return;
 }
