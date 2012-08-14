@@ -176,7 +176,9 @@ sub t_cmd_on_error {
 ####
 sub t_on_message {
   eval {
-    my $redis = $T_CLASS->new();
+    my $redis = $T_CLASS->new(
+      password => [], # Invalid password must be ignored
+    );
     $redis->subscribe( 'channel', {
       on_message => 'invalid',
     } );

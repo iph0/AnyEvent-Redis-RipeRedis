@@ -1,5 +1,10 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+0.807300 Tue Aug 14 19:02:20 2012
+  - Now, until connection establishment and authentication, client not call
+  push_write() method of class AnyEvent::Handle.
+  - Changed format of error messages.
+
 0.807211 Sun Jul 16 17:25:45 2012
   - Minor changes
 

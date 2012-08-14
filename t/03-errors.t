@@ -35,7 +35,9 @@ sub t_no_connection {
 
   my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
-    %GENERIC_PARAMS,
+    # Invalid value must be reset to default
+    host => [], # Invalid
+    port => {}, # Invalid
     reconnect => 0,
 
     on_connect_error => sub {
@@ -67,9 +69,9 @@ sub t_no_connection {
   Test::AnyEvent::RedisHandle->redis_up();
 
   is_deeply( \@t_data, [
-    "Can't connect to localhost:6379. Server not responding. Command 'ping' aborted",
-    "Can't connect to localhost:6379. Server not responding",
-    "Can't execute command 'ping'. Connection not established"
+    "Command 'ping' aborted: Can't connect to localhost:6379: Server not responding",
+    "Can't connect to localhost:6379: Server not responding",
+    "Can't execute command 'ping'. No connection to the server"
   ], "Can't connect" );
 
   return;
@@ -85,7 +87,6 @@ sub t_reconnect {
   $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
-    reconnect => 1,
     password => 'test',
 
     on_connect => sub {
@@ -158,7 +159,7 @@ sub t_broken_connection {
 
   is_deeply( \@t_data, [
     'Connected',
-    "Can't write to socket. Command 'ping' aborted",
+    "Command 'ping' aborted: Can't write to socket",
     "Can't write to socket",
   ], 'Broken connection' );
 
@@ -237,8 +238,8 @@ sub t_invalid_password {
   ev_loop( $cv );
 
   is_deeply( \@t_errors, [
+    "Command 'ping' aborted: ERR invalid password",
     'ERR invalid password',
-    'ERR operation not permitted',
   ], 'Invalid password' );
 
   return;
