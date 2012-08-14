@@ -694,7 +694,7 @@ __END__
 
 =head1 NAME
 
-AnyEvent::Redis::RipeRedis - Non-blocking Redis client with auto reconnect feature
+AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 
 =head1 SYNOPSIS
 
@@ -783,43 +783,42 @@ Server port (default: 6379)
 
 =head2 password
 
-Authentication password. If it specified, client sends AUTH command after
-establishing a connection. If it not specified, you can send AUTH command
-yourself.
+Authentication password. If it specified, AUTH command will be sent automaticaly.
 
 =head2 connection_timeout
 
-Connection timeout. If after this timeout client could not
-connect to the server, callback "on_error" will be called.
+Connection timeout. If after this timeout client could not connect to the server,
+callback C<on_error> will be called.
 
 =head2 reconnect
 
-If this parameter is TRUE, client in case of lost connection will automatically
-reconnect during executing next command. If this parameter is FALSE, client don't
-reconnect automaticaly. By default is TRUE.
+If this parameter is TRUE, client in case of lost connection will attempt to
+reconnect to server, when executing next command. Client will attempt to
+reconnect only once and if it fails, call C<on_error> callback. If you need
+several attempts of reconnection, just retry command from C<on_error> callback
+as many times, as you need. This feature made client more responsive.
 
 =head2 encoding
 
-Will be used to encode strings before sending them to the server and to decode
-strings after receiving them from the server. If this parameter not specified,
-encode and decode operations not performed.
+Used to decode and encode strings during read and write operations.
 
 =head2 on_connect
 
-This callback will be called when connection will be established.
+This callback is called, when connection will be established.
 
 =head2 on_disconnect
 
-This callback will be called in case of disconnection.
+This callback is called, when client will be disconnected.
 
 =head2 on_connect_error
 
-This callback is called when the connection could not be established.
+This callback is called, when the connection could not be established.
 IF this collback isn't specified, then C<on_error> will be called.
 
 =head2 on_error
 
-This callback is called when occurred any errors
+This callback is called when some error occurred, such as not being able to
+resolve the hostname, failure to connect, or a read error.
 
 =head1 COMMAND EXECUTION
 
@@ -973,8 +972,10 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
 
 =head1 DISCONNECTION FROM SERVER
 
-To disconnect from Redis server you can send C<quit> command or you also can
-call method C<disconnect()>
+To disconnect from Redis server you can call method C<disconnect()> or you also
+can send C<quit> command.
+
+  $redis->disconnect()
 
   $redis->quit( {
     on_done => sub {
@@ -982,11 +983,9 @@ call method C<disconnect()>
     }
   } );
 
-  $redis->disconnect()
-
 =head1 SEE ALSO
 
-L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>, L<Redis::hiredis>
+L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>
 
 =head1 AUTHOR
 
