@@ -19,17 +19,18 @@ use fields qw(
   connected
   authing
   authed
+  finalized
   buffer
   processing_queue
   sub_lock
   subs
 );
 
-our $VERSION = '0.807301';
+our $VERSION = '1.000';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
-use Scalar::Util qw( looks_like_number );
+use Scalar::Util qw( looks_like_number weaken );
 use Carp qw( croak );
 
 use constant {
@@ -78,6 +79,7 @@ sub new {
   $self->{handle} = undef;
   $self->{connected} = 0;
   $self->{authing} = 0;
+  $self->{finalized} = 0;
   $self->{buffer} = [];
   $self->{processing_queue} = [];
   $self->{sub_lock} = 0;
@@ -95,12 +97,14 @@ sub new {
 sub disconnect {
   my __PACKAGE__ $self = shift;
 
-  if ( !defined( $self->{handle} ) ) {
-    return;
-  }
-  $self->_destroy_handle();
-  $self->_abort_all( "Connection closed by client" );
-  if ( defined( $self->{on_disconnect} ) ) {
+  my $was_connected = $self->{connected};
+  undef( $self->{handle} );
+  $self->{connected} = 0;
+  $self->{authing} = 0;
+  $self->{authed} = 0;
+  $self->{finalized} = 1;
+  $self->_abort_all( 'Connection closed by client' );
+  if ( $was_connected and defined( $self->{on_disconnect} ) ) {
     $self->{on_disconnect}->();
   }
 
@@ -176,10 +180,12 @@ sub _validate_new {
 ####
 sub _connect {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
-  my %hdl_params = (
+  $self->{handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
     keepalive => 1,
+    on_prepare => $self->_on_prepare(),
     on_connect => $self->_on_connect(),
     on_connect_error => $self->_on_connect_error(),
     on_eof => $self->_on_eof(),
@@ -190,20 +196,28 @@ sub _connect {
       }
     ),
   );
-  if ( defined( $self->{connection_timeout} ) ) {
-    $hdl_params{on_prepare} = sub {
-      return $self->{connection_timeout};
-    };
-  }
-
-  $self->{handle} = AnyEvent::Handle->new( %hdl_params );
 
   return;
 }
 
 ####
+sub _on_prepare {
+  my __PACKAGE__ $self = shift;
+  weaken( $self );
+
+  return sub {
+    if ( defined( $self->{connection_timeout} ) ) {
+      return $self->{connection_timeout};
+    }
+
+    return;
+  };
+}
+
+####
 sub _on_connect {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
   return sub {
     $self->{connected} = 1;
@@ -222,11 +236,12 @@ sub _on_connect {
 ####
 sub _on_connect_error {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
   return sub {
     my $err = pop;
 
-    $self->_destroy_handle();
+    undef( $self->{handle} );
     $err = "Can't connect to $self->{host}:$self->{port}: $err";
     $self->_abort_all( $err );
     $self->{on_connect_error}->( $err );
@@ -236,9 +251,13 @@ sub _on_connect_error {
 ####
 sub _on_eof {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
   return sub {
-    $self->_destroy_handle();
+    undef( $self->{handle} );
+    $self->{connected} = 0;
+    $self->{authing} = 0;
+    $self->{authed} = 0;
     $self->_abort_all( 'Connection closed by remote host' );
     if ( defined( $self->{on_disconnect} ) ) {
       $self->{on_disconnect}->();
@@ -249,11 +268,15 @@ sub _on_eof {
 ####
 sub _on_error {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
   return sub {
     my $err = pop;
 
-    $self->_destroy_handle();
+    undef( $self->{handle} );
+    $self->{connected} = 0;
+    $self->{authing} = 0;
+    $self->{authed} = 0;
     $self->_abort_all( $err );
     $self->{on_error}->( $err );
     if ( defined( $self->{on_disconnect} ) ) {
@@ -280,10 +303,17 @@ sub _exec_command {
     %{$params},
   };
 
+  if ( $self->{finalized} ) {
+    $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
+        . ' Connection closed by client' );
+    return;
+  }
+
   if ( exists( $SUB_ACTION_CMDS{$cmd->{name}} ) ) {
     if ( $self->{sub_lock} ) {
       $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi' command."
           . ' First, the transaction must be completed' );
+      return;
     }
     $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
   }
@@ -293,14 +323,17 @@ sub _exec_command {
   elsif ( $cmd->{name} eq 'exec' ) {
     $self->{sub_lock} = 0;
   }
+  elsif ( $cmd->{name} eq 'quit' ) {
+    $self->{finalized} = 1;
+  }
 
   if ( !defined( $self->{handle} ) ) {
     if ( $self->{reconnect} ) {
       $self->_connect();
     }
     else {
-      $cmd->{on_error}->( "Can't execute command '$cmd->{name}'."
-          . " No connection to the server" );
+      $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
+          . ' No connection to the server' );
       return;
     }
   }
@@ -410,6 +443,7 @@ sub _push_to_handle {
 sub _on_read {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
+  weaken( $self );
 
   my $bulk_len;
 
@@ -623,32 +657,21 @@ sub _process_sub_message {
 }
 
 ####
-sub _destroy_handle {
-  my __PACKAGE__ $self = shift;
-
-  undef( $self->{handle} );
-  $self->{connected} = 0;
-  $self->{authing} = 0;
-  $self->{authed} = 0;
-
-  return;
-}
-
-####
 sub _abort_all {
   my __PACKAGE__ $self = shift;
   my $err = shift;
 
   $self->{sub_lock} = 0;
-  if ( %{$self->{subs}} ) {
-    $self->{subs} = {};
-  }
+  $self->{subs} = {};
   my @commands;
-  if ( @{$self->{buffer}} ) {
+  if ( defined( $self->{buffer} ) and @{$self->{buffer}} ) {
     @commands =  @{$self->{buffer}};
     $self->{buffer} = [];
   }
-  elsif ( @{$self->{processing_queue}} ) {
+  elsif (
+    defined( $self->{processing_queue} )
+      and @{$self->{processing_queue}}
+      ) {
     @commands =  @{$self->{processing_queue}};
     $self->{processing_queue} = [];
   }
@@ -687,7 +710,11 @@ sub AUTOLOAD {
 }
 
 ####
-sub DESTROY {}
+sub DESTROY {
+  my __PACKAGE__ $self = shift;
+  $self->disconnect();
+  return;
+}
 
 1;
 __END__
@@ -783,20 +810,23 @@ Server port (default: 6379)
 
 =head2 password
 
-Authentication password. If it specified, AUTH command will be sent automaticaly.
+Authentication password. If it specified, AUTH command will be executed
+automaticaly.
 
 =head2 connection_timeout
 
 Connection timeout. If after this timeout client could not connect to the server,
-callback C<on_error> will be called.
+callback C<on_error> is called.
 
 =head2 reconnect
 
-If this parameter is TRUE, client in case of lost connection will attempt to
-reconnect to server, when executing next command. Client will attempt to
-reconnect only once and if it fails, call C<on_error> callback. If you need
+If this parameter is TRUE (by default), client in case of lost connection will
+attempt to reconnect to server, when executing next command. Client will attempt
+to reconnect only once and if it fails, call C<on_error> callback. If you need
 several attempts of reconnection, just retry command from C<on_error> callback
 as many times, as you need. This feature made client more responsive.
+
+TRUE by default
 
 =head2 encoding
 
@@ -804,16 +834,16 @@ Used to decode and encode strings during read and write operations.
 
 =head2 on_connect
 
-This callback is called, when connection will be established.
+This callback will be called, when connection will be established.
 
 =head2 on_disconnect
 
-This callback is called, when client will be disconnected.
+This callback will be called, when client will be disconnected.
 
 =head2 on_connect_error
 
 This callback is called, when the connection could not be established.
-IF this collback isn't specified, then C<on_error> will be called.
+IF this collback isn't specified, then C<on_error> callback is called.
 
 =head2 on_error
 
@@ -962,8 +992,8 @@ Unsubscribe from group of channels by pattern
 =head1 CONNECTION VIA UNIX-SOCKET
 
 Redis 2.2 and higher support connection via UNIX domain socket. To connect via
-a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
-"port" you must specify the path to the socket.
+a UNIX-socket in the parameter C<host> you must specify C<unix/>, and in
+the parameter C<port> you must specify the path to the socket.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'unix/',
@@ -972,16 +1002,19 @@ a UNIX-socket in the parameter "host" you must specify "unix/", and in parameter
 
 =head1 DISCONNECTION FROM SERVER
 
-To disconnect from Redis server you can call method C<disconnect()> or you also
-can send C<quit> command.
+When the connection to the server is no longer needed you can close it in three
+ways: call method C<disconnect()>, send C<QUIT> command or you can just
+"forget" any references to an AnyEvent::Redis::RipeRedis object.
 
   $redis->disconnect()
 
-  $redis->quit( {
+  $redis->quit(
     on_done => sub {
-      print "Disconnected\n";
+      # Do something
     }
   } );
+
+  undef( $redis );
 
 =head1 SEE ALSO
 

@@ -1,5 +1,13 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.000 Wed Aug 15 23:24:05 2012
+  - [FEATURE] Now, connection to server closed automatically after destroying
+  last reference on client object.
+  - [BUGFIX] Fixed cyclic references.
+  - Versioning style changed.
+  - Fixes in tests.
+  - Fixes in POD
+
 0.807301 Wed Aug 15 00:52:45 2012
   - Fixes in POD
 

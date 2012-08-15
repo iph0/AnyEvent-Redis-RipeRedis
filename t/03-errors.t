@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 8;
+use Test::More tests => 9;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -23,6 +23,7 @@ t_cmd_on_error();
 t_invalid_password();
 t_empty_password();
 t_sub_after_multi();
+t_finalized();
 
 
 # Subroutines
@@ -32,7 +33,6 @@ sub t_no_connection {
   Test::AnyEvent::RedisHandle->redis_down();
 
   my @t_data;
-
   my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
     # Invalid value must be reset to default
@@ -71,7 +71,7 @@ sub t_no_connection {
   is_deeply( \@t_data, [
     "Command 'ping' aborted: Can't connect to localhost:6379: Server not responding",
     "Can't connect to localhost:6379: Server not responding",
-    "Can't execute command 'ping'. No connection to the server"
+    "Can't handle the command 'ping'. No connection to the server"
   ], "Can't connect" );
 
   return;
@@ -81,10 +81,8 @@ sub t_no_connection {
 sub t_reconnect {
   Test::AnyEvent::RedisHandle->redis_up();
 
-  my $cv;
   my @t_data;
-
-  $cv = AnyEvent->condvar();
+  my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
@@ -131,7 +129,6 @@ sub t_broken_connection {
   Test::AnyEvent::RedisHandle->redis_up();
 
   my @t_data;
-
   my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
@@ -168,7 +165,6 @@ sub t_broken_connection {
 
 ####
 sub t_cmd_on_error {
-  my $cv;
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
@@ -176,7 +172,7 @@ sub t_cmd_on_error {
   $redis->set( 'bar', 'Some string' );
 
   my $t_err;
-  $cv = AnyEvent->condvar();
+  my $cv = AnyEvent->condvar();
   local $SIG{__WARN__} = sub {
     $t_err = shift;
     chomp( $t_err );
@@ -217,8 +213,6 @@ sub t_cmd_on_error {
 
 ####
 sub t_invalid_password {
-  my $t_err;
-  my $cv = AnyEvent->condvar();
   my @t_errors;
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
@@ -228,6 +222,8 @@ sub t_invalid_password {
       push( @t_errors, $t_err );
     },
   );
+
+  my $cv = AnyEvent->condvar();
   $redis->ping( {
     on_error => sub {
       my $t_err = shift;
@@ -247,12 +243,13 @@ sub t_invalid_password {
 
 ####
 sub t_empty_password {
-  my $t_err;
-  my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => '',
   );
+
+  my $t_err;
+  my $cv = AnyEvent->condvar();
   $redis->ping( {
     on_error => sub {
       $t_err = shift;
@@ -268,10 +265,21 @@ sub t_empty_password {
 
 ####
 sub t_sub_after_multi {
-  my $t_err;
+  my $redis = $T_CLASS->new(
+    %GENERIC_PARAMS,
+    password => 'test',
+  );
+
   my $cv = AnyEvent->condvar();
-  my $redis = $T_CLASS->new();
-  $redis->multi();
+  $redis->multi( {
+    on_done => sub {
+      $cv->send();
+    }
+  } );
+  ev_loop( $cv );
+
+  my $t_err;
+  $cv = AnyEvent->condvar();
   $redis->subscribe( 'channel', {
     on_error => sub {
       $t_err = shift;
@@ -280,14 +288,32 @@ sub t_sub_after_multi {
   } );
   ev_loop( $cv );
 
-  my $t_except;
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-
   is( $t_err, "Command 'subscribe' not allowed after 'multi' command. First, the"
       . " transaction must be completed", 'Invalid context for subscribtion' );
+
+  return;
+}
+
+####
+sub t_finalized {
+  my $redis = $T_CLASS->new(
+    %GENERIC_PARAMS,
+    password => 'test',
+  );
+  $redis->disconnect();
+
+  my $t_err;
+  my $cv = AnyEvent->condvar();
+  $redis->ping( {
+    on_error => sub {
+      $t_err = shift;
+      $cv->send();
+    }
+  } );
+  ev_loop( $cv );
+
+  is( $t_err, "Can't handle the command 'ping'. Connection closed by client",
+      'Using a client after finalizing' );
 
   return;
 }
