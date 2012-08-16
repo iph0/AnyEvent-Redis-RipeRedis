@@ -26,7 +26,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.000';
+our $VERSION = '1.001';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -765,7 +765,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 
 =head1 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is a non-blocking Redis client with auto reconnect
+AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.
 
@@ -826,7 +826,7 @@ to reconnect only once and if it fails, call C<on_error> callback. If you need
 several attempts of reconnection, just retry command from C<on_error> callback
 as many times, as you need. This feature made client more responsive.
 
-TRUE by default
+TRUE by default.
 
 =head2 encoding
 
@@ -1003,16 +1003,17 @@ the parameter C<port> you must specify the path to the socket.
 =head1 DISCONNECTION FROM SERVER
 
 When the connection to the server is no longer needed you can close it in three
-ways: call method C<disconnect()>, send C<QUIT> command or you can just
-"forget" any references to an AnyEvent::Redis::RipeRedis object.
-
-  $redis->disconnect()
+ways: send C<QUIT> command, call method C<disconnect()> (since version 0.806000),
+or you can just "forget" any references to an AnyEvent::Redis::RipeRedis object
+(since version 1.000).
 
   $redis->quit(
     on_done => sub {
       # Do something
     }
   } );
+
+  $redis->disconnect();
 
   undef( $redis );
 

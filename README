@@ -1,24 +1,318 @@
-AnyEvent-Redis-RipeRedis version 1.000
+AnyEvent-Redis-RipeRedis version 1.001
 ======================
+
+SYNOPSIS
+
+  use AnyEvent;
+  use AnyEvent::Redis::RipeRedis;
+
+  my $cv = AnyEvent->condvar();
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => 'localhost',
+    port => '6379',
+    password => 'your_password',
+    encoding => 'utf8',
+
+    on_connect => sub {
+      print "Connected\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  );
+
+  # Set value
+  $redis->set( 'bar', 'Some string', {
+    on_done => sub {
+      my $data = shift;
+      print "$data\n";
+      $cv->send();
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+      $cv->croak();
+    },
+  } );
+
+  $cv->recv();
 
 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is a non-blocking Redis client with auto reconnect
+AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.
 
-INSTALLATION
+Requires Redis 1.2 or higher and any supported event loop.
 
-To install this module type the following:
+CONSTRUCTOR
 
-   perl Makefile.PL
-   make
-   make test
-   make install
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => 'localhost',
+    port => '6379',
+    password => 'your_password',
+    connection_timeout => 5,
+    reconnect => 1,
+    encoding => 'utf8',
 
-COPYRIGHT AND LICENCE
+    on_connect => sub {
+      print "Connected\n";
+    },
 
-Copyright (c) 2012, Eugene Ponizovsky, <ponizovsky@gmail.com>. All rights reserved.
+    on_disconnect => sub {
+      print "Disconnected\n";
+    },
 
-This module is free software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+    on_connect_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  );
+
+host
+
+Server hostname (default: 127.0.0.1)
+
+port
+
+Server port (default: 6379)
+
+password
+
+Authentication password. If it specified, AUTH command will be executed
+automaticaly.
+
+connection_timeout
+
+Connection timeout. If after this timeout client could not connect to the server,
+callback 'on_error' is called.
+
+reconnect
+
+If this parameter is TRUE (by default), client in case of lost connection will
+attempt to reconnect to server, when executing next command. Client will attempt
+to reconnect only once and if it fails, call 'on_error' callback. If you need
+several attempts of reconnection, just retry command from 'on_error' callback
+as many times, as you need. This feature made client more responsive.
+
+TRUE by default.
+
+encoding
+
+Used to decode and encode strings during read and write operations.
+
+on_connect
+
+This callback will be called, when connection will be established.
+
+on_disconnect
+
+This callback will be called, when client will be disconnected.
+
+on_connect_error
+
+This callback is called, when the connection could not be established.
+IF this collback isn't specified, then 'on_error' callback is called.
+
+on_error
+
+This callback is called when some error occurred, such as not being able to
+resolve the hostname, failure to connect, or a read error.
+
+COMMAND EXECUTION
+
+<command>( [ @cmd_args[, \%params ] ] )
+
+  # Increment
+  $redis->incr( 'foo', {
+    on_done => sub {
+      my $data = shift;
+      print "$data\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  } );
+
+  # Set value
+  $redis->set( 'bar', 'Some string' );
+
+  # Get value
+  $redis->get( 'bar', {
+    on_done => sub {
+      my $data = shift;
+      print "$data\n";
+    },
+  } );
+
+  # Push values
+  for ( my $i = 1; $i <= 3; $i++ ) {
+    $redis->rpush( 'list', "element_$i", {
+      on_done => sub {
+        my $data = shift;
+        print "$data\n";
+      },
+    } );
+  }
+
+  # Get list of values
+  $redis->lrange( 'list', 0, -1, {
+    on_done => sub {
+      my $data = shift;
+      foreach my $val ( @{ $data } ) {
+        print "$val\n";
+      }
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  } );
+
+Full list of Redis commands can be found here: L<http://redis.io/commands>
+
+SUBSCRIPTIONS
+
+subscribe( @channels[, \%params ] )
+
+Subscribe to channel by name
+
+  $redis->subscribe( qw( ch_foo ch_bar ), {
+    on_done =>  sub {
+      my $ch_name = shift;
+      my $subs_num = shift;
+
+      print "Subscribed: $ch_name. Active: $subs_num\n";
+    },
+
+    on_message => sub {
+      my $ch_name = shift;
+      my $msg = shift;
+
+      print "$ch_name: $msg\n";
+    },
+  } );
+
+psubscribe( @patterns[, \%params ] )
+
+Subscribe to group of channels by pattern
+
+  $redis->psubscribe( qw( info_err_* ), {
+    on_done =>  sub {
+      my $ch_pattern = shift;
+      my $subs_num = shift;
+
+      print "Subscribed: $ch_pattern. Active: $subs_num\n";
+    },
+
+    on_message => sub {
+      my $ch_name = shift;
+      my $msg = shift;
+      my $ch_pattern = shift;
+
+      print "$ch_name ($ch_pattern): $msg\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  } );
+
+unsubscribe( @channels[, \%params ] )
+
+Unsubscribe from channel by name
+
+  $redis->unsubscribe( qw( ch_foo ch_bar ), {
+    on_done => sub {
+      my $ch_name = shift;
+      my $subs_num = shift;
+
+      print "Unsubscribed: $ch_name. Active: $subs_num\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  } );
+
+punsubscribe( @patterns[, \%params ] )
+
+Unsubscribe from group of channels by pattern
+
+  $redis->punsubscribe( qw( info_err_* ), {
+    on_done => sub {
+      my $ch_pattern = shift;
+      my $subs_num = shift;
+
+      print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
+    },
+
+    on_error => sub {
+      my $err = shift;
+      warn "$err\n";
+    },
+  } );
+
+CONNECTION VIA UNIX-SOCKET
+
+Redis 2.2 and higher support connection via UNIX domain socket. To connect via
+a UNIX-socket in the parameter 'host' you must specify C<unix/>, and in
+the parameter 'port' you must specify the path to the socket.
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => 'unix/',
+    port => '/tmp/redis.sock',
+  );
+
+DISCONNECTION FROM SERVER
+
+When the connection to the server is no longer needed you can close it in three
+ways: send 'QUIT' command, call method C<disconnect()> (since version 0.806000),
+or you can just "forget" any references to an AnyEvent::Redis::RipeRedis object
+(since version 1.000).
+
+  $redis->quit(
+    on_done => sub {
+      # Do something
+    }
+  } );
+
+  $redis->disconnect();
+
+  undef( $redis );
+
+SEE ALSO
+
+L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>
+
+AUTHOR
+
+Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
+
+Special thanks to:
+
+- Alexey Shrub
+- Vadim Vlasov
+- Konstantin Uvarin
+
+COPYRIGHT AND LICENSE
+
+Copyright (c) 2012, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights
+reserved.
+
+This module is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
