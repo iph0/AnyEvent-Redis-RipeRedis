@@ -26,7 +26,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -842,8 +842,10 @@ This callback will be called, when client will be disconnected.
 
 =head2 on_connect_error
 
+Since version 0.807100.
+
 This callback is called, when the connection could not be established.
-IF this collback isn't specified, then C<on_error> callback is called.
+If this collback isn't specified, then C<on_error> callback is called.
 
 =head2 on_error
 

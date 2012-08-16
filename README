@@ -1,4 +1,4 @@
-AnyEvent-Redis-RipeRedis version 1.001
+AnyEvent-Redis-RipeRedis version 1.002
 ======================
 
 SYNOPSIS
@@ -120,8 +120,10 @@ This callback will be called, when client will be disconnected.
 
 on_connect_error
 
+Since version 0.807100.
+
 This callback is called, when the connection could not be established.
-IF this collback isn't specified, then 'on_error' callback is called.
+If this collback isn't specified, then 'on_error' callback is called.
 
 on_error
 
