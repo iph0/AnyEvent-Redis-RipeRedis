@@ -26,7 +26,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.002';
+our $VERSION = '1.003';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -40,6 +40,10 @@ use constant {
   EOL_LEN => 2,
 };
 
+my %DEFAULTS = (
+  host => D_HOST,
+  port => D_PORT,
+);
 my %SUB_ACTION_CMDS = (
   subscribe => 1,
   psubscribe => 1,
@@ -152,17 +156,13 @@ sub _validate_new {
   }
 
   # Set defaults
-  if (
-    !defined( $params->{host} )
-      or ref( $params->{host} ) or $params->{host} eq ''
-      ) {
-    $params->{host} = D_HOST;
-  }
-  if (
-    !defined( $params->{port} )
-      or ref( $params->{port} ) or $params->{port} eq ''
-      ) {
-    $params->{port} = D_PORT;
+  foreach my $name ( keys( %DEFAULTS ) ) {
+    if (
+      !defined( $params->{$name} )
+        or ref( $params->{$name} ) or $params->{$name} eq ''
+        ) {
+      $params->{$name} = $DEFAULTS{$name};
+    }
   }
   if ( !defined( $params->{on_error} ) ) {
     $params->{on_error} = sub {
