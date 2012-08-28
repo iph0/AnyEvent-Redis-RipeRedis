@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.006 Tue Aug 28 18:58:17 2012
+  - Fixes in POD.
+
 1.005 Tue Aug 28 18:17:50 2012
   - Example fixed.
   - Changelog fixed.

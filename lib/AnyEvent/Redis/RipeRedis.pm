@@ -26,7 +26,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.005';
+our $VERSION = '1.006';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -761,6 +761,8 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 
 =head1 DESCRIPTION
 
+This documentation describes client of version 1.000 and later.
+
 AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.
@@ -837,8 +839,6 @@ This callback will be called, when connection will be established.
 This callback will be called, when client will be disconnected.
 
 =head2 on_connect_error
-
-Since version 0.807100.
 
 This callback is called, when the connection could not be established.
 If this collback isn't specified, then C<on_error> callback is called.
@@ -1001,9 +1001,9 @@ the parameter C<port> you must specify the path to the socket.
 =head1 DISCONNECTION FROM SERVER
 
 When the connection to the server is no longer needed you can close it in three
-ways: send C<QUIT> command, call method C<disconnect()> (since version 0.806000),
-or you can just "forget" any references to an AnyEvent::Redis::RipeRedis object
-(since version 1.000).
+ways: send C<QUIT> command, call method C<disconnect()>, or you can just "forget"
+any references to an AnyEvent::Redis::RipeRedis object. In the third case client
+don't calls further callbacks, including 'on_disconnect' callback.
 
   $redis->quit(
     on_done => sub {
