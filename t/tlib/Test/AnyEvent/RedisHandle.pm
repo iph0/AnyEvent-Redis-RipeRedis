@@ -76,6 +76,23 @@ $mock->mock( 'unshift_read', sub {
 } );
 
 ####
+####
+$mock->mock( 'destroy', sub {
+  my $self = shift;
+
+  undef( $self->{rbuf} );
+  undef( $mock->{_redis_emu} );
+  $mock->{_write_queue} = [];
+  $mock->{_read_queue} = [];
+  undef( $mock->{_continue_read} );
+  undef( $mock->{_curr_on_read} );
+  undef( $mock->{_start} );
+  undef( $mock->{_process_timer} );
+
+  return;
+} );
+
+####
 $mock->mock( '_connect', sub {
   my $self = shift;
 

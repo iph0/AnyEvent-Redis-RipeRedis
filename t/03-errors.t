@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 9;
+use Test::More tests => 8;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -23,7 +23,6 @@ t_cmd_on_error();
 t_invalid_password();
 t_empty_password();
 t_sub_after_multi();
-t_finalized();
 
 
 # Subroutines
@@ -35,9 +34,7 @@ sub t_no_connection {
   my @t_data;
   my $cv = AnyEvent->condvar();
   my $redis = $T_CLASS->new(
-    # Invalid value must be reset to default
-    host => [], # Invalid
-    port => {}, # Invalid
+    %GENERIC_PARAMS,
     reconnect => 0,
 
     on_connect_error => sub {
@@ -287,30 +284,6 @@ sub t_sub_after_multi {
 
   is( $t_err, "Command 'subscribe' not allowed after 'multi' command. First, the"
       . " transaction must be completed", 'Invalid context for subscribtion' );
-
-  return;
-}
-
-####
-sub t_finalized {
-  my $redis = $T_CLASS->new(
-    %GENERIC_PARAMS,
-    password => 'test',
-  );
-  $redis->disconnect();
-
-  my $t_err;
-  my $cv = AnyEvent->condvar();
-  $redis->ping( {
-    on_error => sub {
-      $t_err = shift;
-      $cv->send();
-    }
-  } );
-  ev_loop( $cv );
-
-  is( $t_err, "Can't handle the command 'ping'. Connection closed by client",
-      'Using a client after finalizing' );
 
   return;
 }
