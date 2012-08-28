@@ -122,21 +122,17 @@ foreach my $key ( qw( foo bar list ) ) {
     on_done => sub {
       my $data = shift;
       say $data;
-      $cv->send();
     }
   } );
 }
 
-## Disconnect
-#$redis->quit( {
-#  on_done => sub {
-#    my $data = shift;
-#    say $data;
-#    $cv->send();
-#  }
-#} );
+# Disconnect
+$redis->quit( {
+  on_done => sub {
+    my $data = shift;
+    say $data;
+    $cv->send();
+  }
+} );
 
 $cv->recv();
-
-#undef( $redis );
-sleep( 10 );
