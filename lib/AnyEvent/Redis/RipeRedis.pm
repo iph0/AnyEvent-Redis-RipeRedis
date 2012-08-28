@@ -435,46 +435,7 @@ sub _on_read {
     my $hdl = shift;
 
     while ( defined( $hdl->{rbuf} ) and $hdl->{rbuf} ne '' ) {
-      my $eol_pos = index( $hdl->{rbuf}, EOL );
-      if ( $eol_pos < 0 ) {
-        return;
-      }
-      my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
-      my $type = substr( $data, 0, 1, '' );
-      substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
-
-      if ( $type eq '+' or $type eq ':' ) {
-        return 1 if $cb->( $data );
-      }
-      elsif ( $type eq '-' ) {
-        return 1 if $cb->( $data, 1 );
-      }
-      elsif ( $type eq '$' ) {
-        if ( $data > 0 ) {
-          $bulk_len = $data;
-        }
-        else {
-          return 1 if $cb->();
-        }
-      }
-      elsif ( $type eq '*' ) {
-        my $m_bulk_len = $data;
-        if ( $m_bulk_len > 0 ) {
-          $self->_unshift_on_read( $hdl, $m_bulk_len, $cb );
-          return 1;
-        }
-        elsif ( $m_bulk_len < 0 ) {
-          return 1 if $cb->();
-        }
-        else {
-          return 1 if $cb->( [] );
-        }
-      }
-
-      if (
-        defined( $bulk_len )
-          and defined( $hdl->{rbuf} ) and $hdl->{rbuf} ne ''
-          ) {
+      if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
         if ( length( $hdl->{rbuf} ) < $bulk_eol_len ) {
           return;
@@ -488,6 +449,43 @@ sub _on_read {
         undef( $bulk_len );
 
         return 1 if $cb->( $data );
+      }
+      else {
+        my $eol_pos = index( $hdl->{rbuf}, EOL );
+        if ( $eol_pos < 0 ) {
+          return;
+        }
+        my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
+        my $type = substr( $data, 0, 1, '' );
+        substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
+
+        if ( $type eq '+' or $type eq ':' ) {
+          return 1 if $cb->( $data );
+        }
+        elsif ( $type eq '-' ) {
+          return 1 if $cb->( $data, 1 );
+        }
+        elsif ( $type eq '$' ) {
+          if ( $data > 0 ) {
+            $bulk_len = $data;
+          }
+          else {
+            return 1 if $cb->();
+          }
+        }
+        elsif ( $type eq '*' ) {
+          my $m_bulk_len = $data;
+          if ( $m_bulk_len > 0 ) {
+            $self->_unshift_on_read( $hdl, $m_bulk_len, $cb );
+            return 1;
+          }
+          elsif ( $m_bulk_len < 0 ) {
+            return 1 if $cb->();
+          }
+          else {
+            return 1 if $cb->( [] );
+          }
+        }
       }
     }
   };
