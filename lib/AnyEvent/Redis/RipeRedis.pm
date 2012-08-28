@@ -26,7 +26,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.003';
+our $VERSION = '1.004';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -710,11 +710,7 @@ sub AUTOLOAD {
 }
 
 ####
-sub DESTROY {
-  my __PACKAGE__ $self = shift;
-  $self->disconnect();
-  return;
-}
+sub DESTROY {}
 
 1;
 __END__

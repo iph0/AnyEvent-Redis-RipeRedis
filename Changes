@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.004 Wed Aug 28 17:51:40 2012
+  - No longer calls 'on_disconnect' and 'on_error' callbacks during
+  AnyEvent::Redis::RipeRedis object destruction (It was not good idea).
+
 1.003 Wed Aug 21 22:27:30 2012
   - Minor changes
 

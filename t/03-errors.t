@@ -276,10 +276,7 @@ sub t_sub_after_multi {
       $cv->send();
     }
   } );
-  ev_loop( $cv );
-
   my $t_err;
-  $cv = AnyEvent->condvar();
   $redis->subscribe( 'channel', {
     on_error => sub {
       $t_err = shift;
