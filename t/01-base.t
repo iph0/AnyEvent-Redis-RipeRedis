@@ -91,7 +91,7 @@ sub t_incr {
 sub t_set_get {
   my $t_data;
   my $cv = AnyEvent->condvar();
-  $REDIS->set( 'bar', 'Some string' );
+  $REDIS->set( 'bar', "Some\r\nstring" );
   $REDIS->get( 'bar', {
     on_done => sub {
       $t_data = shift;
@@ -100,7 +100,7 @@ sub t_set_get {
   } );
   ev_loop( $cv );
 
-  is( $t_data, 'Some string', 'get (bulk reply)' );
+  is( $t_data, "Some\r\nstring", 'get (bulk reply)' );
 
   return;
 }
@@ -225,7 +225,7 @@ sub t_transaction {
       element_3
     ) ],
     [],
-    'Some string',
+    "Some\r\nstring",
     [ qw(
       element_1
       element_2
