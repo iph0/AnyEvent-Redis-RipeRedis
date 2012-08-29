@@ -25,7 +25,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.007';
+our $VERSION = '1.008';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -100,11 +100,13 @@ sub disconnect {
   my __PACKAGE__ $self = shift;
 
   my $was_connected = $self->{connected};
-  $self->{handle}->destroy();
-  undef( $self->{handle} );
-  $self->{connected} = 0;
-  $self->{authing} = 0;
-  $self->{authed} = 0;
+  if ( $was_connected ) {
+    $self->{handle}->destroy();
+    undef( $self->{handle} );
+    $self->{connected} = 0;
+    $self->{authing} = 0;
+    $self->{authed} = 0;
+  }
   $self->_abort_all( 'Connection closed by client' );
   if ( $was_connected and defined( $self->{on_disconnect} ) ) {
     $self->{on_disconnect}->();
@@ -564,7 +566,13 @@ sub _prcoess_response {
 
   if ( %{$self->{subs}} and $self->_is_sub_message( $data ) ) {
     if ( exists( $self->{subs}{$data->[1]} ) ) {
-      return $self->_process_sub_message( $data );
+      $self->_process_sub_message( $data );
+      return;
+    }
+    else {
+      $self->{on_error}->( "Don't known how process message."
+        . " Unknown channel or pattern '$data->[1]'" );
+      return;
     }
   }
 

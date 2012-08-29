@@ -1,5 +1,11 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.008 Wed Aug 29 16:28:55 2012
+  - Bugfix in disconnect() method. Now, don't call destroy() method if
+  AnyEvent::Handle object not defined.
+  - Minor bugfixes
+  - README fixed
+
 1.007 Tue Aug 28 21:15:25 2012
   - Internal flag 'finalized' removed
   - Minor bugfixes

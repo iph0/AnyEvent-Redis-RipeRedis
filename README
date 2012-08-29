@@ -1,4 +1,4 @@
-AnyEvent-Redis-RipeRedis version 1.007
+AnyEvent-Redis-RipeRedis version 1.008
 ======================
 
 SYNOPSIS
@@ -94,14 +94,14 @@ automaticaly.
 connection_timeout
 
 Connection timeout. If after this timeout client could not connect to the server,
-callback 'on_error' is called.
+callback "on_error" is called.
 
 reconnect
 
 If this parameter is TRUE (by default), client in case of lost connection will
 attempt to reconnect to server, when executing next command. Client will attempt
-to reconnect only once and if it fails, call 'on_error' callback. If you need
-several attempts of reconnection, just retry command from 'on_error' callback
+to reconnect only once and if it fails, call "on_error" callback. If you need
+several attempts of reconnection, just retry command from "on_error" callback
 as many times, as you need. This feature made client more responsive.
 
 TRUE by default.
@@ -123,7 +123,7 @@ on_connect_error
 Since version 0.807100.
 
 This callback is called, when the connection could not be established.
-If this collback isn't specified, then 'on_error' callback is called.
+If this collback isn't specified, then "on_error" callback is called.
 
 on_error
 
@@ -272,8 +272,8 @@ Unsubscribe from group of channels by pattern
 CONNECTION VIA UNIX-SOCKET
 
 Redis 2.2 and higher support connection via UNIX domain socket. To connect via
-a UNIX-socket in the parameter 'host' you must specify C<unix/>, and in
-the parameter 'port' you must specify the path to the socket.
+a UNIX-socket in the parameter "host" you must specify C<unix/>, and in
+the parameter "port" you must specify the path to the socket.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'unix/',
@@ -283,9 +283,9 @@ the parameter 'port' you must specify the path to the socket.
 DISCONNECTION FROM SERVER
 
 When the connection to the server is no longer needed you can close it in three
-ways: send 'QUIT' command, call method C<disconnect()> (since version 0.806000),
-or you can just "forget" any references to an AnyEvent::Redis::RipeRedis object
-(since version 1.000).
+ways: send "QUIT" command, call method "disconnect()", or you can just "forget"
+any references to an AnyEvent::Redis::RipeRedis object, but in this case client
+don't calls "on_disconnect" callback.
 
   $redis->quit(
     on_done => sub {
