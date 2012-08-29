@@ -43,6 +43,8 @@ SYNOPSIS
 
 DESCRIPTION
 
+This documentation describes client of version 1.007 and later.
+
 AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.

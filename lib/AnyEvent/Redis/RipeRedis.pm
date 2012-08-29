@@ -25,7 +25,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.008';
+our $VERSION = '1.009';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -746,7 +746,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 
 =head1 DESCRIPTION
 
-This documentation describes client of version 1.000 and later.
+This documentation describes client of version 1.007 and later.
 
 AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
