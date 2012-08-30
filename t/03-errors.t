@@ -171,8 +171,8 @@ sub t_broken_connection {
 
   is_deeply( \@t_data, [
     'Connected',
-    [ "Command 'ping' aborted: Can't write to socket", E_IO ],
-    [ "Can't write to socket", E_IO ],
+    [ "Command 'ping' aborted: Can't write to socket", E_IO_OPERATION ],
+    [ "Can't write to socket", E_IO_OPERATION ],
   ], 'Broken connection' );
 
   return;
@@ -223,8 +223,8 @@ sub t_cmd_on_error {
   ev_loop( $cv );
 
   is_deeply( \@t_errors, [
-    [ "ERR wrong number of arguments for 'set' command", E_COMMAND ],
-    [ 'ERR value is not an integer or out of range', E_COMMAND ],
+    [ "ERR wrong number of arguments for 'set' command", E_COMMAND_EXEC ],
+    [ 'ERR value is not an integer or out of range', E_COMMAND_EXEC ],
   ], "'on_error' callback in the method of the command" );
 
   return;
@@ -314,8 +314,9 @@ sub t_sub_after_multi {
   } );
   ev_loop( $cv );
 
-  is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'subscribe' not allowed after"
-      . " 'multi' command. First, the transaction must be completed", E_COMMAND ],
+  is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'subscribe' not allowed"
+      . " after 'multi' command. First, the transaction must be completed",
+      E_COMMAND_EXEC ],
       'Invalid context for subscribtion' );
 
   return;
