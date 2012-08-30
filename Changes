@@ -1,6 +1,6 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.101 Thu Aug 31 00:19:15 2012
+1.102 Thu Aug 31 00:19:15 2012
   - [FEATURE] Added error codes in 'on_error' callbacks.
   - [FEATURE] Added constants for error codes.
   - Error message "Connection closed by client" replaced by message "Connection

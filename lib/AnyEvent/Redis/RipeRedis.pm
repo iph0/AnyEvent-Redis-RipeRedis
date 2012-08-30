@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.101';
+our $VERSION = '1.102';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -1104,7 +1104,7 @@ Redis is loading the dataset in memory.
 
 =item E_IO_OPERATION
 
-I/O operation error. Connection closed.
+I/O operation error.
 
 =item E_CONN_CLOSED_BY_REMOTE_HOST
 
