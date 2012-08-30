@@ -192,27 +192,22 @@ $mock->mock( '_read', sub {
 # Public methods
 
 ####
-sub redis_down {
-  $REDIS_IS_DOWN = 1;
+sub connection_down {
+  my $class = shift;
+  my $value = shift;
+
+  $REDIS_IS_DOWN = $value;
+
   return;
 }
 
 ####
-sub redis_up {
-  $REDIS_IS_DOWN = 0;
-  $CONN_IS_BROKEN = 0;
-  return;
-}
+sub broken_connection {
+  my $class = shift;
+  my $value = shift;
 
-####
-sub break_connection {
-  $CONN_IS_BROKEN = 1;
-  return;
-}
+  $CONN_IS_BROKEN = $value;
 
-####
-sub fix_connection {
-  $CONN_IS_BROKEN = 0;
   return;
 }
 

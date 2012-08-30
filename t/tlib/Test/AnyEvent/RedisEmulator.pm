@@ -15,6 +15,12 @@ use fields qw(
 
 our $VERSION = '0.100003';
 
+use constant {
+  EOL => "\r\n",
+  EOL_LEN => 2,
+};
+
+my $REDIS_LOADING = 0;
 my $PASSWORD = 'test';
 my %COMMANDS = (
   auth => {
@@ -101,6 +107,7 @@ my %COMMANDS = (
 
 my %ERR_MESSAGES = (
   protocol_error => 'Protocol error',
+  loading => 'Redis is loading the dataset in memory',
   invalid_pass => 'invalid password',
   not_permitted => 'operation not permitted',
   wrong_args => "wrong number of arguments for '\%c' command",
@@ -109,9 +116,6 @@ my %ERR_MESSAGES = (
   wrong_value => 'Operation against a key holding the wrong kind of value',
   invalid_timeout => 'timeout is not an integer or out of range',
 );
-
-my $EOL = "\r\n";
-my $EOL_LENGTH = length( $EOL );
 
 
 # Constructro
@@ -132,6 +136,16 @@ sub new {
 
 
 # Public methods
+
+####
+sub loading_dataset {
+  my $class = shift;
+  my $value = shift;
+
+  $REDIS_LOADING = $value;
+
+  return;
+}
 
 ####
 sub process_command {
@@ -191,13 +205,13 @@ sub _parse_command {
   if ( !defined( $cmd_szd ) || $cmd_szd eq '' ) {
     return;
   }
-  my $eol_pos = index( $cmd_szd, $EOL );
+  my $eol_pos = index( $cmd_szd, EOL );
   if ( $eol_pos <= 0 ) {
     return;
   }
   my $token = substr( $cmd_szd, 0, $eol_pos, '' );
   my $type = substr( $token, 0, 1, '' );
-  substr( $cmd_szd, 0, $EOL_LENGTH, '' );
+  substr( $cmd_szd, 0, EOL_LEN, '' );
   if ( $type ne '*' ) {
     return;
   }
@@ -225,19 +239,19 @@ sub _parse_m_bulk {
   while ( $args_remaining ) {
     if ( $bulk_len ) {
       my $arg = substr( $cmd_szd, 0, $bulk_len, '' );
-      substr( $cmd_szd, 0, $EOL_LENGTH, '' );
+      substr( $cmd_szd, 0, EOL_LEN, '' );
       push( @args, $arg );
       undef( $bulk_len );
       --$args_remaining;
     }
     else {
-      my $eol_pos = index( $cmd_szd, $EOL );
+      my $eol_pos = index( $cmd_szd, EOL );
       if ( $eol_pos <= 0 ) {
         return;
       }
       my $token = substr( $cmd_szd, 0, $eol_pos, '' );
       my $type = substr( $token, 0, 1, '' );
-      substr( $cmd_szd, 0, $EOL_LENGTH, '' );
+      substr( $cmd_szd, 0, EOL_LEN, '' );
       if ( $type ne '$' ) {
         return;
       }
@@ -253,7 +267,13 @@ sub _exec_command {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  if ( !$self->{is_auth} && $cmd->{name} ne 'auth' ) {
+  if ( $REDIS_LOADING ) {
+    return {
+      type => '-',
+      data => $ERR_MESSAGES{loading},
+    };
+  }
+  elsif ( !$self->{is_auth} && $cmd->{name} ne 'auth' ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{not_permitted},
@@ -284,40 +304,41 @@ sub _serialize_response {
   my $resp = shift;
 
   if ( $resp->{type} eq '+' || $resp->{type} eq ':' ) {
-    return "$resp->{type}$resp->{data}$EOL";
+    return $resp->{type}. $resp->{data} . EOL;
   }
   elsif ( $resp->{type} eq '-' ) {
-    return "$resp->{type}ERR $resp->{data}$EOL";
+    my $err_pref = $REDIS_LOADING ? 'LOADING ' : 'ERR ';
+    return $resp->{type}. $err_pref . $resp->{data} . EOL;
   }
   elsif ( $resp->{type} eq '$' ) {
     if ( defined( $resp->{data} ) && $resp->{data} ne ''  ){
       my $bulk_len = length( $resp->{data} );
-      return "$resp->{type}$bulk_len$EOL$resp->{data}$EOL";
+      return $resp->{type}. $bulk_len . EOL . $resp->{data} . EOL;
     }
 
-    return "$resp->{type}-1$EOL";
+    return "$resp->{type}-1" . EOL;
   }
   elsif ( $resp->{type} eq '*' ) {
     if ( !defined( $resp->{data} ) || $resp->{data} eq '' ) {
-      return "*-1$EOL";
+      return "*-1" . EOL;
     }
     my $m_bulk_len = scalar( @{$resp->{data}} );
     if ( $m_bulk_len > 0 ) {
-      my $data_szd = "*$m_bulk_len$EOL";
+      my $data_szd = "*$m_bulk_len" . EOL;
       foreach my $val ( @{$resp->{data}} ) {
         if ( ref( $val ) eq 'HASH' ) {
           $data_szd .= $self->_serialize_response( $val );
         }
         else {
           my $bulk_len = length( $val );
-          $data_szd .= "\$$bulk_len$EOL$val$EOL";
+          $data_szd .= "\$$bulk_len" . EOL . $val . EOL;
         }
       }
 
       return $data_szd;
     }
 
-    return "*0$EOL";
+    return "*0" . EOL;
   }
 }
 
@@ -761,6 +782,8 @@ sub _exec_sub {
   my @ch_proto = @{$cmd->{args}};
 
   my @data;
+
+  # Subscribe
   foreach my $ch_proto ( @ch_proto ) {
     if ( !exists( $self->{subs}{$ch_proto} ) ) {
       $self->{subs}{$ch_proto} = 1;
@@ -774,7 +797,10 @@ sub _exec_sub {
         $self->{subs_num},
       ],
     } );
+  }
 
+  # Publish messages
+  foreach my $ch_proto ( @ch_proto ) {
     # Send message to channels
     my $msg = 'test';
     if ( index( $cmd->{name}, 'p' ) == 0 ) {

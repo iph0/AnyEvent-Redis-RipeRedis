@@ -26,7 +26,9 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   },
 
   on_error => sub {
-    my $err = shift;
+    my $err_msg = shift;
+    my $err_code = shift;
+
     warn "$err\n";
   },
 );

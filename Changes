@@ -1,66 +1,31 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.009 Wed Aug 29 17:11:20 2012
-  - POD fixed
-  - README fixed
-
-1.008 Wed Aug 29 16:28:55 2012
-  - Bugfix in disconnect() method. Now, don't call destroy() method if
-  AnyEvent::Handle object not defined.
-  - Minor bugfixes
-  - README fixed
-
-1.007 Tue Aug 28 21:15:25 2012
-  - Internal flag 'finalized' removed
-  - Minor bugfixes
-  - Minor changes in POD.
-
-1.006 Tue Aug 28 18:58:17 2012
-  - Fixes in POD.
-
-1.005 Tue Aug 28 18:17:50 2012
-  - Example fixed.
-  - Changelog fixed.
-
-1.004 Tue Aug 28 17:51:40 2012
-  - No longer calls 'on_disconnect' and 'on_error' callbacks during
-  AnyEvent::Redis::RipeRedis object destruction (It was not good idea).
-
-1.003 Tue Aug 21 22:27:30 2012
-  - Minor changes
-
-1.002 Thu Aug 16 14:35:00 2012
-  - Fixes in POD
-
-1.001 Thu Aug 16 12:18:30 2012
-  - Fixes in POD
-  - Added module documentation to README file
+1.100
+  - [FEATURE] Added error codes in 'on_error' callbacks.
+  - [FEATURE] Added constants for error codes.
+  - Error message "Connection closed by client" replaced by message "Connection
+  closed on demand".
+  - Unit-tests improved.
+  - Many internal changes.
 
 1.000 Wed Aug 15 23:24:05 2012
   - [FEATURE] Now, connection to server closed automatically after destroying
   last reference on AnyEvent::Redis::RipeRedis object.
   - [BUGFIX] Fixed cyclic references.
-  - Versioning style changed.
-  - Fixes in tests.
-  - Fixes in POD
 
 0.807301 Wed Aug 15 00:52:45 2012
   - Fixes in POD
 
 0.807300 Tue Aug 14 19:02:20 2012
-  - Now, until connection establishment and authentication, client
-  not call push_write() method of class AnyEvent::Handle.
+  - Many internal changes
   - Changed format of error messages.
 
-0.807211 Sun Jul 16 17:25:45 2012
-  - Minor changes
-
 0.807200 Fri Jun 29 22:12:40 2012
-  - [BUGFIX] Now, on_done callback calls at the end of processing of response,
+  - [BUGFIX] "on_done" callback now calls at the end of processing of response,
   to avoid unexpected behavior.
 
 0.807100 Wed Jun 20 10:38:50 2012
-  - [FIX] Now, if some error ocurred or if connection was closed, then uncompleted
+  - [BUGFIX] If some error ocurred or if connection was closed, then uncompleted
   commands will be aborted before calling on_error, on_connect_error
   or on_disconnect callbacks, to avoid unexpected behavior.
 
