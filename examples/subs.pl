@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-use 5.010000;
 use strict;
 use warnings;
 
@@ -16,18 +15,18 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   encoding => 'utf8',
 
   on_connect => sub {
-    say 'Connected to Redis server';
+    print "Connected to Redis server\n";
   },
 
   on_disconnect => sub {
-    say 'Disconnected from Redis server';
+    print "Disconnected from Redis server\n";
   },
 
   on_error => sub {
     my $err_msg = shift;
     my $err_code = shift;
 
-    warn "$err_msg\n";
+    warn "$err_msg. Error code: $err_code\n";
   },
 );
 
@@ -37,14 +36,14 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
     my $ch_name = shift;
     my $subs_num = shift;
 
-    say "Subscribed: $ch_name. Active: $subs_num";
+    print "Subscribed: $ch_name. Active: $subs_num\n";
   },
 
   on_message => sub {
     my $ch_name = shift;
     my $msg = shift;
 
-    say "$ch_name: $msg";
+    print "$ch_name: $msg\n";
   },
 } );
 
@@ -54,7 +53,7 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $ch_pattern = shift;
     my $subs_num = shift;
 
-    say "Subscribed: $ch_pattern. Active: $subs_num";
+    print "Subscribed: $ch_pattern. Active: $subs_num\n";
   },
 
   on_message => sub {
@@ -62,20 +61,20 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $msg = shift;
     my $ch_pattern = shift;
 
-    say "$ch_name ($ch_pattern): $msg";
+    print "$ch_name ($ch_pattern): $msg\n";
   },
 } );
 
 # Unsubscribe
 my $sig_cb = sub {
-  say 'Stopped';
+  print "Stopped\n";
 
   $redis->unsubscribe( qw( ch_foo ch_bar ), {
     on_done => sub {
       my $ch_name = shift;
       my $subs_num = shift;
 
-      say "Unsubscribed: $ch_name. Active: $subs_num";
+      print "Unsubscribed: $ch_name. Active: $subs_num\n";
     },
   } );
 
@@ -84,7 +83,7 @@ my $sig_cb = sub {
       my $ch_pattern = shift;
       my $subs_num = shift;
 
-      say "Unsubscribed: $ch_pattern. Active: $subs_num";
+      print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
 
       if ( $subs_num == 0 ) {
         $cv->send();

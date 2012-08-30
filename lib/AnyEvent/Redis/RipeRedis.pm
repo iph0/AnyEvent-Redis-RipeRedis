@@ -35,9 +35,9 @@ use Scalar::Util qw( looks_like_number weaken );
 use Carp qw( croak );
 
 BEGIN {
-  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
+  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO_OPERATION
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_ON_DEMAND E_NO_CONN
-      E_INVALID_PASS E_AUTH_REQUIRED E_COMMAND E_CLIENT );
+      E_INVALID_PASS E_AUTH_REQUIRED E_COMMAND_EXEC E_UNEXPECTED );
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
   );
@@ -51,14 +51,14 @@ use constant {
   # Error codes
   E_CANT_CONN => 1,
   E_LOADING_DATASET => 2,
-  E_IO => 3,
+  E_IO_OPERATION => 3,
   E_CONN_CLOSED_BY_REMOTE_HOST => 4,
   E_CONN_CLOSED_ON_DEMAND => 5,
   E_NO_CONN => 6,
   E_INVALID_PASS => 7,
   E_AUTH_REQUIRED => 8,
-  E_COMMAND => 9,
-  E_CLIENT => 10,
+  E_COMMAND_EXEC => 9,
+  E_UNEXPECTED => 10,
 
   # String terminator
   EOL => "\r\n",
@@ -115,9 +115,6 @@ sub new {
   return $self;
 }
 
-
-# Public method
-
 ####
 sub disconnect {
   my __PACKAGE__ $self = shift;
@@ -137,9 +134,6 @@ sub disconnect {
 
   return;
 }
-
-
-# Private methods
 
 ####
 sub _validate_new {
@@ -282,7 +276,7 @@ sub _create_on_error {
 
   return sub {
     my $err_msg = pop;
-    $self->_process_handle_error( $err_msg, E_IO );
+    $self->_process_handle_error( $err_msg, E_IO_OPERATION );
   };
 }
 
@@ -381,11 +375,12 @@ sub _unshift_on_read {
   my $m_bulk_len = shift;
   my $cb = shift;
 
-  my $read_cb;
+  my $on_read;
   my @data;
   my @errors;
   my $remaining_num = $m_bulk_len;
-  my $cb_wrap = sub {
+
+  my $on_response = sub {
     my $data_chunk = shift;
     my $is_err = shift;
 
@@ -401,10 +396,10 @@ sub _unshift_on_read {
       ref( $data_chunk ) eq 'ARRAY' and @{$data_chunk}
         and $remaining_num > 0
         ) {
-      $hdl->unshift_read( $read_cb );
+      $hdl->unshift_read( $on_read );
     }
     elsif ( $remaining_num == 0 ) {
-      undef( $read_cb ); # Collect garbage
+      undef( $on_read ); # Collect garbage
       if ( @errors ) {
         my $err_msg = join( "\n", @errors );
         $cb->( $err_msg, 1 );
@@ -417,9 +412,8 @@ sub _unshift_on_read {
     }
   };
 
-  $read_cb = $self->_create_on_read( $cb_wrap );
-
-  $hdl->unshift_read( $read_cb );
+  $on_read = $self->_create_on_read( $on_response );
+  $hdl->unshift_read( $on_read );
 
   return;
 }
@@ -464,7 +458,7 @@ sub _process_response {
   }
   else {
     $self->{on_error}->( "Don't known how process response data."
-        . ' Command queue is empty', E_CLIENT );
+        . ' Command queue is empty', E_UNEXPECTED );
   }
 
   return;
@@ -488,7 +482,7 @@ sub _process_pub_message {
   }
   else {
     $self->{on_error}->( "Don't known how process published message."
-      . " Unknown channel or pattern '$data->[1]'", E_CLIENT );
+      . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED );
   }
 
   return;
@@ -512,13 +506,13 @@ sub _process_error {
       $err_code = E_AUTH_REQUIRED;
     }
     else {
-      $err_code = E_COMMAND;
+      $err_code = E_COMMAND_EXEC;
     }
     $cmd->{on_error}->( $err_msg, $err_code );
   }
   else {
     $self->{on_error}->( "Don't known how process error message '$err_msg'."
-      . " Command queue is empty", E_CLIENT );
+      . " Command queue is empty", E_UNEXPECTED );
   }
 
   return;
@@ -586,7 +580,7 @@ sub _exec_command {
   if ( exists( $SUB_ACTION_CMDS{$cmd->{name}} ) ) {
     if ( $self->{sub_lock} ) {
       $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi' command."
-          . ' First, the transaction must be completed', E_COMMAND );
+          . ' First, the transaction must be completed', E_COMMAND_EXEC );
       return;
     }
     $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
@@ -771,9 +765,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 =head1 SYNOPSIS
 
   use AnyEvent;
-  use AnyEvent::Redis::RipeRedis;
-
-  my $cv = AnyEvent->condvar();
+  use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'localhost',
@@ -785,16 +777,30 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
       print "Connected\n";
     },
 
+    on_disconnect => sub {
+      print "Disconnected from Redis server\n";
+    },
+
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
 
-      warn "$err_msg\n";
+      warn "$err_msg. Error code: $err_code\n";
     },
   );
 
-  # Set value
-  $redis->set( 'bar', 'Some string', {
+  my $cv = AnyEvent->condvar();
+
+  # Increment
+  $redis->incr( 'foo', {
+    on_done => sub {
+      my $data = shift;
+      print "$data\n";
+    },
+  } );
+
+  # Set value (retry on error)
+  set( $redis, 'bar', 'Some string', {
     on_done => sub {
       my $data = shift;
       print "$data\n";
@@ -805,16 +811,53 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
       my $err_msg = shift;
       my $err_code = shift;
 
-      warn "$err_msg\n";
+      warn "$err_msg. Error code: $err_code\n";
       $cv->croak();
-    },
+    }
   } );
 
   $cv->recv();
 
-=head1 DESCRIPTION
+  $redis->disconnect();
 
-This documentation describes client of version 1.007 and later.
+
+  ####
+  sub set {
+    my $redis = shift;
+    my $key = shift;
+    my $value = shift;
+    my $params = shift;
+
+    $redis->set( $key, $value, {
+      on_done => $params->{on_done},
+      on_error => sub {
+        my $err_msg = shift;
+        my $err_code = shift;
+
+        if (
+          $err_code == E_CANT_CONN
+            or $err_code == E_LOADING_DATASET
+            or $err_code == E_IO_OPERATION
+            or $err_code == E_CONN_CLOSED_BY_REMOTE_HOST
+            ) {
+          warn "$err_msg. Error code: $err_code\n";
+          my $timer;
+          $timer = AnyEvent->timer(
+            after => 3,
+            cb => sub {
+              undef( $timer );
+              set( $redis, $key, $value, $params );
+            },
+          );
+        }
+        else {
+          $params->{on_error}->( $err_msg, $err_code );
+        }
+      },
+    } );
+  }
+
+=head1 DESCRIPTION
 
 AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
@@ -842,12 +885,16 @@ Requires Redis 1.2 or higher and any supported event loop.
 
     on_connect_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+      my $err_code = shift;
+
+      warn "$err_msg. Error code: $err_code\n";
     },
 
     on_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+      my $err_code = shift;
+
+      warn "$err_msg. Error code: $err_code\n";
     },
   );
 
@@ -911,33 +958,10 @@ resolve the hostname, failure to connect, or a read error.
       my $data = shift;
       print "$data\n";
     },
-
-    on_error => sub {
-      my $err_msg = shift;
-      warn "$err_msg\n";
-    },
   } );
 
   # Set value
   $redis->set( 'bar', 'Some string' );
-
-  # Get value
-  $redis->get( 'bar', {
-    on_done => sub {
-      my $data = shift;
-      print "$data\n";
-    },
-  } );
-
-  # Push values
-  for ( my $i = 1; $i <= 3; $i++ ) {
-    $redis->rpush( 'list', "element_$i", {
-      on_done => sub {
-        my $data = shift;
-        print "$data\n";
-      },
-    } );
-  }
 
   # Get list of values
   $redis->lrange( 'list', 0, -1, {
@@ -950,7 +974,9 @@ resolve the hostname, failure to connect, or a read error.
 
     on_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+      my $err_code = shift;
+
+      warn "$err_msg. Error code: $err_code\n";
     },
   } );
 
@@ -1051,6 +1077,69 @@ the parameter C<port> you must specify the path to the socket.
     port => '/tmp/redis.sock',
   );
 
+=head1 ERROR CODES
+
+Error codes were introduced in version of module 1.100
+
+  1  - E_CANT_CONN
+  2  - E_LOADING_DATASET
+  3  - E_IO_OPERATION
+  4  - E_CONN_CLOSED_BY_REMOTE_HOST
+  5  - E_CONN_CLOSED_ON_DEMAND
+  6  - E_NO_CONN
+  7  - E_INVALID_PASS
+  8  - E_AUTH_REQUIRED
+  9  - E_COMMAND_EXEC
+  10 - E_UNEXPECTED
+
+=over
+
+=item E_CANT_CONN
+
+Can't connect to server.
+
+=item E_LOADING_DATASET
+
+Redis is loading the dataset in memory.
+
+=item E_IO_OPERATION
+
+I/O error operation. Connection closed.
+
+=item E_CONN_CLOSED_BY_REMOTE_HOST
+
+Connection closed by remote host.
+
+=item E_CONN_CLOSED_ON_DEMAND
+
+Connection closed on demand.
+
+=item E_NO_CONN
+
+No connection to the server.
+
+=item E_INVALID_PASS
+
+Invalid password
+
+=item E_AUTH_REQUIRED
+
+Operation not permitted. Authentication required.
+
+=item E_COMMAND_EXEC
+
+Command execution error.
+
+=item E_UNEXPECTED
+
+Unexpected error.
+
+=back
+
+To use error codes constants you must import them.
+
+  use AnyEvent::Redis::RipeRedis qw( :err_codes );
+
 =head1 DISCONNECTION FROM SERVER
 
 When the connection to the server is no longer needed you can close it in three
@@ -1080,11 +1169,17 @@ Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 
 =over
 
-=item Alexey Shrub
+=item *
 
-=item Vadim Vlasov
+Alexey Shrub
 
-=item Konstantin Uvarin
+=item *
+
+Vadim Vlasov
+
+=item *
+
+Konstantin Uvarin
 
 =back
 

@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-use 5.010000;
 use strict;
 use warnings;
 
@@ -18,18 +17,18 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   encoding => 'utf8',
 
   on_connect => sub {
-    say 'Connected to Redis server';
+    print "Connected to Redis server\n";
   },
 
   on_disconnect => sub {
-    say 'Disconnected from Redis server';
+    print "Disconnected from Redis server\n";
   },
 
   on_error => sub {
     my $err_msg = shift;
     my $err_code = shift;
 
-    warn "$err\n";
+    warn "$err_msg. Error code: $err_code\n";
   },
 );
 
@@ -41,14 +40,14 @@ $timer = AnyEvent->timer(
     $redis->incr( 'foo', {
       on_done => sub {
         my $data = shift;
-        say $data;
+        print "$data\n";
       },
     } );
   },
 );
 
 my $sig_cb = sub {
-  say 'Stopped';
+  print "Stopped\n";
   $cv->send();
 };
 

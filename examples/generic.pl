@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-use 5.010000;
 use strict;
 use warnings;
 
@@ -16,18 +15,18 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   encoding => 'utf8',
 
   on_connect => sub {
-    say 'Connected to Redis server';
+    print "Connected to Redis server\n";
   },
 
   on_disconnect => sub {
-    say 'Disconnected from Redis server';
+    print "Disconnected from Redis server\n";
   },
 
   on_error => sub {
     my $err_msg = shift;
     my $err_code = shift;
 
-    warn "$err_msg\n";
+    warn "$err_msg. Error code: $err_code\n";
   },
 );
 
@@ -35,7 +34,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 $redis->incr( 'foo', {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 
@@ -43,7 +42,7 @@ $redis->incr( 'foo', {
 $redis->set( 'bar', 'Some string', {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 
@@ -51,7 +50,7 @@ $redis->set( 'bar', 'Some string', {
 $redis->get( 'bar', {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 
@@ -60,7 +59,7 @@ for ( my $i = 1; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i", {
     on_done => sub {
       my $data = shift;
-      say $data;
+      print "$data\n";
     },
   } );
 }
@@ -71,7 +70,7 @@ $redis->lrange( 'list', 0, -1, {
     my $data = shift;
 
     foreach my $val ( @{$data} ) {
-      say $val;
+      print "$val\n";
     }
   },
 } );
@@ -80,25 +79,25 @@ $redis->lrange( 'list', 0, -1, {
 $redis->multi( {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 $redis->incr( 'foo', {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 $redis->lrange( 'list', 0, -1, {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 $redis->get( 'bar', {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
   },
 } );
 $redis->exec( {
@@ -108,11 +107,11 @@ $redis->exec( {
     foreach my $chunk ( @{$data} ) {
       if ( ref( $chunk ) eq 'ARRAY' ) {
         foreach my $val ( @{$chunk} ) {
-          say $val;
+          print "$val\n";
         }
       }
       else {
-        say $chunk;
+        print "$chunk\n";
       }
     }
   },
@@ -123,7 +122,7 @@ foreach my $key ( qw( foo bar list ) ) {
   $redis->del( $key, {
     on_done => sub {
       my $data = shift;
-      say $data;
+      print "$data\n";
     }
   } );
 }
@@ -132,7 +131,7 @@ foreach my $key ( qw( foo bar list ) ) {
 $redis->quit( {
   on_done => sub {
     my $data = shift;
-    say $data;
+    print "$data\n";
     $cv->send();
   }
 } );
