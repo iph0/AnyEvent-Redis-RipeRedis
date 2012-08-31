@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.103';
+our $VERSION = '1.104';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -35,9 +35,9 @@ use Scalar::Util qw( looks_like_number weaken );
 use Carp qw( croak );
 
 BEGIN {
-  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO_OPERATION
-      E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_ON_DEMAND E_NO_CONN
-      E_INVALID_PASS E_AUTH_REQUIRED E_COMMAND_EXEC E_UNEXPECTED );
+  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
+      E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
+      E_INVALID_PASS E_AUTH_REQUIRED E_COMMAND_EXEC E_CLIENT );
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
   );
@@ -51,14 +51,14 @@ use constant {
   # Error codes
   E_CANT_CONN => 1,
   E_LOADING_DATASET => 2,
-  E_IO_OPERATION => 3,
+  E_IO => 3,
   E_CONN_CLOSED_BY_REMOTE_HOST => 4,
-  E_CONN_CLOSED_ON_DEMAND => 5,
+  E_CONN_CLOSED_BY_CLIENT => 5,
   E_NO_CONN => 6,
   E_INVALID_PASS => 7,
   E_AUTH_REQUIRED => 8,
   E_COMMAND_EXEC => 9,
-  E_UNEXPECTED => 10,
+  E_CLIENT => 10,
 
   # String terminator
   EOL => "\r\n",
@@ -127,7 +127,7 @@ sub disconnect {
     $self->{authing} = 0;
     $self->{authed} = 0;
   }
-  $self->_abort_all( 'Connection closed on demand', E_CONN_CLOSED_ON_DEMAND );
+  $self->_abort_all( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT );
   if ( $was_connected and defined( $self->{on_disconnect} ) ) {
     $self->{on_disconnect}->();
   }
@@ -278,7 +278,7 @@ sub _on_error {
 
   return sub {
     my $err_msg = pop;
-    $self->_process_error( $err_msg, E_IO_OPERATION );
+    $self->_process_error( $err_msg, E_IO );
   };
 }
 
@@ -460,7 +460,7 @@ sub _process_data {
   }
   else {
     $self->{on_error}->( "Don't known how process response data."
-        . ' Command queue is empty', E_UNEXPECTED );
+        . ' Command queue is empty', E_CLIENT );
   }
 
   return;
@@ -484,7 +484,7 @@ sub _process_pub_message {
   }
   else {
     $self->{on_error}->( "Don't known how process published message."
-        . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED );
+        . " Unknown channel or pattern '$data->[1]'", E_CLIENT );
   }
 
   return;
@@ -514,7 +514,7 @@ sub _process_cmd_error {
   }
   else {
     $self->{on_error}->( "Don't known how process error message '$err_msg'."
-        . " Command queue is empty", E_UNEXPECTED );
+        . " Command queue is empty", E_CLIENT );
   }
 
   return;
@@ -1104,14 +1104,14 @@ programmatic handling of errors.
 
   1  - E_CANT_CONN
   2  - E_LOADING_DATASET
-  3  - E_IO_OPERATION
+  3  - E_IO
   4  - E_CONN_CLOSED_BY_REMOTE_HOST
-  5  - E_CONN_CLOSED_ON_DEMAND
+  5  - E_CONN_CLOSED_BY_CLIENT
   6  - E_NO_CONN
   7  - E_INVALID_PASS
   8  - E_AUTH_REQUIRED
   9  - E_COMMAND_EXEC
-  10 - E_UNEXPECTED
+  10 - E_CLIENT
 
 =over
 
@@ -1123,7 +1123,7 @@ Can't connect to server.
 
 Redis is loading the dataset in memory.
 
-=item E_IO_OPERATION
+=item E_IO
 
 I/O operation error.
 
@@ -1131,9 +1131,9 @@ I/O operation error.
 
 Connection closed by remote host.
 
-=item E_CONN_CLOSED_ON_DEMAND
+=item E_CONN_CLOSED_BY_CLIENT
 
-Connection closed on demand.
+Connection closed by client.
 
 =item E_NO_CONN
 
@@ -1141,7 +1141,7 @@ No connection to the server.
 
 =item E_INVALID_PASS
 
-Invalid password
+Invalid password.
 
 =item E_AUTH_REQUIRED
 
@@ -1151,9 +1151,9 @@ Operation not permitted. Authentication required.
 
 Command execution error.
 
-=item E_UNEXPECTED
+=item E_CLIENT
 
-Unexpected error.
+Client error.
 
 =back
 

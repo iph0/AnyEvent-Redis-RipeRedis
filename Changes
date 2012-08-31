@@ -1,5 +1,10 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.104 Sat Sep 1 03:14:45 2012
+  - E_IO_OPERATION renamed to E_IO
+  - E_CONN_CLOSED_ON_DEMAND renamed to E_CONN_CLOSED_BY_CLIENT
+  - E_UNEXPECTED renamed to E_CLIENT
+
 1.103 Fri Aug 31 14:24:45 2012
   - POD has been complemented
   - Internal changes.
