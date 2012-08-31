@@ -25,7 +25,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   on_error => sub {
     my $err_msg = shift;
     my $err_code = shift;
-
     warn "$err_msg. Error code: $err_code\n";
   },
 );
@@ -35,14 +34,12 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
   on_done =>  sub {
     my $ch_name = shift;
     my $subs_num = shift;
-
     print "Subscribed: $ch_name. Active: $subs_num\n";
   },
 
   on_message => sub {
     my $ch_name = shift;
     my $msg = shift;
-
     print "$ch_name: $msg\n";
   },
 } );
@@ -52,7 +49,6 @@ $redis->psubscribe( qw( info_* err_* ), {
   on_done =>  sub {
     my $ch_pattern = shift;
     my $subs_num = shift;
-
     print "Subscribed: $ch_pattern. Active: $subs_num\n";
   },
 
@@ -60,7 +56,6 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $ch_name = shift;
     my $msg = shift;
     my $ch_pattern = shift;
-
     print "$ch_name ($ch_pattern): $msg\n";
   },
 } );
@@ -73,7 +68,6 @@ my $sig_cb = sub {
     on_done => sub {
       my $ch_name = shift;
       my $subs_num = shift;
-
       print "Unsubscribed: $ch_name. Active: $subs_num\n";
     },
   } );
@@ -84,7 +78,6 @@ my $sig_cb = sub {
       my $subs_num = shift;
 
       print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
-
       if ( $subs_num == 0 ) {
         $cv->send();
       }

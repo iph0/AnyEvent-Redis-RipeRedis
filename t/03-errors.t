@@ -42,9 +42,7 @@ sub t_no_connection {
 
     on_connect_error => sub {
       my $err_msg = shift;
-      my $err_code = shift;
-
-      push( @t_data, [ $err_msg, $err_code ] );
+      push( @t_data, $err_msg );
     },
 
     on_error => sub {
@@ -79,7 +77,7 @@ sub t_no_connection {
   is_deeply( \@t_data, [
     [ "Command 'ping' aborted: Can't connect to localhost:6379:"
         . " Server not responding", E_CANT_CONN ],
-    [ "Can't connect to localhost:6379: Server not responding", E_CANT_CONN ],
+    "Can't connect to localhost:6379: Server not responding",
     [ "Can't handle the command 'ping'. No connection to the server", E_NO_CONN ],
   ], "Can't connect" );
 

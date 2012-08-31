@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.102';
+our $VERSION = '1.103';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -84,7 +84,7 @@ sub new {
 
   my __PACKAGE__ $self = fields::new( $proto );
 
-  $params = $self->_validate_new( $params );
+  $params = $self->_validate_new_params( $params );
 
   $self->{host} = $params->{host};
   $self->{port} = $params->{port};
@@ -136,7 +136,7 @@ sub disconnect {
 }
 
 ####
-sub _validate_new {
+sub _validate_new_params {
   my $params = pop;
 
   if (
@@ -179,9 +179,6 @@ sub _validate_new {
       warn "$err_msg\n";
     };
   }
-  if ( !defined( $params->{on_connect_error} ) ) {
-    $params->{on_connect_error} = $params->{on_error};
-  }
 
   return $params;
 }
@@ -194,14 +191,14 @@ sub _connect {
   $self->{handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
     keepalive => 1,
-    on_prepare => $self->_create_on_prepare(),
-    on_connect => $self->_create_on_connect(),
-    on_connect_error => $self->_create_on_conn_error(),
-    on_eof => $self->_create_on_eof(),
-    on_error => $self->_create_on_error(),
-    on_read => $self->_create_on_read(
+    on_prepare => $self->_on_prepare(),
+    on_connect => $self->_on_connect(),
+    on_connect_error => $self->_on_conn_error(),
+    on_eof => $self->_on_eof(),
+    on_error => $self->_on_error(),
+    on_read => $self->_on_read(
       sub {
-        return $self->_on_response( @_ );
+        return $self->_prcoess_response( @_ );
       }
     ),
   );
@@ -210,7 +207,7 @@ sub _connect {
 }
 
 ####
-sub _create_on_prepare {
+sub _on_prepare {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
@@ -224,7 +221,7 @@ sub _create_on_prepare {
 }
 
 ####
-sub _create_on_connect {
+sub _on_connect {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
@@ -243,7 +240,7 @@ sub _create_on_connect {
 }
 
 ####
-sub _create_on_conn_error {
+sub _on_conn_error {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
@@ -254,34 +251,39 @@ sub _create_on_conn_error {
     undef( $self->{handle} );
     $err_msg = "Can't connect to $self->{host}:$self->{port}: $err_msg";
     $self->_abort_all( $err_msg, E_CANT_CONN );
-    $self->{on_connect_error}->( $err_msg, E_CANT_CONN );
+    if ( defined( $self->{on_connect_error} ) ) {
+      $self->{on_connect_error}->( $err_msg );
+    }
+    else {
+      $self->{on_error}->( $err_msg, E_CANT_CONN );
+    }
   };
 }
 
 ####
-sub _create_on_eof {
+sub _on_eof {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
   return sub {
-    $self->_process_handle_error( 'Connection closed by remote host',
+    $self->_process_error( 'Connection closed by remote host',
         E_CONN_CLOSED_BY_REMOTE_HOST );
   };
 }
 
 ####
-sub _create_on_error {
+sub _on_error {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
   return sub {
     my $err_msg = pop;
-    $self->_process_handle_error( $err_msg, E_IO_OPERATION );
+    $self->_process_error( $err_msg, E_IO_OPERATION );
   };
 }
 
 ####
-sub _process_handle_error {
+sub _process_error {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
   my $err_code = shift;
@@ -301,7 +303,7 @@ sub _process_handle_error {
 }
 
 ####
-sub _create_on_read {
+sub _on_read {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
   weaken( $self );
@@ -412,33 +414,33 @@ sub _unshift_on_read {
     }
   };
 
-  $on_read = $self->_create_on_read( $on_response );
+  $on_read = $self->_on_read( $on_response );
   $hdl->unshift_read( $on_read );
 
   return;
 }
 
 ####
-sub _on_response {
+sub _prcoess_response {
   my __PACKAGE__ $self = shift;
   my $data = shift;
   my $is_err = shift;
 
   if ( $is_err ) {
-    $self->_process_error( $data );
+    $self->_process_cmd_error( $data );
   }
   elsif ( %{$self->{subs}} and $self->_is_pub_message( $data ) ) {
     $self->_process_pub_message( $data );
   }
   else {
-    $self->_process_response( $data );
+    $self->_process_data( $data );
   }
 
   return;
 }
 
 ####
-sub _process_response {
+sub _process_data {
   my __PACKAGE__ $self = shift;
   my $data = shift;
 
@@ -482,14 +484,14 @@ sub _process_pub_message {
   }
   else {
     $self->{on_error}->( "Don't known how process published message."
-      . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED );
+        . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED );
   }
 
   return;
 }
 
 ####
-sub _process_error {
+sub _process_cmd_error {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
 
@@ -512,7 +514,7 @@ sub _process_error {
   }
   else {
     $self->{on_error}->( "Don't known how process error message '$err_msg'."
-      . " Command queue is empty", E_UNEXPECTED );
+        . " Command queue is empty", E_UNEXPECTED );
   }
 
   return;
@@ -569,7 +571,7 @@ sub _exec_command {
     $params = pop( @args );
   }
 
-  $params = $self->_validate_exec_cmd( $params );
+  $params = $self->_validate_exec_params( $params );
 
   my $cmd = {
     name => $cmd_name,
@@ -621,7 +623,7 @@ sub _exec_command {
 }
 
 ####
-sub _validate_exec_cmd {
+sub _validate_exec_params {
   my __PACKAGE__ $self = shift;
   my $params = shift;
 
@@ -767,6 +769,8 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
   use AnyEvent;
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
+  my $cv = AnyEvent->condvar();
+
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'localhost',
     port => '6379',
@@ -774,7 +778,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
     encoding => 'utf8',
 
     on_connect => sub {
-      print "Connected\n";
+      print "Connected to Redis server\n";
     },
 
     on_disconnect => sub {
@@ -784,27 +788,15 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       warn "$err_msg. Error code: $err_code\n";
     },
   );
 
-  my $cv = AnyEvent->condvar();
-
-  # Increment
-  $redis->incr( 'foo', {
+  # Set value
+  $redis->set( 'bar', 'Some string', {
     on_done => sub {
       my $data = shift;
       print "$data\n";
-    },
-  } );
-
-  # Set value (retry on error)
-  set( $redis, 'bar', 'Some string', {
-    on_done => sub {
-      my $data = shift;
-      print "$data\n";
-      $cv->send();
     },
 
     on_error => sub {
@@ -812,50 +804,15 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
       my $err_code = shift;
 
       warn "$err_msg. Error code: $err_code\n";
-      $cv->croak();
+      if ( $err_code == E_LOADING_DATASET ) {
+        # Do something special
+      }
     }
   } );
 
   $cv->recv();
 
   $redis->disconnect();
-
-
-  ####
-  sub set {
-    my $redis = shift;
-    my $key = shift;
-    my $value = shift;
-    my $params = shift;
-
-    $redis->set( $key, $value, {
-      on_done => $params->{on_done},
-      on_error => sub {
-        my $err_msg = shift;
-        my $err_code = shift;
-
-        if (
-          $err_code == E_CANT_CONN
-            or $err_code == E_LOADING_DATASET
-            or $err_code == E_IO_OPERATION
-            or $err_code == E_CONN_CLOSED_BY_REMOTE_HOST
-            ) {
-          warn "$err_msg. Error code: $err_code\n";
-          my $timer;
-          $timer = AnyEvent->timer(
-            after => 3,
-            cb => sub {
-              undef( $timer );
-              set( $redis, $key, $value, $params );
-            },
-          );
-        }
-        else {
-          $params->{on_error}->( $err_msg, $err_code );
-        }
-      },
-    } );
-  }
 
 =head1 DESCRIPTION
 
@@ -876,81 +833,81 @@ Requires Redis 1.2 or higher and any supported event loop.
     encoding => 'utf8',
 
     on_connect => sub {
-      print "Connected\n";
+      print "Connected to Redis server\n";
     },
 
     on_disconnect => sub {
-      print "Disconnected\n";
+      print "Disconnected from Redis server\n";
     },
 
     on_connect_error => sub {
       my $err_msg = shift;
-      my $err_code = shift;
-
-      warn "$err_msg. Error code: $err_code\n";
+      warn "$err_msg\n";
     },
 
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       warn "$err_msg. Error code: $err_code\n";
     },
   );
 
-=head2 host
+=head2 Constructor parameters
+
+=over
+
+=item host
 
 Server hostname (default: 127.0.0.1)
 
-=head2 port
+=item port
 
 Server port (default: 6379)
 
-=head2 password
+=item password
 
-Authentication password. If it specified, AUTH command will be executed
+Authentication password. If it specified, C<AUTH> command will be executed
 automaticaly.
 
-=head2 connection_timeout
+=item connection_timeout
 
 Connection timeout. If after this timeout client could not connect to the server,
 callback C<on_error> is called.
 
-=head2 reconnect
+=item reconnect
 
-If this parameter is TRUE (by default), client in case of lost connection will
-attempt to reconnect to server, when executing next command. Client will attempt
-to reconnect only once and if it fails, call C<on_error> callback. If you need
-several attempts of reconnection, just retry command from C<on_error> callback
-as many times, as you need. This feature made client more responsive.
+If this parameter is TRUE (TRUE by default), client in case of lost connection
+will attempt to reconnect to server, when executing next command. Client will
+attempt to reconnect only once and if it fails, calls C<on_error> callback. If
+you need several attempts of reconnection, just retry command from C<on_error>
+callback as many times, as you need. This feature made client more responsive.
 
-TRUE by default.
-
-=head2 encoding
+=item encoding
 
 Used to decode and encode strings during read and write operations.
 
-=head2 on_connect
+=item on_connect => $cb->()
 
-This callback will be called, when connection will be established.
+Callback C<on_connect> is called, when connection is established.
 
-=head2 on_disconnect
+=item on_disconnect => $cb->()
 
-This callback will be called, when client will be disconnected.
+Callback C<on_disconnect> is called, when connection is closed.
 
-=head2 on_connect_error
+=item on_connect_error => $cb->( $err_msg )
 
-This callback is called, when the connection could not be established.
+Callback C<on_connect_error> is called, when the connection could not be established.
 If this collback isn't specified, then C<on_error> callback is called.
 
-=head2 on_error
+=item on_error => $cb->( $err_msg, $err_code )
 
-This callback is called when some error occurred, such as not being able to
-resolve the hostname, failure to connect, or a read error.
+Callback C<on_error> is called, when any error occurred.
+
+=back
 
 =head1 COMMAND EXECUTION
 
-=head2 <command>( [ @cmd_args[, \%params ] ] )
+=head2 <command>( [ @args[, \%params ] ] )
 
   # Increment
   $redis->incr( 'foo', {
@@ -975,44 +932,68 @@ resolve the hostname, failure to connect, or a read error.
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       warn "$err_msg. Error code: $err_code\n";
     },
   } );
 
 Full list of Redis commands can be found here: L<http://redis.io/commands>
 
+=over
+
+=item on_done => $cb->( $data )
+
+Callback C<on_done> is called, when command handling is done.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+Callback C<on_error> is called, when any error occurred.
+
+=back
+
 =head1 SUBSCRIPTIONS
 
 =head2 subscribe( @channels[, \%params ] )
 
-Subscribe to channel by name
+Subscribe to channels by name:
 
   $redis->subscribe( qw( ch_foo ch_bar ), {
     on_done =>  sub {
       my $ch_name = shift;
       my $subs_num = shift;
-
       print "Subscribed: $ch_name. Active: $subs_num\n";
     },
 
     on_message => sub {
       my $ch_name = shift;
       my $msg = shift;
-
       print "$ch_name: $msg\n";
     },
   } );
 
+=over
+
+=item on_done => $cb->( $ch_name, $sub_num )
+
+Callback C<on_done> is called, when subscription is done.
+
+=item on_message => $cb->( $ch_name, $msg )
+
+Callback C<on_message> is called, when published message is received.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+Callback C<on_error> is called, when any error occurred.
+
+=back
+
 =head2 psubscribe( @patterns[, \%params ] )
 
-Subscribe to group of channels by pattern
+Subscribe to group of channels by pattern:
 
   $redis->psubscribe( qw( info_* err_* ), {
     on_done =>  sub {
       my $ch_pattern = shift;
       my $subs_num = shift;
-
       print "Subscribed: $ch_pattern. Active: $subs_num\n";
     },
 
@@ -1020,7 +1001,6 @@ Subscribe to group of channels by pattern
       my $ch_name = shift;
       my $msg = shift;
       my $ch_pattern = shift;
-
       print "$ch_name ($ch_pattern): $msg\n";
     },
 
@@ -1030,15 +1010,31 @@ Subscribe to group of channels by pattern
     },
   } );
 
+=over
+
+=item on_done => $cb->( $ch_pattern, $sub_num )
+
+Callback C<on_done> is called, when subscription is done.
+
+=item on_message => $cb->( $ch_name, $msg, $ch_pattern )
+
+Callback C<on_message> is called, when published message is received.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+Callback C<on_error> is called, when any error occurred.
+
+=back
+
+
 =head2 unsubscribe( @channels[, \%params ] )
 
-Unsubscribe from channel by name
+Unsubscribe from channels by name:
 
   $redis->unsubscribe( qw( ch_foo ch_bar ), {
     on_done => sub {
       my $ch_name = shift;
       my $subs_num = shift;
-
       print "Unsubscribed: $ch_name. Active: $subs_num\n";
     },
 
@@ -1048,15 +1044,26 @@ Unsubscribe from channel by name
     },
   } );
 
+=over
+
+=item on_done => $cb->( $ch_name, $sub_num )
+
+Callback C<on_done> is called, when unsubscription is done.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+Callback C<on_error> is called, when any error occurred.
+
+=back
+
 =head2 punsubscribe( @patterns[, \%params ] )
 
-Unsubscribe from group of channels by pattern
+Unsubscribe from group of channels by pattern:
 
   $redis->punsubscribe( qw( info_* err_* ), {
     on_done => sub {
       my $ch_pattern = shift;
       my $subs_num = shift;
-
       print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
     },
 
@@ -1066,11 +1073,24 @@ Unsubscribe from group of channels by pattern
     },
   } );
 
+=over
+
+=item on_done => $cb->( $ch_pattern, $sub_num )
+
+Callback C<on_done> is called, when unsubscription is done.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+Callback C<on_error> is called, when any error occurred.
+
+=back
+
+
 =head1 CONNECTION VIA UNIX-SOCKET
 
 Redis 2.2 and higher support connection via UNIX domain socket. To connect via
-a UNIX-socket in the parameter C<host> you must specify C<unix/>, and in
-the parameter C<port> you must specify the path to the socket.
+a UNIX-socket in the parameter C<host> you have to specify C<unix/>, and in
+the parameter C<port> you have to specify the path to the socket.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'unix/',
@@ -1079,7 +1099,8 @@ the parameter C<port> you must specify the path to the socket.
 
 =head1 ERROR CODES
 
-Error codes were introduced in version of module 1.100
+Error codes were introduced in version of module 1.100. They can be used for
+programmatic handling of errors.
 
   1  - E_CANT_CONN
   2  - E_LOADING_DATASET
@@ -1136,11 +1157,11 @@ Unexpected error.
 
 =back
 
-To use error codes constants you must import them.
+To use constants of error codes you have to import them.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
-=head1 DISCONNECTION FROM SERVER
+=head1 DISCONNECTION
 
 When the connection to the server is no longer needed you can close it in three
 ways: send C<QUIT> command, call method C<disconnect()>, or you can just "forget"
@@ -1165,7 +1186,7 @@ L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>
 
 Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 
-=head2 Special thanks to:
+=head2 Special thanks
 
 =over
 

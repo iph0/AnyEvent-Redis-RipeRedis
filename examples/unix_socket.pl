@@ -27,7 +27,6 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   on_error => sub {
     my $err_msg = shift;
     my $err_code = shift;
-
     warn "$err_msg. Error code: $err_code\n";
   },
 );
@@ -46,19 +45,19 @@ $timer = AnyEvent->timer(
   },
 );
 
-my $sig_cb = sub {
+my $on_signal = sub {
   print "Stopped\n";
   $cv->send();
 };
 
 my $int_watcher = AnyEvent->signal(
   signal => 'INT',
-  cb => $sig_cb,
+  cb => $on_signal,
 );
 
 my $term_watcher = AnyEvent->signal(
   signal => 'TERM',
-  cb => $sig_cb,
+  cb => $on_signal,
 );
 
 $cv->recv();

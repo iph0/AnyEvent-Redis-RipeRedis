@@ -22,10 +22,14 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
     print "Disconnected from Redis server\n";
   },
 
+  on_connect_error => sub {
+    my $err_msg = shift;
+    warn "$err_msg\n";
+  },
+
   on_error => sub {
     my $err_msg = shift;
     my $err_code = shift;
-
     warn "$err_msg. Error code: $err_code\n";
   },
 );
