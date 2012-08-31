@@ -169,8 +169,8 @@ sub t_broken_connection {
 
   is_deeply( \@t_data, [
     'Connected',
-    [ "Command 'ping' aborted: Can't write to socket", E_IO_OPERATION ],
-    [ "Can't write to socket", E_IO_OPERATION ],
+    [ "Command 'ping' aborted: Can't write to socket", E_IO ],
+    [ "Can't write to socket", E_IO ],
   ], 'Broken connection' );
 
   return;
@@ -337,7 +337,7 @@ sub t_conn_closed_on_demand {
   $redis->disconnect();
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'ping' aborted: Connection"
-      . " closed on demand", E_CONN_CLOSED_ON_DEMAND ],
+      . " closed on demand", E_CONN_CLOSED_BY_CLIENT ],
       'Connection closed on demand' );
 
   return;
