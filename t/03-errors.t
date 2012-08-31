@@ -337,8 +337,8 @@ sub t_conn_closed_on_demand {
   $redis->disconnect();
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'ping' aborted: Connection"
-      . " closed on demand", E_CONN_CLOSED_BY_CLIENT ],
-      'Connection closed on demand' );
+      . " closed by client", E_CONN_CLOSED_BY_CLIENT ],
+      'Connection closed by client' );
 
   return;
 }
