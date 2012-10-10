@@ -2,7 +2,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 
 1.105 Tue Oct 10 18:31:40 2012
   - Small optimization
-  - Added 'resources' section in Makefile.PL for META.yml
+  - Added section 'resources' in Makefile.PL for META.yml
   - Some changes in POD
 
 1.104 Sat Sep 1 03:14:45 2012
