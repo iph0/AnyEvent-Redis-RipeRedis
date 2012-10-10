@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.104';
+our $VERSION = '1.105';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -65,11 +65,7 @@ use constant {
   EOL_LEN => 2,
 };
 
-my %DEFAULTS = (
-  host => D_HOST,
-  port => D_PORT,
-);
-my %SUB_ACTION_CMDS = (
+my %SUB_COMMANDS = (
   subscribe => 1,
   psubscribe => 1,
   unsubscribe => 1,
@@ -80,7 +76,11 @@ my %SUB_ACTION_CMDS = (
 # Constructor
 sub new {
   my $proto = shift;
-  my $params = { @_ };
+  my %defaults = (
+    host => D_HOST,
+    port => D_PORT,
+  );
+  my $params = { %defaults, @_ };
 
   my __PACKAGE__ $self = fields::new( $proto );
 
@@ -167,12 +167,6 @@ sub _validate_new_params {
     }
   }
 
-  # Set defaults
-  foreach my $name ( keys( %DEFAULTS ) ) {
-    if ( !defined( $params->{$name} ) ) {
-      $params->{$name} = $DEFAULTS{$name};
-    }
-  }
   if ( !defined( $params->{on_error} ) ) {
     $params->{on_error} = sub {
       my $err_msg = shift;
@@ -321,7 +315,6 @@ sub _on_read {
         }
         my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
         substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
-        chomp( $data );
         if ( defined( $self->{encoding} ) ) {
           $data = $self->{encoding}->decode( $data );
         }
@@ -446,7 +439,7 @@ sub _process_data {
 
   my $cmd = $self->{processing_queue}[0];
   if ( defined( $cmd ) ) {
-    if ( exists( $SUB_ACTION_CMDS{$cmd->{name}} ) ) {
+    if ( exists( $SUB_COMMANDS{$cmd->{name}} ) ) {
       $self->_process_sub_action( $cmd, $data );
       return;
     }
@@ -579,7 +572,7 @@ sub _exec_command {
     %{$params},
   };
 
-  if ( exists( $SUB_ACTION_CMDS{$cmd->{name}} ) ) {
+  if ( exists( $SUB_COMMANDS{$cmd->{name}} ) ) {
     if ( $self->{sub_lock} ) {
       $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi' command."
           . ' First, the transaction must be completed', E_COMMAND_EXEC );
@@ -1125,7 +1118,7 @@ Redis is loading the dataset in memory.
 
 =item E_IO
 
-I/O operation error.
+Input/Output operation error. Connection closed.
 
 =item E_CONN_CLOSED_BY_REMOTE_HOST
 
@@ -1137,7 +1130,8 @@ Connection closed by client.
 
 =item E_NO_CONN
 
-No connection to the server.
+No connection to the server. Occurs if connection was closed by any reason and
+parameter C<reconnect> set to FALSE
 
 =item E_INVALID_PASS
 
@@ -1166,7 +1160,8 @@ To use constants of error codes you have to import them.
 When the connection to the server is no longer needed you can close it in three
 ways: send C<QUIT> command, call method C<disconnect()>, or you can just "forget"
 any references to an AnyEvent::Redis::RipeRedis object, but in this case client
-don't calls C<on_disconnect> callback.
+don't calls C<on_disconnect> callback to avoid unexpected behavior during object
+destroying.
 
   $redis->quit(
     on_done => sub {

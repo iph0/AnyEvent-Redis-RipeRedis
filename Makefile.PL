@@ -13,6 +13,14 @@ WriteMakefile(
     'Test::More' => 0,
     'Test::MockObject' => 0,
   },
+  META_MERGE => {
+    resources => {
+      license => 'http://dev.perl.org/licenses/',
+      homepage => 'https://github.com/iph0/AnyEvent-Redis-RipeRedis',
+      bugtracker => 'https://github.com/iph0/AnyEvent-Redis-RipeRedis/issues',
+      repository => 'https://github.com/iph0/AnyEvent-Redis-RipeRedis',
+    },
+  },
   ($] >= 5.005 ? ## Add these new keywords supported since 5.005
     (ABSTRACT_FROM  => 'lib/AnyEvent/Redis/RipeRedis.pm', # retrieve abstract from module
      AUTHOR => 'Eugene Ponizovsky <ponizovsky@gmail.com>') : ()),
