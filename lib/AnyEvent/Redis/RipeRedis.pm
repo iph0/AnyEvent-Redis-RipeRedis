@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.105';
+our $VERSION = '1.106';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -119,10 +119,12 @@ sub new {
 sub disconnect {
   my __PACKAGE__ $self = shift;
 
-  my $was_connected = $self->{connected};
-  if ( $was_connected ) {
+  if ( defined( $self->{handle} ) ) {
     $self->{handle}->destroy();
     undef( $self->{handle} );
+  }
+  my $was_connected = $self->{connected};
+  if ( $was_connected ) {
     $self->{connected} = 0;
     $self->{authing} = 0;
     $self->{authed} = 0;
@@ -305,8 +307,7 @@ sub _on_read {
   my $bulk_len;
 
   return sub {
-    my $hdl = shift;
-
+    my $hdl = $self->{handle};
     while ( defined( $hdl->{rbuf} ) and $hdl->{rbuf} ne '' ) {
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
@@ -348,7 +349,7 @@ sub _on_read {
         elsif ( $type eq '*' ) {
           my $m_bulk_len = $data;
           if ( $m_bulk_len > 0 ) {
-            $self->_unshift_on_read( $hdl, $m_bulk_len, $cb );
+            $self->_unshift_on_read( $m_bulk_len, $cb );
             return 1;
           }
           elsif ( $m_bulk_len < 0 ) {
@@ -366,7 +367,6 @@ sub _on_read {
 ####
 sub _unshift_on_read {
   my __PACKAGE__ $self = shift;
-  my $hdl = shift;
   my $m_bulk_len = shift;
   my $cb = shift;
 
@@ -391,7 +391,7 @@ sub _unshift_on_read {
       ref( $data_chunk ) eq 'ARRAY' and @{$data_chunk}
         and $remaining_num > 0
         ) {
-      $hdl->unshift_read( $on_read );
+      $self->{handle}->unshift_read( $on_read );
     }
     elsif ( $remaining_num == 0 ) {
       undef( $on_read ); # Collect garbage
@@ -408,7 +408,7 @@ sub _unshift_on_read {
   };
 
   $on_read = $self->_on_read( $on_response );
-  $hdl->unshift_read( $on_read );
+  $self->{handle}->unshift_read( $on_read );
 
   return;
 }

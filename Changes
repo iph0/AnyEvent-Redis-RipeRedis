@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.106 Fri Oct 19 16:44:00 2012
+  - [BUGFIX] In some cases method disconnect() has not been closing the connection
+
 1.105 Tue Oct 10 18:31:40 2012
   - Small optimization
   - Added section 'resources' in Makefile.PL for META.yml
