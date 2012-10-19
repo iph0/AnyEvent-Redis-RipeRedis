@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.107';
+our $VERSION = '1.108';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -809,11 +809,13 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 
 =head1 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is a non-blocking Redis client with with reconnection
+AnyEvent::Redis::RipeRedis is a non-blocking Redis client with reconnection
 feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.
 
-Requires Redis 1.2 or higher and any supported event loop.
+Requires Redis 1.2 or higher, and any supported event loop.
+
+Sorry for my clumsy English. I work on it.
 
 =head1 CONSTRUCTOR
 
@@ -947,7 +949,7 @@ Callback C<on_error> is called, when any error occurred.
 
 =head2 subscribe( @channels[, \%params ] )
 
-Subscribe to channels by name:
+Subscribe to channels by name.
 
   $redis->subscribe( qw( ch_foo ch_bar ), {
     on_done =>  sub {
@@ -981,7 +983,7 @@ Callback C<on_error> is called, when any error occurred.
 
 =head2 psubscribe( @patterns[, \%params ] )
 
-Subscribe to group of channels by pattern:
+Subscribe to group of channels by pattern.
 
   $redis->psubscribe( qw( info_* err_* ), {
     on_done =>  sub {
@@ -1022,7 +1024,7 @@ Callback C<on_error> is called, when any error occurred.
 
 =head2 unsubscribe( @channels[, \%params ] )
 
-Unsubscribe from channels by name:
+Unsubscribe from channels by name.
 
   $redis->unsubscribe( qw( ch_foo ch_bar ), {
     on_done => sub {
@@ -1051,7 +1053,7 @@ Callback C<on_error> is called, when any error occurred.
 
 =head2 punsubscribe( @patterns[, \%params ] )
 
-Unsubscribe from group of channels by pattern:
+Unsubscribe from group of channels by pattern.
 
   $redis->punsubscribe( qw( info_* err_* ), {
     on_done => sub {
@@ -1161,7 +1163,7 @@ When the connection to the server is no longer needed you can close it in three
 ways: call method C<disconnect()>, send C<QUIT> command or you can just "forget"
 any references to an AnyEvent::Redis::RipeRedis object, but in this case client
 object destroying silently without calling any callbacks including C<on_disconnect>
-callback to avoid unexpected behavior during object destroying.
+callback to avoid unexpected behavior.
 
 =head2 disconnect()
 
@@ -1171,7 +1173,7 @@ Method for synchronous disconnection.
 
 =head2 quit( \%params )
 
-Asynchronous disconnection using the Redis command QUIT.
+Asynchronous disconnection using the Redis command C<QUIT>.
 
   $redis->quit( {
     on_done => sub {
