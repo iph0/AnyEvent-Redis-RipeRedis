@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.106';
+our $VERSION = '1.107';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -817,6 +817,8 @@ Requires Redis 1.2 or higher and any supported event loop.
 
 =head1 CONSTRUCTOR
 
+=head2 new()
+
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'localhost',
     port => '6379',
@@ -844,8 +846,6 @@ Requires Redis 1.2 or higher and any supported event loop.
       warn "$err_msg. Error code: $err_code\n";
     },
   );
-
-=head2 Constructor parameters
 
 =over
 
@@ -1158,20 +1158,26 @@ To use constants of error codes you have to import them.
 =head1 DISCONNECTION
 
 When the connection to the server is no longer needed you can close it in three
-ways: send C<QUIT> command, call method C<disconnect()>, or you can just "forget"
+ways: call method C<disconnect()>, send C<QUIT> command or you can just "forget"
 any references to an AnyEvent::Redis::RipeRedis object, but in this case client
-don't calls C<on_disconnect> callback to avoid unexpected behavior during object
-destroying.
+object destroying silently without calling any callbacks including C<on_disconnect>
+callback to avoid unexpected behavior during object destroying.
 
-  $redis->quit(
-    on_done => sub {
-      # Do something
-    }
-  } );
+=head2 disconnect()
+
+Method for synchronous disconnection.
 
   $redis->disconnect();
 
-  undef( $redis );
+=head2 quit( \%params )
+
+Asynchronous disconnection using the Redis command QUIT.
+
+  $redis->quit( {
+    on_done => sub {
+      $cv->send();
+    }
+  } );
 
 =head1 SEE ALSO
 

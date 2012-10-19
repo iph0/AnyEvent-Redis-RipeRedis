@@ -1,5 +1,10 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.107 Fri Oct 19 18:31:40 2012
+  - Added POD coverage test
+  - Fixes in POD
+  - Added minimal Perl version in Makefile.PL
+
 1.106 Fri Oct 19 16:44:00 2012
   - [BUGFIX] In some cases method disconnect() has not been closing the connection
 
