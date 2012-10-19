@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.108';
+our $VERSION = '1.109';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -790,6 +790,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
     on_done => sub {
       my $data = shift;
       print "$data\n";
+      $cv->send();
     },
 
     on_error => sub {
@@ -800,6 +801,7 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
       if ( $err_code == E_LOADING_DATASET ) {
         # Do something special
       }
+      $cv->send();
     }
   } );
 
