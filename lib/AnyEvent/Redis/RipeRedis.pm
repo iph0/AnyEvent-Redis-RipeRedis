@@ -27,7 +27,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.109';
+our $VERSION = '1.110';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -371,43 +371,43 @@ sub _unshift_on_read {
   my $cb = shift;
 
   my $on_read;
-  my @data;
+  my @data_list;
   my @errors;
-  my $remaining_num = $m_bulk_len;
+  my $remaining = $m_bulk_len;
 
   my $on_response = sub {
-    my $data_chunk = shift;
+    my $data = shift;
     my $is_err = shift;
 
     if ( $is_err ) {
-      push( @errors, $data_chunk );
+      push( @errors, $data );
     }
     else {
-      push( @data, $data_chunk );
+      push( @data_list, $data );
     }
 
-    $remaining_num--;
+    $remaining--;
     if (
-      ref( $data_chunk ) eq 'ARRAY' and @{$data_chunk}
-        and $remaining_num > 0
+      ref( $data ) eq 'ARRAY' and @{$data}
+        and $remaining > 0
         ) {
       $self->{handle}->unshift_read( $on_read );
     }
-    elsif ( $remaining_num == 0 ) {
+    elsif ( $remaining == 0 ) {
       undef( $on_read ); # Collect garbage
       if ( @errors ) {
         my $err_msg = join( "\n", @errors );
         $cb->( $err_msg, 1 );
       }
       else {
-        $cb->( \@data );
+        $cb->( \@data_list );
       }
 
       return 1;
     }
   };
-
   $on_read = $self->_on_read( $on_response );
+
   $self->{handle}->unshift_read( $on_read );
 
   return;
@@ -569,7 +569,9 @@ sub _exec_command {
   my $cmd = {
     name => $cmd_name,
     args => \@args,
-    %{$params},
+    on_done => $params->{on_done},
+    on_message => $params->{on_message},
+    on_error => $params->{on_error},
   };
 
   if ( exists( $SUB_COMMANDS{$cmd->{name}} ) ) {
