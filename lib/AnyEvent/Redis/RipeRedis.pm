@@ -28,7 +28,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.111';
+our $VERSION = '1.112';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -808,7 +808,7 @@ __END__
 
 =head1 NAME
 
-AnyEvent::Redis::RipeRedis - Non-blocking flexible Redis client with reconnect
+AnyEvent::Redis::RipeRedis - Flexible non-blocking Redis client with reconnect
 feature
 
 =head1 SYNOPSIS
@@ -822,6 +822,7 @@ feature
     host => 'localhost',
     port => '6379',
     password => 'your_password',
+    reconnect => 1,
     encoding => 'utf8',
 
     on_connect => sub {
@@ -851,11 +852,17 @@ feature
       my $err_msg = shift;
       my $err_code = shift;
 
-      warn "$err_msg. Error code: $err_code\n";
-      if ( $err_code == E_LOADING_DATASET ) {
-        # Do something special
+      if (
+        $err_code == E_CANT_CONN
+          or $err_code == E_LOADING_DATASET
+          or $err_code == E_IO
+          or $err_code == E_CONN_CLOSED_BY_REMOTE_HOST
+          ) {
+        # Repeat 'set' command
       }
-      $cv->send();
+      else {
+        $cv->croak( "$err_msg. Error code: $err_code" );
+      }
     }
   } );
 
@@ -929,7 +936,7 @@ index is C<0>.
 =item connection_timeout
 
 Connection timeout. If after this timeout client could not connect to the server,
-callback C<on_error> is called.
+callback C<on_error> is called. By default used kernel's connection timeout.
 
 =item lazy
 
@@ -941,7 +948,7 @@ method C<new>.
 
 If this parameter is TRUE and connection to the Redis server was lost, then
 client will try to reconnect to server while executing next command. Client
-try to reconnect only once and if it fails, calls C<on_error> callback. If
+try to reconnect only once and if fails, calls C<on_error> callback. If
 you need several attempts of reconnection, just retry command from C<on_error>
 callback as many times, as you need. This feature made client more responsive.
 
@@ -949,24 +956,29 @@ By default is TRUE.
 
 =item encoding
 
-Used to decode and encode strings during input/output operations.
+Used to decode and encode strings during input/output operations. Not set by
+default.
 
 =item on_connect => $cb->()
 
-Callback C<on_connect> is called, when connection is established.
+Callback C<on_connect> is called, when connection is established. Not set by
+default.
 
 =item on_disconnect => $cb->()
 
-Callback C<on_disconnect> is called, when connection is closed.
+Callback C<on_disconnect> is called, when connection is closed. Not set by
+default.
 
 =item on_connect_error => $cb->( $err_msg )
 
-Callback C<on_connect_error> is called, when the connection could not be established.
-If this collback isn't specified, then C<on_error> callback is called.
+Callback C<on_connect_error> is called, when the connection could not be
+established. If this collback isn't specified, then C<on_error> callback is
+called.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-Callback C<on_error> is called, when any error occurred.
+Callback C<on_error> is called, when any error occurred. If callback is no set
+just prints error message to C<STDERR>.
 
 =back
 
@@ -974,16 +986,16 @@ Callback C<on_error> is called, when any error occurred.
 
 =head2 <command>( [ @args[, \%params ] ] )
 
+  # Set value
+  $redis->set( 'foo', 'Some string' );
+
   # Increment
-  $redis->incr( 'foo', {
+  $redis->incr( 'bar', {
     on_done => sub {
       my $data = shift;
       print "$data\n";
     },
   } );
-
-  # Set value
-  $redis->set( 'bar', 'Some string' );
 
   # Get list of values
   $redis->lrange( 'list', 0, -1, {
@@ -997,7 +1009,7 @@ Callback C<on_error> is called, when any error occurred.
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      warn "$err_msg. Error code: $err_code\n";
+      $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
 
@@ -1197,13 +1209,16 @@ Connection closed by remote host.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-Connection closed by client. Occurs if while disconnection in client queue
-were uncompleted commands.
+Connection closed by client.
+
+Error can occur if at time of disconnection in client queue were uncompleted commands.
 
 =item E_NO_CONN
 
-No connection to the server. Occurs if connection was closed by any reason and
-parameter C<reconnect> set to FALSE
+No connection to the server.
+
+Error can occur at time of command execution if connection was closed by any
+reason and parameter C<reconnect> was set to FALSE.
 
 =item E_INVALID_PASS
 
