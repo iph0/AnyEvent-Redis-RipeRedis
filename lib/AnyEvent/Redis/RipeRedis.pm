@@ -9,6 +9,7 @@ use fields qw(
   host
   port
   password
+  database
   connection_timeout
   reconnect
   encoding
@@ -19,8 +20,8 @@ use fields qw(
 
   handle
   connected
-  authing
-  authed
+  auth_status
+  db_select_status
   buffer
   processing_queue
   sub_lock
@@ -32,7 +33,7 @@ our $VERSION = '1.110';
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number weaken );
-use Carp qw( croak );
+use Carp qw( confess );
 
 BEGIN {
   our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
@@ -60,6 +61,11 @@ use constant {
   E_COMMAND_EXEC => 9,
   E_CLIENT => 10,
 
+  # Command status
+  S_NEED_PERFORM => 1,
+  S_IN_PROGRESS => 2,
+  S_IS_DONE => 3,
+
   # String terminator
   EOL => "\r\n",
   EOL_LEN => 2,
@@ -82,19 +88,14 @@ sub new {
   );
   my $params = { %defaults, @_ };
 
-  my __PACKAGE__ $self = fields::new( $proto );
+  $params = $proto->_validate_new_params( $params );
 
-  $params = $self->_validate_new_params( $params );
+  my __PACKAGE__ $self = fields::new( $proto );
 
   $self->{host} = $params->{host};
   $self->{port} = $params->{port};
-  if ( defined( $params->{password} ) ) {
-    $self->{password} = $params->{password};
-    $self->{authed} = 0;
-  }
-  else {
-    $self->{authed} = 1;
-  }
+  $self->{password} = $params->{password};
+  $self->{database} = $params->{database};
   $self->{connection_timeout} = $params->{connection_timeout};
   $self->{reconnect} = $params->{reconnect};
   $self->{encoding} = $params->{encoding};
@@ -102,15 +103,19 @@ sub new {
   $self->{on_disconnect} = $params->{on_disconnect};
   $self->{on_connect_error} = $params->{on_connect_error};
   $self->{on_error} = $params->{on_error};
+
   $self->{handle} = undef;
   $self->{connected} = 0;
-  $self->{authing} = 0;
+  $self->{auth_status} = S_NEED_PERFORM;
+  $self->{db_select_status} = S_NEED_PERFORM;
   $self->{buffer} = [];
   $self->{processing_queue} = [];
   $self->{sub_lock} = 0;
   $self->{subs} = {};
 
-  $self->_connect();
+  if ( !$params->{lazy} ) {
+    $self->_connect();
+  }
 
   return $self;
 }
@@ -126,8 +131,8 @@ sub disconnect {
   my $was_connected = $self->{connected};
   if ( $was_connected ) {
     $self->{connected} = 0;
-    $self->{authing} = 0;
-    $self->{authed} = 0;
+    $self->{auth_status} = S_NEED_PERFORM;
+    $self->{db_select_status} = S_NEED_PERFORM;
   }
   $self->_abort_all( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT );
   if ( $was_connected and defined( $self->{on_disconnect} ) ) {
@@ -146,7 +151,7 @@ sub _validate_new_params {
       and ( !looks_like_number( $params->{connection_timeout} )
         or $params->{connection_timeout} < 0 )
       ) {
-    croak 'Connection timeout must be a positive number';
+    confess 'Connection timeout must be a positive number';
   }
   if ( !exists( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
@@ -155,7 +160,7 @@ sub _validate_new_params {
     my $enc = $params->{encoding};
     $params->{encoding} = find_encoding( $enc );
     if ( !defined( $params->{encoding} ) ) {
-      croak "Encoding '$enc' not found";
+      confess "Encoding '$enc' not found";
     }
   }
   foreach my $name (
@@ -165,7 +170,7 @@ sub _validate_new_params {
       defined( $params->{$name} )
         and ref( $params->{$name} ) ne 'CODE'
         ) {
-      croak "'$name' callback must be a code reference";
+      confess "'$name' callback must be a code reference";
     }
   }
 
@@ -184,9 +189,15 @@ sub _connect {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
+  if ( !defined( $self->{password} ) ) {
+    $self->{auth_status} = S_IS_DONE;
+  }
+  if ( !defined( $self->{database} ) ) {
+    $self->{db_select_status} = S_IS_DONE;
+  }
+
   $self->{handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
-    keepalive => 1,
     on_prepare => $self->_on_prepare(),
     on_connect => $self->_on_connect(),
     on_connect_error => $self->_on_conn_error(),
@@ -223,8 +234,11 @@ sub _on_connect {
 
   return sub {
     $self->{connected} = 1;
-    if ( defined( $self->{password} ) ) {
+    if ( $self->{auth_status} == S_NEED_PERFORM ) {
       $self->_auth();
+    }
+    elsif ( $self->{db_select_status} == S_NEED_PERFORM ) {
+      $self->_select_db();
     }
     else {
       $self->_flush_buffer();
@@ -287,8 +301,8 @@ sub _process_error {
   $self->{handle}->destroy();
   undef( $self->{handle} );
   $self->{connected} = 0;
-  $self->{authing} = 0;
-  $self->{authed} = 0;
+  $self->{auth_status} = S_NEED_PERFORM;
+  $self->{db_select_status} = S_NEED_PERFORM;
   $self->_abort_all( $err_msg, $err_code );
   $self->{on_error}->( $err_msg, $err_code );
   if ( defined( $self->{on_disconnect} ) ) {
@@ -600,11 +614,19 @@ sub _exec_command {
     }
   }
   if ( $self->{connected} ) {
-    if ( $self->{authed} ) {
-      $self->_push_to_handle( $cmd );
+    if ( $self->{auth_status} == S_IS_DONE ) {
+      if ( $self->{db_select_status} == S_IS_DONE ) {
+        $self->_push_to_handle( $cmd );
+      }
+      else {
+        if ( $self->{db_select_status} == S_NEED_PERFORM ) {
+          $self->_select_db();
+        }
+        push( @{$self->{buffer}}, $cmd );
+      }
     }
     else {
-      if ( !$self->{authing} ) {
+      if ( $self->{auth_status} == S_NEED_PERFORM ) {
         $self->_auth();
       }
       push( @{$self->{buffer}}, $cmd );
@@ -627,7 +649,7 @@ sub _validate_exec_params {
       defined( $params->{$name} )
         and ref( $params->{$name} ) ne 'CODE'
         ) {
-      croak "'$name' callback must be a code reference";
+      confess "'$name' callback must be a code reference";
     }
   }
 
@@ -642,13 +664,43 @@ sub _validate_exec_params {
 sub _auth {
   my __PACKAGE__ $self = shift;
 
-  $self->{authing} = 1;
+  $self->{auth_status} = S_IN_PROGRESS;
   $self->_push_to_handle( {
     name => 'auth',
     args => [ $self->{password} ],
     on_done => sub {
-      $self->{authing} = 0;
-      $self->{authed} = 1;
+      $self->{auth_status} = S_IS_DONE;
+      if ( $self->{db_select_status} == S_NEED_PERFORM ) {
+        $self->_select_db();
+      }
+      else {
+        $self->_flush_buffer();
+      }
+    },
+
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+
+      $self->{auth_status} = S_NEED_PERFORM;
+      $self->_abort_all( $err_msg, $err_code );
+      $self->{on_error}->( $err_msg, $err_code );
+    },
+  } );
+
+  return;
+}
+
+####
+sub _select_db {
+  my __PACKAGE__ $self = shift;
+
+  $self->{db_select_status} = S_IN_PROGRESS;
+  $self->_push_to_handle( {
+    name => 'select',
+    args => [ $self->{database} ],
+    on_done => sub {
+      $self->{db_select_status} = S_IS_DONE;
       $self->_flush_buffer();
     },
 
@@ -656,7 +708,7 @@ sub _auth {
       my $err_msg = shift;
       my $err_code = shift;
 
-      $self->{authing} = 0;
+      $self->{db_select_status} = S_NEED_PERFORM;
       $self->_abort_all( $err_msg, $err_code );
       $self->{on_error}->( $err_msg, $err_code );
     },
@@ -711,14 +763,11 @@ sub _abort_all {
   $self->{sub_lock} = 0;
   $self->{subs} = {};
   my @commands;
-  if ( defined( $self->{buffer} ) and @{$self->{buffer}} ) {
+  if ( @{$self->{buffer}} ) {
     @commands =  @{$self->{buffer}};
     $self->{buffer} = [];
   }
-  elsif (
-    defined( $self->{processing_queue} )
-      and @{$self->{processing_queue}}
-      ) {
+  elsif ( @{$self->{processing_queue}} ) {
     @commands =  @{$self->{processing_queue}};
     $self->{processing_queue} = [];
   }
@@ -757,7 +806,8 @@ __END__
 
 =head1 NAME
 
-AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
+AnyEvent::Redis::RipeRedis - Non-blocking flexible Redis client with reconnect
+feature
 
 =head1 SYNOPSIS
 
@@ -813,13 +863,11 @@ AnyEvent::Redis::RipeRedis - Non-blocking Redis client with reconnection feature
 
 =head1 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is a non-blocking Redis client with reconnection
+AnyEvent::Redis::RipeRedis is a non-blocking flexible Redis client with reconnect
 feature. It supports subscriptions, transactions, has simple API and it faster
 than AnyEvent::Redis.
 
 Requires Redis 1.2 or higher, and any supported event loop.
-
-Sorry for my clumsy English. I work on it.
 
 =head1 CONSTRUCTOR
 
@@ -829,6 +877,7 @@ Sorry for my clumsy English. I work on it.
     host => 'localhost',
     port => '6379',
     password => 'your_password',
+    database => 1,
     connection_timeout => 5,
     reconnect => 1,
     encoding => 'utf8',
@@ -865,25 +914,39 @@ Server port (default: 6379)
 
 =item password
 
-Authentication password. If it specified, C<AUTH> command will be executed
-automaticaly.
+Authentication password. If it specified, then C<AUTH> command will be executed
+immediately after connection and after every reconnection.
+
+=item database
+
+Database index. If it set, then client will be switched to specified database
+immediately after connection and after every reconnection. Default database
+index is C<0>.
 
 =item connection_timeout
 
 Connection timeout. If after this timeout client could not connect to the server,
 callback C<on_error> is called.
 
+=item lazy
+
+If this parameter is set, then connection will be established, when you will send
+a first command to the server. By default connection establishes after calling
+method C<new>.
+
 =item reconnect
 
-If this parameter is TRUE (TRUE by default), client in case of lost connection
-will attempt to reconnect to server, when executing next command. Client will
-attempt to reconnect only once and if it fails, calls C<on_error> callback. If
+If this parameter is TRUE and connection to the Redis server was lost, then
+client will try to reconnect to server while executing next command. Client
+try to reconnect only once and if it fails, calls C<on_error> callback. If
 you need several attempts of reconnection, just retry command from C<on_error>
 callback as many times, as you need. This feature made client more responsive.
 
+By default is TRUE.
+
 =item encoding
 
-Used to decode and encode strings during read and write operations.
+Used to decode and encode strings during input/output operations.
 
 =item on_connect => $cb->()
 
@@ -1098,8 +1161,7 @@ the parameter C<port> you have to specify the path to the socket.
 
 =head1 ERROR CODES
 
-Error codes were introduced in version of module 1.100. They can be used for
-programmatic handling of errors.
+Error codes can be used for programmatic handling of errors.
 
   1  - E_CANT_CONN
   2  - E_LOADING_DATASET
@@ -1132,7 +1194,8 @@ Connection closed by remote host.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-Connection closed by client.
+Connection closed by client. Occurs if while disconnection in client queue
+were uncompleted commands.
 
 =item E_NO_CONN
 
@@ -1174,16 +1237,6 @@ callback to avoid unexpected behavior.
 Method for synchronous disconnection.
 
   $redis->disconnect();
-
-=head2 quit( \%params )
-
-Asynchronous disconnection using the Redis command C<QUIT>.
-
-  $redis->quit( {
-    on_done => sub {
-      $cv->send();
-    }
-  } );
 
 =head1 SEE ALSO
 

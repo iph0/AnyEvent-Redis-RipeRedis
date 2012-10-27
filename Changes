@@ -1,23 +1,30 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.110 Fri Oct 26 18:08:20 2012
+  - [FEATURE] Added constructor parameter 'database'.
+  - [FEATURE] Added constructor parameter 'lazy'.
+  - [BUGFIX] Fixed reconnect error that has been occurred if password was not
+  been required.
+  - Changes in POD
+
 1.109 Fri Oct 20 01:54:40 2012
-  - Fixes in POD
+  -  Changes in POD.
 
 1.108 Fri Oct 20 01:28:40 2012
-  - Fixes in POD
+  -  Changes in POD.
 
 1.107 Fri Oct 19 18:31:40 2012
-  - Added POD coverage test
-  - Fixes in POD
-  - Added minimal Perl version in Makefile.PL
+  - Added POD coverage test.
+  - Changes in POD.
+  - Added minimal Perl version in Makefile.PL.
 
 1.106 Fri Oct 19 16:44:00 2012
-  - [BUGFIX] In some cases method disconnect() has not been closing the connection
+  - [BUGFIX] In some cases method disconnect() has not been closing the connection.
 
 1.105 Tue Oct 10 18:31:40 2012
-  - Small optimization
-  - Added section 'resources' in Makefile.PL for META.yml
-  - Some changes in POD
+  - Small optimization.
+  - Added section 'resources' in Makefile.PL for META.yml.
+  - Some changes in POD.
 
 1.104 Sat Sep 1 03:14:45 2012
   - E_IO_OPERATION renamed to E_IO
@@ -26,23 +33,21 @@ Revision history for AnyEvent::Redis::RipeRedis.
 
 1.103 Fri Aug 31 14:24:45 2012
   - POD has been complemented
-  - Internal changes.
+  - Cosmetic changes.
 
 1.102 Fri Aug 31 00:19:15 2012
   - [FEATURE] Added error codes in 'on_error' callbacks.
   - [FEATURE] Added constants for error codes.
-  - Error message "Connection closed by client" replaced by message "Connection
-  closed on demand".
   - Unit-tests improved.
   - Many internal changes.
 
 1.000 Wed Aug 15 23:24:05 2012
-  - [FEATURE] Now, connection to server closed automatically after destroying
+  - [BUGFIX] Now, connection to server closed automatically after destroying
   last reference on AnyEvent::Redis::RipeRedis object.
   - [BUGFIX] Fixed cyclic references.
 
 0.807301 Wed Aug 15 00:52:45 2012
-  - Fixes in POD
+  - Changes in POD
 
 0.807300 Tue Aug 14 19:02:20 2012
   - Many internal changes
@@ -54,8 +59,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
 
 0.807100 Wed Jun 20 10:38:50 2012
   - [BUGFIX] If some error ocurred or if connection was closed, then uncompleted
-  commands will be aborted before calling on_error, on_connect_error
-  or on_disconnect callbacks, to avoid unexpected behavior.
+  commands will be aborted before calling 'on_error', 'on_connect_error'
+  or 'on_disconnect' callbacks, to avoid unexpected behavior.
 
 0.807000 Mon Jun 18 14:55:50 2012
   - [FEATURE] Added callback 'on_connect_error' in constructor

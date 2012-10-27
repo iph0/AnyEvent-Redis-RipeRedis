@@ -5,7 +5,8 @@ use strict;
 use warnings;
 
 use fields qw(
-  storage
+  db_pool
+  db
   is_auth
   transaction_began
   commands_queue
@@ -16,16 +17,23 @@ use fields qw(
 our $VERSION = '0.100003';
 
 use constant {
+  PASSWORD => 'test',
+  MAX_DB_INDEX => 15,
+
   EOL => "\r\n",
   EOL_LEN => 2,
 };
 
 my $REDIS_LOADING = 0;
-my $PASSWORD = 'test';
 my %COMMANDS = (
   auth => {
     validate => *_validate_auth,
     exec => *_exec_auth,
+  },
+
+  select => {
+    validate => *_validate_select,
+    exec => *_exec_select,
   },
 
   ping => {
@@ -115,6 +123,7 @@ my %ERR_MESSAGES = (
   not_integer => 'value is not an integer or out of range',
   wrong_value => 'Operation against a key holding the wrong kind of value',
   invalid_timeout => 'timeout is not an integer or out of range',
+  invalid_db_index => 'invalid DB index',
 );
 
 
@@ -124,7 +133,7 @@ sub new {
 
   my $self = fields::new( $proto );
 
-  $self->{storage} = {};
+  $self->{db} = {};
   $self->{is_auth} = 0;
   $self->{transaction_began} = undef;
   $self->{commands_queue} = [];
@@ -371,7 +380,7 @@ sub _exec_auth {
   my @args = @{$cmd->{args}};
   my $pass = shift( @args );
 
-  if ( $pass ne $PASSWORD ) {
+  if ( $pass ne PASSWORD ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{invalid_pass},
@@ -379,6 +388,54 @@ sub _exec_auth {
   }
 
   $self->{is_auth} = 1;
+
+  return {
+    type => '+',
+    data => 'OK',
+  };
+}
+
+####
+sub _validate_select {
+  my $cmd = pop;
+  my @args = @{$cmd->{args}};
+  my $index = shift( @args );
+
+  if ( !defined( $index ) || $index eq '' ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
+
+    die {
+      type => '-',
+      data => $msg,
+    };
+  }
+
+  return 1;
+}
+
+####
+sub _exec_select {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+  my @args = @{$cmd->{args}};
+  my $index = shift( @args );
+
+  if ( $index > MAX_DB_INDEX ) {
+    return {
+      type => '-',
+      data => $ERR_MESSAGES{invalid_db_index},
+    };
+  }
+  elsif ( $index =~ m/[^0-9]/o ) {
+    $index = 0;
+  }
+
+  my $db_pool = $self->{db_pool};
+  if ( !exists( $db_pool->[$index] ) ) {
+    $db_pool->[$index] = {};
+  }
+  $self->{db} = $db_pool->[$index];
 
   return {
     type => '+',
@@ -420,15 +477,15 @@ sub _exec_incr {
   my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
-  my $storage = $self->{storage};
-  if ( defined( $storage->{$key} ) ) {
-    if ( ref( $storage->{$key} ) ) {
+  my $db = $self->{db};
+  if ( defined( $db->{$key} ) ) {
+    if ( ref( $db->{$key} ) ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{wrong_value},
       };
     }
-    elsif ( $storage->{$key} =~ m/[^0-9]/o ) {
+    elsif ( $db->{$key} =~ m/[^0-9]/o ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{not_integer},
@@ -436,14 +493,14 @@ sub _exec_incr {
     }
   }
   else {
-    $storage->{$key} = 0;
+    $db->{$key} = 0;
   }
 
-  $storage->{$key}++;
+  $db->{$key}++;
 
   return {
     type => ':',
-    data => $storage->{$key},
+    data => $db->{$key},
   };
 }
 
@@ -478,7 +535,7 @@ sub _exec_set {
   my $key = shift( @args );
   my $val = shift( @args );
 
-  $self->{storage}{$key} = $val;
+  $self->{db}{$key} = $val;
 
   return {
     type => '+',
@@ -512,14 +569,14 @@ sub _exec_get {
   my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
-  my $storage = $self->{storage};
-  if ( !defined( $storage->{$key} ) ) {
+  my $db = $self->{db};
+  if ( !defined( $db->{$key} ) ) {
     return {
       type => '$',
       data => undef,
     };
   }
-  elsif ( ref( $storage->{$key} ) ) {
+  elsif ( ref( $db->{$key} ) ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{wrong_value},
@@ -528,7 +585,7 @@ sub _exec_get {
 
   return {
     type => '$',
-    data => $storage->{$key},
+    data => $db->{$key},
   };
 }
 
@@ -563,9 +620,9 @@ sub _exec_push {
   my $key = shift( @args );
   my $val = shift( @args );
 
-  my $storage = $self->{storage};
-  if ( defined( $storage->{$key} ) ) {
-    if ( ref( $storage->{$key} ) ne 'ARRAY' ) {
+  my $db = $self->{db};
+  if ( defined( $db->{$key} ) ) {
+    if ( ref( $db->{$key} ) ne 'ARRAY' ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{wrong_value},
@@ -573,14 +630,14 @@ sub _exec_push {
     }
   }
   else {
-    $storage->{$key} = [];
+    $db->{$key} = [];
   }
 
   if ( index( $cmd->{name}, 'r' ) == 0 ) {
-    push( @{$storage->{$key}}, $val );
+    push( @{$db->{$key}}, $val );
   }
   else {
-    unshift( @{$storage->{$key}}, $val );
+    unshift( @{$db->{$key}}, $val );
   }
 
   return {
@@ -625,13 +682,13 @@ sub _exec_bpop {
   my @args = @{$cmd->{args}};
   my $timeout = pop( @args ); # Timeout will be ignored
   my @keys = @args;
-  my $storage = $self->{storage};
+  my $db = $self->{db};
 
   foreach my $key ( @keys ) {
-    if ( !defined( $storage->{$key} ) ) {
+    if ( !defined( $db->{$key} ) ) {
       next;
     }
-    elsif ( ref( $storage->{$key} ) ne 'ARRAY' ) {
+    elsif ( ref( $db->{$key} ) ne 'ARRAY' ) {
       return {
         type => '-',
         data => $ERR_MESSAGES{wrong_value},
@@ -641,10 +698,10 @@ sub _exec_bpop {
     my $val;
 
     if ( index( $cmd->{name}, 'br' ) == 0 ) {
-      $val = pop( @{$storage->{$key}} );
+      $val = pop( @{$db->{$key}} );
     }
     else {
-      $val = shift( @{$storage->{$key}} );
+      $val = shift( @{$db->{$key}} );
     }
 
     return {
@@ -700,14 +757,14 @@ sub _exec_lrange {
     $stop = 0;
   }
 
-  my $storage = $self->{storage};
-  if ( !defined( $storage->{$key} ) ) {
+  my $db = $self->{db};
+  if ( !defined( $db->{$key} ) ) {
     return {
       type => '*',
       data => [],
     };
   }
-  elsif ( ref( $storage->{$key} ) ne 'ARRAY' ) {
+  elsif ( ref( $db->{$key} ) ne 'ARRAY' ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{wrong_value},
@@ -715,10 +772,10 @@ sub _exec_lrange {
   }
 
   if ( $stop < 0 ) {
-    $stop = scalar( @{$storage->{$key}} ) + $stop;
+    $stop = scalar( @{$db->{$key}} ) + $stop;
   }
 
-  my @list = @{$storage->{$key}}[ $start .. $stop ];
+  my @list = @{$db->{$key}}[ $start .. $stop ];
 
   return {
     type => '*',

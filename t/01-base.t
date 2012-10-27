@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 17;
+use Test::More tests => 18;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -22,18 +22,24 @@ can_ok( $T_CLASS, 'AUTOLOAD' );
 can_ok( $T_CLASS, 'DESTROY' );
 
 # Connect
-my $t_connected;
+my $t_connected = 0;
+my $t_disconnected = 0;
 my $cv = AnyEvent->condvar();
 my $REDIS = new_ok( $T_CLASS, [
   host => 'localhost',
   port => '6379',
   password => 'test',
+  database => 1,
   connection_timeout => 5,
   encoding => 'utf8',
 
   on_connect => sub {
     $t_connected = 1;
     $cv->send();
+  },
+
+  on_disconnect => sub {
+    $t_disconnected = 1;
   },
 ] );
 ev_loop( $cv );
@@ -249,6 +255,7 @@ sub t_quit {
   ev_loop( $cv );
 
   is( $t_data, 'OK', 'quit (status reply)' );
+  ok( $t_disconnected, 'Disconnected' );
 
   return;
 }

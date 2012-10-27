@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::RedisEmulator;
 use Test::AnyEvent::EVLoop;
@@ -26,6 +26,7 @@ t_auth_required();
 t_sub_after_multi();
 t_conn_closed_on_demand();
 t_loading_dataset();
+t_invalid_db_index();
 
 
 # Subroutines
@@ -200,7 +201,7 @@ sub t_cmd_on_error {
   my @t_errors;
   $cv = AnyEvent->condvar();
   $redis->multi();
-  $redis->set( {
+  $redis->set( '', undef, {
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
@@ -379,6 +380,41 @@ sub t_loading_dataset {
     [ "LOADING Redis is loading the dataset in memory",
         E_LOADING_DATASET ],
   ], 'Loading dataset' );
+
+  return;
+}
+
+####
+sub t_invalid_db_index {
+  my $cv = AnyEvent->condvar();
+  my @t_errors;
+  my $redis = $T_CLASS->new(
+    %GENERIC_PARAMS,
+    password => 'test',
+    database => 16,
+
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+
+      push( @t_errors, [ $err_msg, $err_code ] );
+      $cv->send();
+    },
+  );
+  $redis->ping( {
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+
+      push( @t_errors, [ $err_msg, $err_code ] );
+    },
+  } );
+  ev_loop( $cv );
+
+  is_deeply( \@t_errors, [
+    [ "Command 'ping' aborted: ERR invalid DB index", E_COMMAND_EXEC ],
+    [ "ERR invalid DB index", E_COMMAND_EXEC ],
+  ], 'Invalid DB index' );
 
   return;
 }
