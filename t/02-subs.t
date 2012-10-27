@@ -14,9 +14,8 @@ my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 my $cv = AnyEvent->condvar();
 
 my $redis = $T_CLASS->new(
-  host => '',
-  port => '',
   password => 'test',
+  lazy => 1,
 );
 
 # Authenticate

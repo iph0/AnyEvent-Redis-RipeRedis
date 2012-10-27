@@ -28,7 +28,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.110';
+our $VERSION = '1.111';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -189,13 +189,6 @@ sub _connect {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
-  if ( !defined( $self->{password} ) ) {
-    $self->{auth_status} = S_IS_DONE;
-  }
-  if ( !defined( $self->{database} ) ) {
-    $self->{db_select_status} = S_IS_DONE;
-  }
-
   $self->{handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
     on_prepare => $self->_on_prepare(),
@@ -234,6 +227,13 @@ sub _on_connect {
 
   return sub {
     $self->{connected} = 1;
+    if ( !defined( $self->{password} ) ) {
+      $self->{auth_status} = S_IS_DONE;
+    }
+    if ( !defined( $self->{database} ) ) {
+      $self->{db_select_status} = S_IS_DONE;
+    }
+
     if ( $self->{auth_status} == S_NEED_PERFORM ) {
       $self->_auth();
     }
@@ -663,6 +663,7 @@ sub _validate_exec_params {
 ####
 sub _auth {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
   $self->{auth_status} = S_IN_PROGRESS;
   $self->_push_to_handle( {
@@ -694,6 +695,7 @@ sub _auth {
 ####
 sub _select_db {
   my __PACKAGE__ $self = shift;
+  weaken( $self );
 
   $self->{db_select_status} = S_IN_PROGRESS;
   $self->_push_to_handle( {
@@ -878,6 +880,7 @@ Requires Redis 1.2 or higher, and any supported event loop.
     port => '6379',
     password => 'your_password',
     database => 1,
+    lazy => 1,
     connection_timeout => 5,
     reconnect => 1,
     encoding => 'utf8',

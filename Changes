@@ -1,11 +1,16 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.111 Fri Oct 27 15:30:25 2012
+  - Slight changes in POD.
+  - Slight improvement in unit-test.
+  - Slight internal changes.
+
 1.110 Fri Oct 26 18:08:20 2012
   - [FEATURE] Added constructor parameter 'database'.
   - [FEATURE] Added constructor parameter 'lazy'.
   - [BUGFIX] Fixed reconnect error that has been occurred if password was not
   been required.
-  - Changes in POD
+  - Changes in POD.
 
 1.109 Fri Oct 20 01:54:40 2012
   -  Changes in POD.
@@ -22,17 +27,17 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - [BUGFIX] In some cases method disconnect() has not been closing the connection.
 
 1.105 Tue Oct 10 18:31:40 2012
-  - Small optimization.
+  - Slight optimization.
   - Added section 'resources' in Makefile.PL for META.yml.
   - Some changes in POD.
 
 1.104 Sat Sep 1 03:14:45 2012
-  - E_IO_OPERATION renamed to E_IO
-  - E_CONN_CLOSED_ON_DEMAND renamed to E_CONN_CLOSED_BY_CLIENT
-  - E_UNEXPECTED renamed to E_CLIENT
+  - E_IO_OPERATION renamed to E_IO.
+  - E_CONN_CLOSED_ON_DEMAND renamed to E_CONN_CLOSED_BY_CLIENT.
+  - E_UNEXPECTED renamed to E_CLIENT.
 
 1.103 Fri Aug 31 14:24:45 2012
-  - POD has been complemented
+  - POD has been complemented.
   - Cosmetic changes.
 
 1.102 Fri Aug 31 00:19:15 2012
