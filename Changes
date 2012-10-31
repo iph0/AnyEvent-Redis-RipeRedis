@@ -1,6 +1,6 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.114 Fri Oct 31 14:37:55 2012
+1.114 Wed Oct 31 14:37:55 2012
   - Fixes to protect from deep recursion in case of some errors.
   - Renamed constants (backward compatibility preserved):
     - E_AUTH_REQUIRED renamed to E_OPRN_NOT_PERMITTED.
