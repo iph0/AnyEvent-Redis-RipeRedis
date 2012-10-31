@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.115 Wed Oct 31 18:51:50 2012
+  - Slight fixes in POD.
+
 1.114 Wed Oct 31 14:37:55 2012
   - Added protection from deep recursion in case of some errors.
   - Renamed constants (hope no one used them yet):

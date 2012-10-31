@@ -28,7 +28,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.114';
+our $VERSION = '1.115';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -1257,7 +1257,7 @@ Operation not permitted. Authentication required.
 
 =item E_OPRN_ERROR
 
-Operation error usually returned by the Redis server.
+Operation error, usually returned by the Redis server.
 
 =item E_UNEXPECTED_DATA
 
