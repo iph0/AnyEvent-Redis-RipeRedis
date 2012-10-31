@@ -1,102 +1,102 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
 1.114 Fri Oct 31 14:37:55 2012
-    - Fixes to protect from deep recursion in case of some errors.
-    - Renamed constants (backward compatibility preserved):
-        - E_AUTH_REQUIRED renamed to E_OPRN_NOT_PERMITTED.
-        - E_COMMAND_EXEC renamed to E_OPRN_ERROR.
-        - E_CLIENT renamed to E_UNEXPECTED_DATA,
-    - Changes in POD.
+  - Fixes to protect from deep recursion in case of some errors.
+  - Renamed constants (backward compatibility preserved):
+    - E_AUTH_REQUIRED renamed to E_OPRN_NOT_PERMITTED.
+    - E_COMMAND_EXEC renamed to E_OPRN_ERROR.
+    - E_CLIENT renamed to E_UNEXPECTED_DATA,
+  - Changes in POD.
 
 1.112 Fri Oct 27 15:30:25 2012
-    - POD edited.
+  - POD edited.
 
 1.111 Fri Oct 27 15:30:25 2012
-    - Slight changes in POD.
-    - Slight improvement in unit-test.
-    - Slight internal changes.
+  - Slight changes in POD.
+  - Slight improvement in unit-test.
+  - Slight internal changes.
 
 1.110 Fri Oct 26 18:08:20 2012
-    - [FEATURE] Added constructor parameter 'database'.
-    - [FEATURE] Added constructor parameter 'lazy'.
-    - [BUGFIX] Fixed reconnect error that has been occurred if password was not
-      been required.
-    - Changes in POD.
+  - [FEATURE] Added constructor parameter 'database'.
+  - [FEATURE] Added constructor parameter 'lazy'.
+  - [BUGFIX] Fixed reconnect error that has been occurred if password was not
+    been required.
+  - Changes in POD.
 
 1.109 Fri Oct 20 01:54:40 2012
-    -  Changes in POD.
+  -  Changes in POD.
 
 1.108 Fri Oct 20 01:28:40 2012
-    -  Changes in POD.
+  -  Changes in POD.
 
 1.107 Fri Oct 19 18:31:40 2012
-    - Added POD coverage test.
-    - Changes in POD.
-    - Added minimal Perl version in Makefile.PL.
+  - Added POD coverage test.
+  - Changes in POD.
+  - Added minimal Perl version in Makefile.PL.
 
 1.106 Fri Oct 19 16:44:00 2012
-    - [BUGFIX] In some cases method disconnect() has not been closing the connection.
+  - [BUGFIX] In some cases method disconnect() has not been closing the connection.
 
 1.105 Tue Oct 10 18:31:40 2012
-    - Slight optimization.
-    - Added section 'resources' in Makefile.PL for META.yml.
-    - Some changes in POD.
+  - Slight optimization.
+  - Added section 'resources' in Makefile.PL for META.yml.
+  - Some changes in POD.
 
 1.104 Sat Sep 1 03:14:45 2012
-    - E_IO_OPERATION renamed to E_IO.
-    - E_CONN_CLOSED_ON_DEMAND renamed to E_CONN_CLOSED_BY_CLIENT.
-    - E_UNEXPECTED renamed to E_CLIENT.
+  - E_IO_OPERATION renamed to E_IO.
+  - E_CONN_CLOSED_ON_DEMAND renamed to E_CONN_CLOSED_BY_CLIENT.
+  - E_UNEXPECTED renamed to E_CLIENT.
 
 1.103 Fri Aug 31 14:24:45 2012
-    - POD has been complemented.
-    - Cosmetic changes.
+  - POD has been complemented.
+  - Cosmetic changes.
 
 1.102 Fri Aug 31 00:19:15 2012
-    - [FEATURE] Added error codes in 'on_error' callbacks.
-    - [FEATURE] Added constants for error codes.
-    - Unit-tests improved.
-    - Many internal changes.
+  - [FEATURE] Added error codes in 'on_error' callbacks.
+  - [FEATURE] Added constants for error codes.
+  - Unit-tests improved.
+  - Many internal changes.
 
 1.000 Wed Aug 15 23:24:05 2012
-    - [BUGFIX] Now, connection to server closed automatically after destroying
-      last reference on AnyEvent::Redis::RipeRedis object.
-    - [BUGFIX] Fixed cyclic references.
+  - [BUGFIX] Now, connection to server closed automatically after destroying
+    last reference on AnyEvent::Redis::RipeRedis object.
+  - [BUGFIX] Fixed cyclic references.
 
 0.807301 Wed Aug 15 00:52:45 2012
-    - Changes in POD
+  - Changes in POD
 
 0.807300 Tue Aug 14 19:02:20 2012
-    - Many internal changes
-    - Changed format of error messages.
+  - Many internal changes
+  - Changed format of error messages.
 
 0.807200 Fri Jun 29 22:12:40 2012
-    - [BUGFIX] "on_done" callback now calls at the end of processing of response,
+  - [BUGFIX] "on_done" callback now calls at the end of processing of response,
       to avoid unexpected behavior.
 
 0.807100 Wed Jun 20 10:38:50 2012
-    - [BUGFIX] If some error ocurred or if connection was closed, then uncompleted
-      commands will be aborted before calling 'on_error', 'on_connect_error'
-      or 'on_disconnect' callbacks, to avoid unexpected behavior.
+  - [BUGFIX] If some error ocurred or if connection was closed, then uncompleted
+    commands will be aborted before calling 'on_error', 'on_connect_error'
+    or 'on_disconnect' callbacks, to avoid unexpected behavior.
 
 0.807000 Mon Jun 18 14:55:50 2012
-    - [FEATURE] Added callback 'on_connect_error' in constructor
+  - [FEATURE] Added callback 'on_connect_error' in constructor
 
 0.806000 Thu Jun 14 15:47:10 2012
-    - [FEATURE] Added public method disconnect()
+  - [FEATURE] Added public method disconnect()
 
 0.805201 Wed Jun 13 10:14:00 2012
-    - Minor fix in POD.
+  - Minor fix in POD.
 
 0.805200 Tue May 29 11:02:30 2012
-    - [BUGFIX] Fixed probable race condition in auto-authentication.
+  - [BUGFIX] Fixed probable race condition in auto-authentication.
 
 0.805103 Thu May 17 12:27:05 2012
-    - [BUGFIX] Prevented an infinite loop in method _abort_commands() in case, when
+  - [BUGFIX] Prevented an infinite loop in method _abort_commands() in case, when
     commands was executed in 'on_error' callback wihtout delay.
 
 0.805000 Wed May 16 21:20:15 2012
-    - [BUGFIX] Automatic authentication now works correctly in case, when Redis
-      server needs some time to load data file in memory.
+  - [BUGFIX] Automatic authentication now works correctly in case, when Redis
+    server needs some time to load data file in memory.
 
 0.804106 Sat Apr 14 15:48:46 2012
-    - First release.
+  - First release.
