@@ -850,7 +850,6 @@ feature
     host => 'localhost',
     port => '6379',
     password => 'your_password',
-    reconnect => 1,
     encoding => 'utf8',
 
     on_connect => sub {
@@ -886,7 +885,7 @@ feature
           or $err_code == E_IO
           or $err_code == E_CONN_CLOSED_BY_REMOTE_HOST
           ) {
-        # Repeat 'set' command
+        # Trying repeat operation
       }
       else {
         $cv->croak( "$err_msg. Error code: $err_code" );
@@ -1258,7 +1257,7 @@ Operation not permitted. Authentication required.
 
 =item E_OPRN_ERROR
 
-Specific operation error.
+Operation error usually returned by the Redis server.
 
 =item E_UNEXPECTED_DATA
 
