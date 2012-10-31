@@ -1274,7 +1274,7 @@ Client received unexpected data from server.
 
 =back
 
-To use constants of error codes you have to import them.
+To use these constants you have to import them.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
