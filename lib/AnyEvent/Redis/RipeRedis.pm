@@ -28,7 +28,7 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.112';
+our $VERSION = '1.114';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -36,9 +36,13 @@ use Scalar::Util qw( looks_like_number weaken );
 use Carp qw( confess );
 
 BEGIN {
-  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
+  my @deprecated = qw( E_AUTH_REQUIRED E_COMMAND_EXEC E_CLIENT );
+
+  our @EXPORT_OK = ( qw( E_CANT_CONN E_LOADING_DATASET E_IO
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
-      E_INVALID_PASS E_AUTH_REQUIRED E_COMMAND_EXEC E_CLIENT );
+      E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA ),
+      @deprecated );
+
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
   );
@@ -57,9 +61,9 @@ use constant {
   E_CONN_CLOSED_BY_CLIENT => 5,
   E_NO_CONN => 6,
   E_INVALID_PASS => 7,
-  E_AUTH_REQUIRED => 8,
-  E_COMMAND_EXEC => 9,
-  E_CLIENT => 10,
+  E_OPRN_NOT_PERMITTED => 8,
+  E_OPRN_ERROR => 9,
+  E_UNEXPECTED_DATA => 10,
 
   # Command status
   S_NEED_PERFORM => 1,
@@ -69,6 +73,11 @@ use constant {
   # String terminator
   EOL => "\r\n",
   EOL_LEN => 2,
+
+  # Deprecated
+  E_AUTH_REQUIRED => 8,
+  E_COMMAND_EXEC => 9,
+  E_CLIENT => 10,
 };
 
 my %SUB_COMMANDS = (
@@ -467,7 +476,7 @@ sub _process_data {
   }
   else {
     $self->{on_error}->( "Don't known how process response data."
-        . ' Command queue is empty', E_CLIENT );
+        . ' Command queue is empty', E_UNEXPECTED_DATA );
   }
 
   return;
@@ -491,7 +500,7 @@ sub _process_pub_message {
   }
   else {
     $self->{on_error}->( "Don't known how process published message."
-        . " Unknown channel or pattern '$data->[1]'", E_CLIENT );
+        . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED_DATA );
   }
 
   return;
@@ -512,16 +521,16 @@ sub _process_cmd_error {
       $err_code = E_INVALID_PASS;
     }
     elsif ( $err_msg eq 'ERR operation not permitted' ) {
-      $err_code = E_AUTH_REQUIRED;
+      $err_code = E_OPRN_NOT_PERMITTED;
     }
     else {
-      $err_code = E_COMMAND_EXEC;
+      $err_code = E_OPRN_ERROR;
     }
     $cmd->{on_error}->( $err_msg, $err_code );
   }
   else {
     $self->{on_error}->( "Don't known how process error message '$err_msg'."
-        . " Command queue is empty", E_CLIENT );
+        . " Command queue is empty", E_UNEXPECTED_DATA );
   }
 
   return;
@@ -590,8 +599,13 @@ sub _exec_command {
 
   if ( exists( $SUB_COMMANDS{$cmd->{name}} ) ) {
     if ( $self->{sub_lock} ) {
-      $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi' command."
-          . ' First, the transaction must be completed', E_COMMAND_EXEC );
+      $self->_async_call(
+        sub {
+          $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi' command."
+              . ' First, the transaction must be completed', E_OPRN_ERROR );
+        }
+      );
+
       return;
     }
     $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
@@ -608,8 +622,13 @@ sub _exec_command {
       $self->_connect();
     }
     else {
-      $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
-          . ' No connection to the server', E_NO_CONN );
+      $self->_async_call(
+        sub {
+          $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
+              . ' No connection to the server', E_NO_CONN );
+        }
+      );
+
       return;
     }
   }
@@ -781,6 +800,23 @@ sub _abort_all {
 }
 
 ####
+sub _async_call {
+  my __PACKAGE__$self = shift;
+  my $cb = shift;
+
+  my $timer;
+  $timer = AnyEvent->timer(
+    after => 0,
+    cb => sub {
+      undef( $timer );
+      $cb->();
+    },
+  );
+
+  return;
+}
+
+####
 sub AUTOLOAD {
   our $AUTOLOAD;
   my $cmd_name = $AUTOLOAD;
@@ -841,7 +877,7 @@ feature
   );
 
   # Set value
-  $redis->set( 'bar', 'Some string', {
+  $redis->set( 'foo', 'Some string', {
     on_done => sub {
       my $data = shift;
       print "$data\n";
@@ -886,7 +922,7 @@ Requires Redis 1.2 or higher, and any supported event loop.
     host => 'localhost',
     port => '6379',
     password => 'your_password',
-    database => 1,
+    database => 7,
     lazy => 1,
     connection_timeout => 5,
     reconnect => 1,
@@ -1185,9 +1221,9 @@ Error codes can be used for programmatic handling of errors.
   5  - E_CONN_CLOSED_BY_CLIENT
   6  - E_NO_CONN
   7  - E_INVALID_PASS
-  8  - E_AUTH_REQUIRED
-  9  - E_COMMAND_EXEC
-  10 - E_CLIENT
+  8  - E_OPRN_NOT_PERMITTED
+  9  - E_OPRN_ERROR
+  10 - E_UNEXPECTED_DATA
 
 =over
 
@@ -1224,17 +1260,17 @@ reason and parameter C<reconnect> was set to FALSE.
 
 Invalid password.
 
-=item E_AUTH_REQUIRED
+=item E_OPRN_NOT_PERMITTED
 
 Operation not permitted. Authentication required.
 
-=item E_COMMAND_EXEC
+=item E_OPRN_ERROR
 
-Command execution error.
+Specific operation error.
 
-=item E_CLIENT
+=item E_UNEXPECTED_DATA
 
-Client error.
+Client received unexpected data from server.
 
 =back
 

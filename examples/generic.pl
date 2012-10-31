@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use AnyEvent;
-use AnyEvent::Redis::RipeRedis;
+use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 my $cv = AnyEvent->condvar();
 

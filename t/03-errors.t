@@ -22,7 +22,7 @@ t_reconnect();
 t_broken_connection();
 t_cmd_on_error();
 t_invalid_password();
-t_auth_required();
+t_oprn_not_permitted();
 t_sub_after_multi();
 t_conn_closed_on_demand();
 t_loading_dataset();
@@ -64,14 +64,17 @@ sub t_no_connection {
   } );
   ev_loop( $cv );
 
+  $cv = AnyEvent->condvar();
   $redis->ping( {
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
 
       push( @t_data, [ $err_msg, $err_code ] );
+      $cv->send();
     }
   } );
+  ev_loop( $cv );
 
   Test::AnyEvent::RedisHandle->connection_down( 0 );
 
@@ -222,8 +225,8 @@ sub t_cmd_on_error {
   ev_loop( $cv );
 
   is_deeply( \@t_errors, [
-    [ "ERR wrong number of arguments for 'set' command", E_COMMAND_EXEC ],
-    [ 'ERR value is not an integer or out of range', E_COMMAND_EXEC ],
+    [ "ERR wrong number of arguments for 'set' command", E_OPRN_ERROR ],
+    [ 'ERR value is not an integer or out of range', E_OPRN_ERROR ],
   ], "'on_error' callback in the method of the command" );
 
   return;
@@ -264,7 +267,7 @@ sub t_invalid_password {
 }
 
 ####
-sub t_auth_required {
+sub t_oprn_not_permitted {
   my $redis = $T_CLASS->new(
     %GENERIC_PARAMS,
   );
@@ -283,7 +286,7 @@ sub t_auth_required {
   ev_loop( $cv );
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ 'ERR operation not permitted',
-      E_AUTH_REQUIRED ], 'Authentication required' );
+      E_OPRN_NOT_PERMITTED ], 'Operation not permitted' );
 
   return;
 }
@@ -315,7 +318,7 @@ sub t_sub_after_multi {
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'subscribe' not allowed"
       . " after 'multi' command. First, the transaction must be completed",
-      E_COMMAND_EXEC ],
+      E_OPRN_ERROR ],
       'Invalid context for subscribtion' );
 
   return;
@@ -412,8 +415,8 @@ sub t_invalid_db_index {
   ev_loop( $cv );
 
   is_deeply( \@t_errors, [
-    [ "Command 'ping' aborted: ERR invalid DB index", E_COMMAND_EXEC ],
-    [ "ERR invalid DB index", E_COMMAND_EXEC ],
+    [ "Command 'ping' aborted: ERR invalid DB index", E_OPRN_ERROR ],
+    [ "ERR invalid DB index", E_OPRN_ERROR ],
   ], 'Invalid DB index' );
 
   return;
