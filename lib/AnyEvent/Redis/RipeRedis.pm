@@ -36,12 +36,9 @@ use Scalar::Util qw( looks_like_number weaken );
 use Carp qw( confess );
 
 BEGIN {
-  my @deprecated = qw( E_AUTH_REQUIRED E_COMMAND_EXEC E_CLIENT );
-
-  our @EXPORT_OK = ( qw( E_CANT_CONN E_LOADING_DATASET E_IO
+  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
-      E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA ),
-      @deprecated );
+      E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA );
 
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
@@ -73,11 +70,6 @@ use constant {
   # String terminator
   EOL => "\r\n",
   EOL_LEN => 2,
-
-  # Deprecated
-  E_AUTH_REQUIRED => 8,
-  E_COMMAND_EXEC => 9,
-  E_CLIENT => 10,
 };
 
 my %SUB_COMMANDS = (

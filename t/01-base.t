@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 18;
+use Test::More tests => 28;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent;
@@ -13,7 +13,7 @@ my $T_CLASS;
 
 BEGIN {
   $T_CLASS = 'AnyEvent::Redis::RipeRedis';
-  use_ok( $T_CLASS );
+  use_ok( $T_CLASS, qw( :err_codes ) );
 }
 
 can_ok( $T_CLASS, 'new' );
@@ -55,6 +55,7 @@ t_get_empty_list();
 t_mbulk_undef();
 t_transaction();
 t_quit();
+t_error_codes();
 
 
 # Subroutines
@@ -258,4 +259,18 @@ sub t_quit {
   ok( $t_disconnected, 'Disconnected' );
 
   return;
+}
+
+####
+sub t_error_codes {
+  is( E_CANT_CONN, 1, 'Constant E_CANT_CONN' );
+  is( E_LOADING_DATASET, 2, 'Constant E_LOADING_DATASET' );
+  is( E_IO, 3, 'Constant E_IO' );
+  is( E_CONN_CLOSED_BY_REMOTE_HOST, 4, 'Constant E_CONN_CLOSED_BY_REMOTE_HOST' );
+  is( E_CONN_CLOSED_BY_CLIENT, 5, 'Constant E_CONN_CLOSED_BY_CLIENT' );
+  is( E_NO_CONN, 6, 'Constant E_NO_CONN' );
+  is( E_INVALID_PASS, 7, 'Constant E_INVALID_PASS' );
+  is( E_OPRN_NOT_PERMITTED, 8, 'Constant E_OPRN_NOT_PERMITTED' );
+  is( E_OPRN_ERROR, 9, 'Constant E_OPRN_ERROR' );
+  is( E_UNEXPECTED_DATA, 10, 'Constant E_UNEXPECTED_DATA' );
 }
