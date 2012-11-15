@@ -11,14 +11,13 @@ use AnyEvent::Redis::RipeRedis;
 
 my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
-my $cv = AnyEvent->condvar();
-
 my $redis = $T_CLASS->new(
   password => 'test',
   lazy => 1,
 );
 
 # Subscribe to channels by name
+my $cv = AnyEvent->condvar();
 my @t_sub_data;
 my @t_sub_msgs;
 $redis->subscribe( qw( ch_foo ch_bar ), {

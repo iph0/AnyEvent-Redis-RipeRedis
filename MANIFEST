@@ -1,4 +1,5 @@
 Changes
+examples/eval.pl
 examples/generic.pl
 examples/subs.pl
 examples/unix_socket.pl
@@ -8,10 +9,11 @@ MANIFEST
 README
 t/01-base.t
 t/02-subs.t
-t/03-errors.t
-t/04-exceptions.t
-t/05-pod.t
-t/06-pod-coverage.t
+t/03-eval-cached.t
+t/04-errors.t
+t/05-exceptions.t
+t/06-pod.t
+t/07-pod-coverage.t
 t/tlib/Test/AnyEvent/EVLoop.pm
 t/tlib/Test/AnyEvent/RedisEmulator.pm
 t/tlib/Test/AnyEvent/RedisHandle.pm

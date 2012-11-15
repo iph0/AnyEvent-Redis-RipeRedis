@@ -12,9 +12,12 @@ use fields qw(
   commands_queue
   subs
   subs_num
+  eval_cache
 );
 
 our $VERSION = '0.100003';
+
+use Digest::SHA1 qw( sha1_hex );
 
 use constant {
   PASSWORD => 'test',
@@ -111,6 +114,16 @@ my %COMMANDS = (
   quit => {
     exec => *_exec_quit,
   },
+
+  eval => {
+    validate => *_validate_eval,
+    exec => *_exec_eval,
+  },
+
+  evalsha => {
+    validate => *_validate_evalsha,
+    exec => *_exec_evalsha,
+  },
 );
 
 my %ERR_MESSAGES = (
@@ -124,6 +137,8 @@ my %ERR_MESSAGES = (
   wrong_value => 'Operation against a key holding the wrong kind of value',
   invalid_timeout => 'timeout is not an integer or out of range',
   invalid_db_index => 'invalid DB index',
+  no_script => 'NOSCRIPT No matching script. Please use EVAL.',
+  wrong_keys => "ERR Number of keys can't be greater than number of args",
 );
 
 
@@ -139,6 +154,7 @@ sub new {
   $self->{commands_queue} = [];
   $self->{subs} = {};
   $self->{subs_num} = 0;
+  $self->{eval_cache} = {};
 
   return $self;
 }
@@ -211,7 +227,7 @@ sub _parse_command {
   my __PACKAGE__ $self = shift;
   my $cmd_szd = shift;
 
-  if ( !defined( $cmd_szd ) || $cmd_szd eq '' ) {
+  if ( !defined( $cmd_szd ) or $cmd_szd eq '' ) {
     return;
   }
   my $eol_pos = index( $cmd_szd, EOL );
@@ -225,7 +241,7 @@ sub _parse_command {
     return;
   }
   my $m_bulk_len = $token;
-  if ( $m_bulk_len =~ m/[^0-9]/o || $m_bulk_len == 0 ) {
+  if ( $m_bulk_len =~ m/[^0-9]/o or $m_bulk_len == 0 ) {
     return;
   }
   my $args = $self->_parse_m_bulk( $cmd_szd, $m_bulk_len );
@@ -280,9 +296,10 @@ sub _exec_command {
     return {
       type => '-',
       data => $ERR_MESSAGES{loading},
+      err_pref => 'LOADING ',
     };
   }
-  elsif ( !$self->{is_auth} && $cmd->{name} ne 'auth' ) {
+  elsif ( !$self->{is_auth} and $cmd->{name} ne 'auth' ) {
     return {
       type => '-',
       data => $ERR_MESSAGES{not_permitted},
@@ -295,7 +312,7 @@ sub _exec_command {
     $cmd_h->{validate}->( $self, $cmd );
   }
 
-  if ( $self->{transaction_began} && $cmd->{name} ne 'exec' ) {
+  if ( $self->{transaction_began} and $cmd->{name} ne 'exec' ) {
     push( @{$self->{commands_queue}}, $cmd );
 
     return {
@@ -312,15 +329,15 @@ sub _serialize_response {
   my __PACKAGE__ $self = shift;
   my $resp = shift;
 
-  if ( $resp->{type} eq '+' || $resp->{type} eq ':' ) {
+  if ( $resp->{type} eq '+' or $resp->{type} eq ':' ) {
     return $resp->{type}. $resp->{data} . EOL;
   }
   elsif ( $resp->{type} eq '-' ) {
-    my $err_pref = $REDIS_LOADING ? 'LOADING ' : 'ERR ';
+    my $err_pref = $resp->{err_pref} || 'ERR ';
     return $resp->{type}. $err_pref . $resp->{data} . EOL;
   }
   elsif ( $resp->{type} eq '$' ) {
-    if ( defined( $resp->{data} ) && $resp->{data} ne ''  ){
+    if ( defined( $resp->{data} ) and $resp->{data} ne ''  ){
       my $bulk_len = length( $resp->{data} );
       return $resp->{type}. $bulk_len . EOL . $resp->{data} . EOL;
     }
@@ -328,7 +345,7 @@ sub _serialize_response {
     return "$resp->{type}-1" . EOL;
   }
   elsif ( $resp->{type} eq '*' ) {
-    if ( !defined( $resp->{data} ) || $resp->{data} eq '' ) {
+    if ( !defined( $resp->{data} ) or $resp->{data} eq '' ) {
       return "*-1" . EOL;
     }
     my $m_bulk_len = scalar( @{$resp->{data}} );
@@ -360,7 +377,7 @@ sub _validate_auth {
   my @args = @{$cmd->{args}};
   my $pass = shift( @args );
 
-  if ( !defined( $pass ) || $pass eq '' ) {
+  if ( !defined( $pass ) or $pass eq '' ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
 
@@ -401,7 +418,7 @@ sub _validate_select {
   my @args = @{$cmd->{args}};
   my $index = shift( @args );
 
-  if ( !defined( $index ) || $index eq '' ) {
+  if ( !defined( $index ) or $index eq '' ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
 
@@ -457,7 +474,7 @@ sub _validate_incr {
   my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
-  if ( !defined( $key ) || $key eq '' ) {
+  if ( !defined( $key ) or $key eq '' ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
 
@@ -512,8 +529,8 @@ sub _validate_set {
   my $val = shift( @args );
 
   if (
-    !defined( $key ) || $key eq ''
-      || !defined( $val ) || $val eq ''
+    !defined( $key ) or $key eq ''
+      or !defined( $val ) or $val eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
@@ -549,7 +566,7 @@ sub _validate_get {
   my @args = @{$cmd->{args}};
   my $key = shift( @args );
 
-  if ( !defined( $key ) || $key eq '' ) {
+  if ( !defined( $key ) or $key eq '' ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
 
@@ -597,8 +614,8 @@ sub _validate_push {
   my $val = shift( @args );
 
   if (
-    !defined( $key ) || $key eq ''
-      || !defined( $val ) || $val eq ''
+    !defined( $key ) or $key eq ''
+      or !defined( $val ) or $val eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
@@ -655,7 +672,7 @@ sub _validate_bpop {
 
   if (
     scalar( @keys ) == 0
-      || !defined( $timeout ) || $timeout eq ''
+      or !defined( $timeout ) or $timeout eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
@@ -680,7 +697,7 @@ sub _exec_bpop {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
   my @args = @{$cmd->{args}};
-  my $timeout = pop( @args ); # Timeout will be ignored
+  my $timeout = pop( @args ); # Timeout will be ignored in tests
   my @keys = @args;
   my $db = $self->{db};
 
@@ -726,9 +743,9 @@ sub _validate_lrange {
   my $stop = shift( @args );
 
   if (
-    !defined( $key ) || $key eq ''
-      || !defined( $start ) || $start eq ''
-      || !defined( $stop ) || $stop eq ''
+    !defined( $key ) or $key eq ''
+      or !defined( $start ) or $start eq ''
+      or !defined( $stop ) or $stop eq ''
       ) {
     ( my $msg = $ERR_MESSAGES{wrong_args} )
         =~ s/%c/$cmd->{name}/go;
@@ -914,6 +931,106 @@ sub _exec_unsub {
 
 ####
 sub _exec_quit {
+  return {
+    type => '+',
+    data => 'OK',
+  };
+}
+
+####
+sub _validate_eval {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+  my @args = @{$cmd->{args}};
+  my $script = shift( @args );
+  my $keys_num = shift( @args );
+
+  if (
+    !defined( $script ) or $script eq ''
+      or !defined( $keys_num ) or $keys_num eq ''
+      ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
+
+    die {
+      type => '-',
+      data => $msg,
+    };
+  }
+
+  return 1;
+}
+
+####
+sub _exec_eval {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+  my @args = @{$cmd->{args}};
+  my $script = shift( @args ); # Really Lua script not executed
+  my $keys_num = shift( @args );
+
+  if ( $keys_num > scalar( @args ) ) {
+    return {
+      type => '-',
+      data => $ERR_MESSAGES{wrong_keys},
+    };
+  }
+
+  my $sha1_hash = sha1_hex( $script );
+  $self->{eval_cache}{$sha1_hash} = $script;
+
+  return {
+    type => '+',
+    data => 'OK',
+  };
+}
+
+####
+sub _validate_evalsha {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+  my @args = @{$cmd->{args}};
+  my $sha1_hash = shift( @args );
+  my $keys_num = shift( @args );
+
+  if (
+    !defined( $sha1_hash ) or $sha1_hash eq ''
+      or !defined( $keys_num ) or $keys_num eq ''
+      ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} )
+        =~ s/%c/$cmd->{name}/go;
+
+    die {
+      type => '-',
+      data => $msg,
+    };
+  }
+
+  return 1;
+}
+
+####
+sub _exec_evalsha {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+  my @args = @{$cmd->{args}};
+  my $sha1_hash = shift( @args ); # Really Lua script not executed
+  my $keys_num = shift( @args );
+
+  if ( !exists( $self->{eval_cache}{$sha1_hash} ) ) {
+    return {
+      type => '-',
+      data => $ERR_MESSAGES{no_script},
+      err_pref => 'NOSCRIPT ',
+    };
+  }
+  elsif ( $keys_num > scalar( @args ) ) {
+    return {
+      type => '-',
+      data => $ERR_MESSAGES{wrong_keys},
+    };
+  }
+
   return {
     type => '+',
     data => 'OK',
