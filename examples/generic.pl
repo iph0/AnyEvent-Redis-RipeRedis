@@ -12,7 +12,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
   password => 'your_password',
-  encoding => 'utf8',
 
   on_connect => sub {
     print "Connected to Redis server\n";
@@ -122,14 +121,12 @@ $redis->exec( {
 } );
 
 # Delete keys
-foreach my $key ( qw( foo bar list ) ) {
-  $redis->del( $key, {
-    on_done => sub {
-      my $data = shift;
-      print "$data\n";
-    }
-  } );
-}
+$redis->del( qw( foo bar list ), {
+  on_done => sub {
+    my $data = shift;
+    print "$data\n";
+  }
+} );
 
 # Disconnect
 $redis->quit( {

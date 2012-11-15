@@ -12,7 +12,6 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
   password => 'your_password',
-  encoding => 'utf8',
 
   on_connect => sub {
     print "Connected to Redis server\n";

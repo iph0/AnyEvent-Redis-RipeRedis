@@ -28,17 +28,19 @@ use fields qw(
   subs
 );
 
-our $VERSION = '1.115';
+our $VERSION = '1.200';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number weaken );
+use Digest::SHA1 qw( sha1_hex );
 use Carp qw( confess );
 
 BEGIN {
   our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
-      E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA );
+      E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA
+      E_NO_SCRIPT );
 
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
@@ -61,6 +63,7 @@ use constant {
   E_OPRN_NOT_PERMITTED => 8,
   E_OPRN_ERROR => 9,
   E_UNEXPECTED_DATA => 10,
+  E_NO_SCRIPT => 11,
 
   # Command status
   S_NEED_PERFORM => 1,
@@ -72,22 +75,23 @@ use constant {
   EOL_LEN => 2,
 };
 
-my %SUB_COMMANDS = (
+my %SUB_CMDS = (
   subscribe => 1,
   psubscribe => 1,
+);
+my %SUB_UNSUB_CMDS = (
+  %SUB_CMDS,
   unsubscribe => 1,
   punsubscribe => 1,
 );
+
+my %EVAL_CACHE;
 
 
 # Constructor
 sub new {
   my $proto = shift;
-  my %defaults = (
-    host => D_HOST,
-    port => D_PORT,
-  );
-  my $params = { %defaults, @_ };
+  my $params = { @_ };
 
   $params = $proto->_validate_new_params( $params );
 
@@ -175,6 +179,12 @@ sub _validate_new_params {
     }
   }
 
+  if ( !defined( $params->{host} ) ) {
+    $params->{host} = D_HOST;
+  }
+  if ( !defined( $params->{port} ) ) {
+    $params->{port} = D_PORT;
+  }
   if ( !defined( $params->{on_error} ) ) {
     $params->{on_error} = sub {
       my $err_msg = shift;
@@ -188,6 +198,7 @@ sub _validate_new_params {
 ####
 sub _connect {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   $self->{handle} = AnyEvent::Handle->new(
@@ -210,6 +221,7 @@ sub _connect {
 ####
 sub _on_prepare {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   return sub {
@@ -224,6 +236,7 @@ sub _on_prepare {
 ####
 sub _on_connect {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   return sub {
@@ -253,6 +266,7 @@ sub _on_connect {
 ####
 sub _on_conn_error {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   return sub {
@@ -274,6 +288,7 @@ sub _on_conn_error {
 ####
 sub _on_eof {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   return sub {
@@ -285,6 +300,7 @@ sub _on_eof {
 ####
 sub _on_error {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   return sub {
@@ -317,13 +333,14 @@ sub _process_error {
 sub _on_read {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
-  weaken( $self );
 
   my $bulk_len;
 
+  weaken( $self );
+
   return sub {
     my $hdl = $self->{handle};
-    while ( defined( $hdl->{rbuf} ) and $hdl->{rbuf} ne '' ) {
+    while ( defined( $hdl->{rbuf} ) ) {
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
         if ( length( $hdl->{rbuf} ) < $bulk_eol_len ) {
@@ -362,12 +379,12 @@ sub _on_read {
           }
         }
         elsif ( $type eq '*' ) {
-          my $m_bulk_len = $data;
-          if ( $m_bulk_len > 0 ) {
-            $self->_unshift_on_read( $m_bulk_len, $cb );
+          my $mbulk_len = $data;
+          if ( $mbulk_len > 0 ) {
+            $self->_unshift_read( $mbulk_len, $cb );
             return 1;
           }
-          elsif ( $m_bulk_len < 0 ) {
+          elsif ( $mbulk_len < 0 ) {
             return 1 if $cb->();
           }
           else {
@@ -380,50 +397,56 @@ sub _on_read {
 }
 
 ####
-sub _unshift_on_read {
+sub _unshift_read {
   my __PACKAGE__ $self = shift;
-  my $m_bulk_len = shift;
+  my $mbulk_len = shift;
   my $cb = shift;
 
-  my $on_read;
+  my $read_cb;
+  my $resp_cb;
   my @data_list;
   my @errors;
-  my $remaining = $m_bulk_len;
+  my $remaining = $mbulk_len;
 
-  my $on_response = sub {
-    my $data = shift;
-    my $is_err = shift;
+  {
+    my $self = $self;
+    weaken( $self );
 
-    if ( $is_err ) {
-      push( @errors, $data );
-    }
-    else {
-      push( @data_list, $data );
-    }
+    $resp_cb = sub {
+      my $data = shift;
+      my $is_err = shift;
 
-    $remaining--;
-    if (
-      ref( $data ) eq 'ARRAY' and @{$data}
-        and $remaining > 0
-        ) {
-      $self->{handle}->unshift_read( $on_read );
-    }
-    elsif ( $remaining == 0 ) {
-      undef( $on_read ); # Collect garbage
-      if ( @errors ) {
-        my $err_msg = join( "\n", @errors );
-        $cb->( $err_msg, 1 );
+      if ( $is_err ) {
+        push( @errors, $data );
       }
       else {
-        $cb->( \@data_list );
+        push( @data_list, $data );
       }
 
-      return 1;
-    }
-  };
-  $on_read = $self->_on_read( $on_response );
+      $remaining--;
+      if (
+        ref( $data ) eq 'ARRAY' and @{$data}
+          and $remaining > 0
+          ) {
+        $self->{handle}->unshift_read( $read_cb );
+      }
+      elsif ( $remaining == 0 ) {
+        undef( $read_cb ); # Collect garbage
+        if ( @errors ) {
+          my $err_msg = join( "\n", @errors );
+          $cb->( $err_msg, 1 );
+        }
+        else {
+          $cb->( \@data_list );
+        }
 
-  $self->{handle}->unshift_read( $on_read );
+        return 1;
+      }
+    };
+  }
+  $read_cb = $self->_on_read( $resp_cb );
+
+  $self->{handle}->unshift_read( $read_cb );
 
   return;
 }
@@ -454,7 +477,7 @@ sub _process_data {
 
   my $cmd = $self->{processing_queue}[0];
   if ( defined( $cmd ) ) {
-    if ( exists( $SUB_COMMANDS{$cmd->{name}} ) ) {
+    if ( exists( $SUB_UNSUB_CMDS{$cmd->{name}} ) ) {
       $self->_process_sub_action( $cmd, $data );
       return;
     }
@@ -506,7 +529,21 @@ sub _process_cmd_error {
   my $cmd = shift( @{$self->{processing_queue}} );
   if ( defined( $cmd ) ) {
     my $err_code;
-    if ( index( $err_msg, 'LOADING' ) == 0 ) {
+    if ( index( $err_msg, 'NOSCRIPT' ) == 0 ) {
+      $err_code = E_NO_SCRIPT;
+      if ( exists( $cmd->{script} ) ) {
+        $cmd->{args}[0] = $cmd->{script},
+        $self->_push_to_handle( {
+          name => 'eval',
+          args => $cmd->{args},
+          on_done => $cmd->{on_done},
+          on_error => $cmd->{on_error},
+        } );
+
+        return;
+      }
+    }
+    elsif ( index( $err_msg, 'LOADING' ) == 0 ) {
       $err_code = E_LOADING_DATASET;
     }
     elsif ( $err_msg eq 'ERR invalid password' ) {
@@ -534,7 +571,7 @@ sub _process_sub_action {
   my $cmd = shift;
   my $data = shift;
 
-  if ( $cmd->{name} eq 'subscribe' or $cmd->{name} eq 'psubscribe' ) {
+  if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
     my $sub = {};
     if ( defined( $cmd->{on_done} ) ) {
       $sub->{on_done} = $cmd->{on_done};
@@ -579,34 +616,56 @@ sub _exec_command {
     $params = pop( @args );
   }
 
-  $params = $self->_validate_exec_params( $params );
+  $params = $self->_validate_common_cbs( $params );
 
-  my $cmd = {
-    name => $cmd_name,
-    args => \@args,
-    on_done => $params->{on_done},
-    on_message => $params->{on_message},
-    on_error => $params->{on_error},
-  };
-
-  if ( exists( $SUB_COMMANDS{$cmd->{name}} ) ) {
-    if ( $self->{sub_lock} ) {
-      $self->_async_call(
-        sub {
-          $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi' command."
-              . ' First, the transaction must be completed', E_OPRN_ERROR );
-        }
-      );
-
-      return;
+  my $cmd;
+  if ( $cmd_name eq 'eval_cached' ) {
+    my $sha1_hash;
+    my $script = $args[0];
+    if ( !exists( $EVAL_CACHE{$script} ) ) {
+      $sha1_hash = sha1_hex( $script );
+      $EVAL_CACHE{$script} = $sha1_hash;
     }
-    $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
+    $args[0] = $EVAL_CACHE{$script};
+
+    $cmd = {
+      name => 'evalsha',
+      args => \@args,
+      on_done => $params->{on_done},
+      on_error => $params->{on_error},
+      script => $script,
+    };
   }
-  elsif ( $cmd->{name} eq 'multi' ) {
-    $self->{sub_lock} = 1;
-  }
-  elsif ( $cmd->{name} eq 'exec' ) {
-    $self->{sub_lock} = 0;
+  else {
+    $cmd = {
+      name => $cmd_name,
+      args => \@args,
+      on_done => $params->{on_done},
+      on_error => $params->{on_error},
+    };
+
+    if ( exists( $SUB_UNSUB_CMDS{$cmd_name} ) ) {
+      if ( exists( $SUB_CMDS{$cmd_name} ) ) {
+        $cmd->{on_message} = $self->_validate_message_cb( $params->{on_message} );
+      }
+      if ( $self->{sub_lock} ) {
+        $self->_async_call(
+          sub {
+            $cmd->{on_error}->( "Command '$cmd_name' not allowed after 'multi' command."
+                . ' First, the transaction must be completed', E_OPRN_ERROR );
+          }
+        );
+
+        return;
+      }
+      $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
+    }
+    elsif ( $cmd_name eq 'multi' ) {
+      $self->{sub_lock} = 1;
+    }
+    elsif ( $cmd_name eq 'exec' ) {
+      $self->{sub_lock} = 0;
+    }
   }
 
   if ( !defined( $self->{handle} ) ) {
@@ -616,7 +675,7 @@ sub _exec_command {
     else {
       $self->_async_call(
         sub {
-          $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
+          $cmd->{on_error}->( "Can't handle the command '$cmd_name'."
               . ' No connection to the server', E_NO_CONN );
         }
       );
@@ -651,14 +710,14 @@ sub _exec_command {
 }
 
 ####
-sub _validate_exec_params {
+sub _validate_common_cbs {
   my __PACKAGE__ $self = shift;
   my $params = shift;
 
-  foreach my $name ( qw( on_done on_message on_error ) ) {
+  foreach my $name ( qw( on_done on_error ) ) {
     if (
       defined( $params->{$name} )
-        and ref( $params->{$name} ) ne 'CODE'
+        and ( !ref( $params->{$name} ) or ref( $params->{$name} ) ne 'CODE' )
         ) {
       confess "'$name' callback must be a code reference";
     }
@@ -669,6 +728,17 @@ sub _validate_exec_params {
   }
 
   return $params;
+}
+
+####
+sub _validate_message_cb {
+  my $cb = pop;
+
+  if ( defined( $cb ) and ( !ref( $cb ) or ref( $cb ) ne 'CODE' ) ) {
+    confess "'on_message' callback must be a code reference";
+  }
+
+  return $cb;
 }
 
 ####
@@ -750,7 +820,7 @@ sub _push_to_handle {
 
   push( @{$self->{processing_queue}}, $cmd );
   my $cmd_str = '';
-  my $m_bulk_len = 0;
+  my $mbulk_len = 0;
   foreach my $token ( $cmd->{name}, @{$cmd->{args}} ) {
     if ( defined( $token ) and $token ne '' ) {
       if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
@@ -758,10 +828,10 @@ sub _push_to_handle {
       }
       my $token_len = length( $token );
       $cmd_str .= "\$$token_len" . EOL . $token . EOL;
-      ++$m_bulk_len;
+      ++$mbulk_len;
     }
   }
-  $cmd_str = "*$m_bulk_len" . EOL . $cmd_str;
+  $cmd_str = "*$mbulk_len" . EOL . $cmd_str;
   $self->{handle}->push_write( $cmd_str );
 
   return;
@@ -1215,6 +1285,7 @@ Error codes can be used for programmatic handling of errors.
   8  - E_OPRN_NOT_PERMITTED
   9  - E_OPRN_ERROR
   10 - E_UNEXPECTED_DATA
+  11 - E_NO_SCRIPT
 
 =over
 
@@ -1236,15 +1307,15 @@ Connection closed by remote host.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-Connection closed by client.
+Connection closed unexpectedly by client.
 
-Error can occur if at time of disconnection in client queue were uncompleted commands.
+Error occur if at time of disconnection in client queue were uncompleted commands.
 
 =item E_NO_CONN
 
 No connection to the server.
 
-Error can occur at time of command execution if connection was closed by any
+Error occur if at time of command execution connection has been closed by any
 reason and parameter C<reconnect> was set to FALSE.
 
 =item E_INVALID_PASS
@@ -1257,11 +1328,15 @@ Operation not permitted. Authentication required.
 
 =item E_OPRN_ERROR
 
-Operation error, usually returned by the Redis server.
+Operation error. Usually returned by the Redis server.
 
 =item E_UNEXPECTED_DATA
 
 Client received unexpected data from server.
+
+=item E_NO_SCRIPT
+
+No matching script. Use C<EVAL> command.
 
 =back
 

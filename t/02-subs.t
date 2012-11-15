@@ -18,9 +18,6 @@ my $redis = $T_CLASS->new(
   lazy => 1,
 );
 
-# Authenticate
-$redis->auth( 'test' );
-
 # Subscribe to channels by name
 my @t_sub_data;
 my @t_sub_msgs;
