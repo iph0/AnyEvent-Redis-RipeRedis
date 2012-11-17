@@ -944,6 +944,7 @@ feature
   $redis->set( 'foo', 'Some string', {
     on_done => sub {
       my $data = shift;
+
       print "$data\n";
       $cv->send();
     },
@@ -952,17 +953,7 @@ feature
       my $err_msg = shift;
       my $err_code = shift;
 
-      if (
-        $err_code == E_CANT_CONN
-          or $err_code == E_LOADING_DATASET
-          or $err_code == E_IO
-          or $err_code == E_CONN_CLOSED_BY_REMOTE_HOST
-          ) {
-        # Trying repeat operation
-      }
-      else {
-        $cv->croak( "$err_msg. Error code: $err_code" );
-      }
+      $cv->croak( "$err_msg. Error code: $err_code" );
     }
   } );
 
@@ -1008,6 +999,7 @@ Requires Redis 1.2 or higher, and any supported event loop.
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
+
       warn "$err_msg. Error code: $err_code\n";
     },
   );
@@ -1024,14 +1016,17 @@ Server port (default: 6379)
 
 =item password
 
-Authentication password. If it specified, then C<AUTH> command will be executed
-immediately after connection and after every reconnection.
+Authentication password. If it specified, then C<AUTH> command will be send
+immediately to the server after successfully connection and after every
+successfully reconnection.
 
 =item database
 
 Database index. If it set, then client will be switched to specified database
-immediately after connection and after every reconnection. Default database
-index is C<0>.
+immediately after successfully connection and after every successfully
+reconnection.
+
+Default database index is C<0>.
 
 =item connection_timeout
 
@@ -1056,18 +1051,18 @@ By default is TRUE.
 
 =item encoding
 
-Used to decode and encode strings during input/output operations. Not set by
+Used to encode an decode strings during input/output operations. Not set by
 default.
 
 =item on_connect => $cb->()
 
-Callback C<on_connect> is called, when connection is established. Not set by
-default.
+Callback C<on_connect> is called, when connection is successfully established.
+Not set by default.
 
 =item on_disconnect => $cb->()
 
-Callback C<on_disconnect> is called, when connection is closed. Not set by
-default.
+Callback C<on_disconnect> is called, when connection is closed by any reason.
+Not set by default.
 
 =item on_connect_error => $cb->( $err_msg )
 
@@ -1077,8 +1072,8 @@ called.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-Callback C<on_error> is called, when any error occurred. If callback is no set
-just prints error message to C<STDERR>.
+Callback C<on_error> is called, when any error occurred. If callback is no set,
+client just print error message to C<STDERR>.
 
 =back
 
@@ -1093,6 +1088,7 @@ just prints error message to C<STDERR>.
   $redis->incr( 'bar', {
     on_done => sub {
       my $data = shift;
+
       print "$data\n";
     },
   } );
@@ -1101,6 +1097,7 @@ just prints error message to C<STDERR>.
   $redis->lrange( 'list', 0, -1, {
     on_done => sub {
       my $data = shift;
+
       foreach my $val ( @{ $data } ) {
         print "$val\n";
       }
@@ -1109,6 +1106,7 @@ just prints error message to C<STDERR>.
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
+
       $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
@@ -1117,9 +1115,9 @@ Full list of Redis commands can be found here: L<http://redis.io/commands>
 
 =over
 
-=item on_done => $cb->( $data )
+=item on_done => $cb->( [ $data ] )
 
-Callback C<on_done> is called, when command handling is done.
+Callback C<on_done> is called, when response successfully received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
@@ -1137,13 +1135,22 @@ Subscribe to channels by name.
     on_done =>  sub {
       my $ch_name = shift;
       my $subs_num = shift;
+
       print "Subscribed: $ch_name. Active: $subs_num\n";
     },
 
     on_message => sub {
       my $ch_name = shift;
       my $msg = shift;
+
       print "$ch_name: $msg\n";
+    },
+
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+
+      $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
 
@@ -1155,7 +1162,7 @@ Callback C<on_done> is called, when subscription is done.
 
 =item on_message => $cb->( $ch_name, $msg )
 
-Callback C<on_message> is called, when published message is received.
+Callback C<on_message> is called, when published message is successfully received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
@@ -1171,6 +1178,7 @@ Subscribe to group of channels by pattern.
     on_done =>  sub {
       my $ch_pattern = shift;
       my $subs_num = shift;
+
       print "Subscribed: $ch_pattern. Active: $subs_num\n";
     },
 
@@ -1178,12 +1186,15 @@ Subscribe to group of channels by pattern.
       my $ch_name = shift;
       my $msg = shift;
       my $ch_pattern = shift;
+
       print "$ch_name ($ch_pattern): $msg\n";
     },
 
     on_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+      my $err_code = shift;
+
+      $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
 
@@ -1195,7 +1206,7 @@ Callback C<on_done> is called, when subscription is done.
 
 =item on_message => $cb->( $ch_name, $msg, $ch_pattern )
 
-Callback C<on_message> is called, when published message is received.
+Callback C<on_message> is called, when published message is successfully received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
@@ -1212,12 +1223,15 @@ Unsubscribe from channels by name.
     on_done => sub {
       my $ch_name = shift;
       my $subs_num = shift;
+
       print "Unsubscribed: $ch_name. Active: $subs_num\n";
     },
 
     on_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+      my $err_code = shift;
+
+      $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
 
@@ -1246,7 +1260,9 @@ Unsubscribe from group of channels by pattern.
 
     on_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+      my $err_code = shift;
+
+      $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
 
@@ -1284,8 +1300,8 @@ or you can use special method C<eval_cached()>.
 
 When you call C<eval_cached()> method, client first evaluate SHA1 hash for the
 Lua script and cache it in memory. Then client optimistically send C<EVALSHA>
-command under the hood to Redis server. If C<NO_SCRIPT> error will be returned,
-client send C<EVAL> command.
+command under the hood. If C<NO_SCRIPT> error will be returned, client send
+C<EVAL> command.
 
 If you call C<eval_cached()> method with the same Lua script, client get SHA1
 hash for this script from cache and don't evaluate it repeatedly.
@@ -1338,13 +1354,13 @@ Connection closed by remote host.
 
 Connection closed unexpectedly by client.
 
-Error occur if at time of disconnection in client queue were uncompleted commands.
+Error occur, if at time of disconnection in client queue were uncompleted commands.
 
 =item E_NO_CONN
 
 No connection to the server.
 
-Error occur if at time of command execution connection has been closed by any
+Error occur, if at time of command execution connection has been closed by any
 reason and parameter C<reconnect> was set to FALSE.
 
 =item E_INVALID_PASS
