@@ -1276,7 +1276,19 @@ the parameter C<port> you have to specify the path to the socket.
 
 =head1 LUA SCRIPTS EXECUTION
 
+Redis 2.6 and higher support execution of the Lua scripts on the server side.
+To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
+or you can use special method C<eval_cached()>.
+
 =head2 eval_cached( $script, $numkeys[, [ @keys, ] [ @args, ] \%params ] );
+
+When you call C<eval_cached()> method, client first evaluate SHA1 hash for the
+Lua script and cache it in memory. Then client optimistically send C<EVALSHA>
+command under the hood to Redis server. If C<NO_SCRIPT> error will be returned,
+client send C<EVAL> command.
+
+If you call C<eval_cached()> method with the same Lua script, client get SHA1
+hash for this script from cache and don't evaluate it repeatedly.
 
   $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
       2, 'key1', 'key2', 'first', 'second', {
