@@ -99,12 +99,10 @@ $unsub_timer = AnyEvent->timer(
           ch_pattern => $ch_pattern,
           subs_num => $subs_num,
         } );
-      },
-    } );
 
-    $redis->quit( {
-      on_done => sub {
-        $cv->send();
+        if ( $subs_num == 0 ) {
+          $cv->send();
+        }
       },
     } );
   }
@@ -179,3 +177,5 @@ is_deeply( \@t_punsub_data, [
     subs_num => 0,
   },
 ], 'punsubscribe' );
+
+$redis->disconnect();

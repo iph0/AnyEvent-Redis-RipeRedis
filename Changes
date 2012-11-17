@@ -1,5 +1,13 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.200 Wed Oct 17 21:10:10 2012
+  - Implemented new method eval_cached()
+  - Added new error code NO_SCRIPT.
+  - Many internal changes.
+  - Unit-tests improved.
+  - Fixes in POD.
+  - Added new example script eval.pl
+
 1.115 Wed Oct 31 18:51:50 2012
   - Slight fixes in POD.
 

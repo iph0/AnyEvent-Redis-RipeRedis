@@ -28,42 +28,18 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   },
 );
 
-# Set value
-$redis->set( 'bar', 'Some string', {
+# Execute Lua script
+$redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
+    2, 'key1', 'key2', 'first', 'second', {
   on_done => sub {
     my $data = shift;
-    print "$data\n";
-  },
-} );
-
-# Get value (Lua script)
-my $script = <<LUA
-  local data = redis.call( "get", KEYS[1] )
-  return data
-LUA
-;
-$redis->eval_cached( $script, 1, "bar", {
-  on_done => sub {
-    my $data = shift;
-    print "$data\n";
-
-    # Delete key
-    $redis->del( qw( bar ), {
-      on_done => sub {
-        my $data = shift;
-        print "$data\n";
-      }
-    } );
-
-    # Disconnect
-    $redis->quit( {
-      on_done => sub {
-        my $data = shift;
-        print "$data\n";
-        $cv->send();
-      }
-    } );
-  },
+    foreach my $val ( @{ $data } ) {
+      print "$val\n";
+    }
+    $cv->send();
+  }
 } );
 
 $cv->recv();
+
+$redis->disconnect();
