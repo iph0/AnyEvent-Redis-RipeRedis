@@ -10,6 +10,7 @@ WriteMakefile(
     'AnyEvent' => 0,
     'Encode' => 0,
     'Scalar::Util' => 0,
+    'Digest::SHA1' => 0,
     'Carp' => 0,
     'Test::More' => 0,
     'Test::MockObject' => 0,
