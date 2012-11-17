@@ -41,17 +41,6 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
     } );
   },
 } );
-$redis->subscribe( 'ch_test', {
-  on_done =>  sub {
-    my $ch_name = shift;
-    my $subs_num = shift;
-
-    push( @t_sub_data, {
-      ch_name => $ch_name,
-      subs_num => $subs_num,
-    } )
-  },
-} );
 
 # Subscribe to channels by pattern
 my @t_psub_data;
@@ -132,10 +121,6 @@ is_deeply( \@t_sub_data, [
     ch_name => 'ch_bar',
     subs_num => 2,
   },
-  {
-    ch_name => 'ch_test',
-    subs_num => 3,
-  },
 ], 'subscribe' );
 
 is_deeply( \@t_sub_msgs, [
@@ -152,22 +137,22 @@ is_deeply( \@t_sub_msgs, [
 is_deeply( \@t_unsub_data, [
   {
     ch_name => 'ch_foo',
-    subs_num => 4,
+    subs_num => 3,
   },
   {
     ch_name => 'ch_bar',
-    subs_num => 3,
+    subs_num => 2,
   },
 ], 'unsubscribe' );
 
 is_deeply( \@t_psub_data, [
   {
     ch_pattern => 'info_*',
-    subs_num => 4,
+    subs_num => 3,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 5,
+    subs_num => 4,
   }
 ], 'psubscribe' );
 
@@ -187,10 +172,10 @@ is_deeply( \@t_psub_msgs, [
 is_deeply( \@t_punsub_data, [
   {
     ch_pattern => 'info_*',
-    subs_num => 2,
+    subs_num => 1,
   },
   {
     ch_pattern => 'err_*',
-    subs_num => 1,
+    subs_num => 0,
   },
 ], 'punsubscribe' );

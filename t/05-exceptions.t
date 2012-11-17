@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 9;
+use Test::More tests => 11;
 use Test::AnyEvent::RedisHandle;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
@@ -35,7 +35,6 @@ sub t_conn_timeout {
     chomp( $@ );
     $t_except = $@;
   }
-
   ok( $t_except =~ m/^Connection timeout must be a positive number/o,
       'Invalid connection timeout (character string)' );
 
@@ -49,7 +48,6 @@ sub t_conn_timeout {
     chomp( $@ );
     $t_except = $@;
   }
-
   ok( $t_except =~ m/^Connection timeout must be a positive number/o,
       'Invalid connection timeout (negative number)' );
 
@@ -135,10 +133,11 @@ sub t_on_error {
 
 ####
 sub t_on_done {
+  my $redis = $T_CLASS->new();
+
   eval {
-    my $redis = $T_CLASS->new();
     $redis->incr( 'foo', {
-      on_done => {},
+      on_done => 'invalid',
     } );
   };
   my $t_except;
@@ -155,8 +154,9 @@ sub t_on_done {
 
 # Invalid "on_error"
 sub t_cmd_on_error {
+  my $redis = $T_CLASS->new();
+
   eval {
-    my $redis = $T_CLASS->new();
     $redis->incr( 'foo', {
       on_error => [],
     } );
@@ -175,22 +175,43 @@ sub t_cmd_on_error {
 
 ####
 sub t_on_message {
-  eval {
-    my $redis = $T_CLASS->new(
-      password => [], # Invalid password must be ignored
-    );
-    $redis->subscribe( 'channel', {
-      on_message => 'invalid',
-    } );
-  };
+  my $redis = $T_CLASS->new();
+
   my $t_except;
+
+  eval {
+    $redis->subscribe( 'channel' );
+  };
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
   }
+  ok( $t_except =~ m/^'on_message' callback must be specified/o,
+      "'on_message' callback not specified" );
 
+  eval {
+    $redis->subscribe( 'channel', {
+      on_message => 'invalid',
+    } );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_except = $@;
+  }
   ok( $t_except =~ m/^'on_message' callback must be a code reference/o,
-      "Invalid 'on_message' callback" );
+      "Invalid 'on_message' callback (scalar)" );
+
+  eval {
+    $redis->subscribe( 'channel', {
+      on_message => {},
+    } );
+  };
+  if ( $@ ) {
+    chomp( $@ );
+    $t_except = $@;
+  }
+  ok( $t_except =~ m/^'on_message' callback must be a code reference/o,
+      "Invalid 'on_message' callback (hash reference)" );
 
   return;
 }

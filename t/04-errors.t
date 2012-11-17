@@ -307,6 +307,9 @@ sub t_sub_after_multi {
   my $t_err_msg;
   my $t_err_code;
   $redis->subscribe( 'channel', {
+    on_message => sub {
+      my $msg = shift;
+    },
     on_error => sub {
       $t_err_msg = shift;
       $t_err_code = shift;

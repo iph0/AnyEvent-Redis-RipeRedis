@@ -126,6 +126,28 @@ sub new {
 }
 
 ####
+sub eval_cached {
+  my __PACKAGE__ $self = shift;
+  my @args = @_;
+
+  my $cmd = {};
+  if ( ref( $args[-1] ) eq 'HASH' ) {
+    $cmd = pop( @args );
+  }
+  $cmd->{name} = 'evalsha';
+  $cmd->{args} = \@args;
+  $cmd->{script} = $args[0];
+  if ( !exists( $EVAL_CACHE{$cmd->{script}} ) ) {
+    $EVAL_CACHE{$cmd->{script}} = sha1_hex( $cmd->{script} );
+  }
+  $args[0] = $EVAL_CACHE{$cmd->{script}};
+
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
 sub disconnect {
   my __PACKAGE__ $self = shift;
 
@@ -330,6 +352,205 @@ sub _process_error {
 }
 
 ####
+sub _execute_cmd {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+
+  if ( exists( $SUB_UNSUB_CMDS{$cmd->{name}} ) ) {
+    if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
+      $cmd = $self->_validate_sub_params( $cmd );
+    }
+    if ( $self->{_sub_lock} ) {
+      $self->_async_call(
+        sub {
+          $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi'"
+              . ' command. First, the transaction must be completed',
+              E_OPRN_ERROR );
+        }
+      );
+
+      return;
+    }
+    $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
+  }
+  else {
+    $cmd = $self->_validate_cmd_params( $cmd );
+
+    if ( $cmd->{name} eq 'multi' ) {
+      $self->{_sub_lock} = 1;
+    }
+    elsif ( $cmd->{name} eq 'exec' ) {
+      $self->{_sub_lock} = 0;
+    }
+  }
+
+  if ( !defined( $self->{_handle} ) ) {
+    if ( $self->{reconnect} ) {
+      $self->_connect();
+    }
+    else {
+      $self->_async_call(
+        sub {
+          $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
+              . ' No connection to the server', E_NO_CONN );
+        }
+      );
+
+      return;
+    }
+  }
+  if ( $self->{_connected} ) {
+    if ( $self->{_auth_status} == S_IS_DONE ) {
+      if ( $self->{_db_select_status} == S_IS_DONE ) {
+        $self->_push_write( $cmd );
+      }
+      else {
+        if ( $self->{_db_select_status} == S_NEED_PERFORM ) {
+          $self->_select_db();
+        }
+        push( @{$self->{_buffer}}, $cmd );
+      }
+    }
+    else {
+      if ( $self->{_auth_status} == S_NEED_PERFORM ) {
+        $self->_auth();
+      }
+      push( @{$self->{_buffer}}, $cmd );
+    }
+  }
+  else {
+    push( @{$self->{_buffer}}, $cmd );
+  }
+
+  return;
+}
+
+####
+sub _validate_cmd_params {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+
+  foreach my $name ( qw( on_done on_error ) ) {
+    if (
+      defined( $cmd->{$name} )
+        and ( !ref( $cmd->{$name} ) or ref( $cmd->{$name} ) ne 'CODE' )
+        ) {
+      confess "'$name' callback must be a code reference";
+    }
+  }
+
+  if ( !defined( $cmd->{on_error} ) ) {
+    $cmd->{on_error} = $self->{on_error};
+  }
+
+  return $cmd;
+}
+
+####
+sub _validate_sub_params {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+
+  $cmd = $self->_validate_cmd_params( $cmd );
+
+  if ( !defined( $cmd->{on_message} ) ) {
+    confess "'on_message' callback must be specified";
+  }
+  elsif (
+    !ref( $cmd->{on_message} )
+      or ref( $cmd->{on_message} ) ne 'CODE'
+      ) {
+    confess "'on_message' callback must be a code reference";
+  }
+
+  return $cmd;
+}
+
+####
+sub _auth {
+  my __PACKAGE__ $self = shift;
+  weaken( $self );
+
+  $self->{_auth_status} = S_IN_PROGRESS;
+  $self->_push_write( {
+    name => 'auth',
+    args => [ $self->{password} ],
+    on_done => sub {
+      $self->{_auth_status} = S_IS_DONE;
+      if ( $self->{_db_select_status} == S_NEED_PERFORM ) {
+        $self->_select_db();
+      }
+      else {
+        $self->_flush_buffer();
+      }
+    },
+
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+
+      $self->{_auth_status} = S_NEED_PERFORM;
+      $self->_abort_all( $err_msg, $err_code );
+      $self->{on_error}->( $err_msg, $err_code );
+    },
+  } );
+
+  return;
+}
+
+####
+sub _select_db {
+  my __PACKAGE__ $self = shift;
+  weaken( $self );
+
+  $self->{_db_select_status} = S_IN_PROGRESS;
+  $self->_push_write( {
+    name => 'select',
+    args => [ $self->{database} ],
+    on_done => sub {
+      $self->{_db_select_status} = S_IS_DONE;
+      $self->_flush_buffer();
+    },
+
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+
+      $self->{_db_select_status} = S_NEED_PERFORM;
+      $self->_abort_all( $err_msg, $err_code );
+      $self->{on_error}->( $err_msg, $err_code );
+    },
+  } );
+
+  return;
+}
+
+####
+sub _push_write {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+
+  my $cmd_str = '';
+  my $mbulk_len = 0;
+  foreach my $token ( $cmd->{name}, @{$cmd->{args}} ) {
+    if ( defined( $token ) and $token ne '' ) {
+      if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
+        $token = $self->{encoding}->encode( $token );
+      }
+      my $token_len = length( $token );
+      $cmd_str .= "\$$token_len" . EOL . $token . EOL;
+      $mbulk_len++;
+    }
+  }
+  $cmd_str = "*$mbulk_len" . EOL . $cmd_str;
+
+  push( @{$self->{_processing_queue}}, $cmd );
+  $self->{_handle}->push_write( $cmd_str );
+
+  return;
+}
+
+####
 sub _on_read {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
@@ -503,14 +724,12 @@ sub _process_pub_message {
   my $data = shift;
 
   if ( exists( $self->{_subs}{$data->[1]} ) ) {
-    my $sub = $self->{_subs}{$data->[1]};
-    if ( exists( $sub->{on_message} ) ) {
-      if ( $data->[0] eq 'message' ) {
-        $sub->{on_message}->( $data->[1], $data->[2] );
-      }
-      else {
-        $sub->{on_message}->( $data->[2], $data->[3], $data->[1] );
-      }
+    my $msg_cb = $self->{_subs}{$data->[1]};
+    if ( $data->[0] eq 'message' ) {
+      $msg_cb->( $data->[1], $data->[2] );
+    }
+    else {
+      $msg_cb->( $data->[2], $data->[3], $data->[1] );
     }
   }
   else {
@@ -534,7 +753,7 @@ sub _process_cmd_error {
       if ( exists( $cmd->{script} ) ) {
         $cmd->{name} = 'eval';
         $cmd->{args}[0] = $cmd->{script};
-        $self->_push_to_handle( $cmd );
+        $self->_push_write( $cmd );
 
         return;
       }
@@ -567,28 +786,23 @@ sub _process_sub_action {
   my $cmd = shift;
   my $data = shift;
 
-  if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
-    my $sub = {};
-    if ( defined( $cmd->{on_done} ) ) {
-      $sub->{on_done} = $cmd->{on_done};
-      $sub->{on_done}->( $data->[1], $data->[2] );
-    }
-    if ( defined( $cmd->{on_message} ) ) {
-      $sub->{on_message} = $cmd->{on_message};
-    }
-    $self->{_subs}{$data->[1]} = $sub;
+  if ( --$cmd->{resp_remaining} == 0 ) {
+    shift( @{$self->{_processing_queue}} );
   }
-  else {
+
+  if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
+    $self->{_subs}{$data->[1]} = $cmd->{on_message};
     if ( defined( $cmd->{on_done} ) ) {
       $cmd->{on_done}->( $data->[1], $data->[2] );
     }
+  }
+  else {
     if ( exists( $self->{_subs}{$data->[1]} ) ) {
       delete( $self->{_subs}{$data->[1]} );
     }
-  }
-
-  if ( --$cmd->{resp_remaining} == 0 ) {
-    shift( @{$self->{_processing_queue}} );
+    if ( defined( $cmd->{on_done} ) ) {
+      $cmd->{on_done}->( $data->[1], $data->[2] );
+    }
   }
 
   return;
@@ -603,223 +817,14 @@ sub _is_pub_message {
 }
 
 ####
-sub _exec_command {
-  my __PACKAGE__ $self = shift;
-  my $cmd_name = shift;
-  my @args = @_;
-  my $params = {};
-  if ( ref( $args[-1] ) eq 'HASH' ) {
-    $params = pop( @args );
-  }
-
-  $params = $self->_validate_common_cbs( $params );
-
-  my $cmd = {
-    name => $cmd_name,
-    args => \@args,
-    on_done => $params->{on_done},
-    on_error => $params->{on_error},
-  };
-
-  if ( $cmd_name eq 'eval_cached' ) {
-    $cmd->{name} = 'evalsha';
-    my $script = $args[0];
-    $cmd->{script} = $script;
-    if ( !exists( $EVAL_CACHE{$script} ) ) {
-      $EVAL_CACHE{$script} = sha1_hex( $script );
-    }
-    $cmd->{args}[0] = $EVAL_CACHE{$script};
-  }
-  else {
-    if ( exists( $SUB_UNSUB_CMDS{$cmd_name} ) ) {
-      if ( exists( $SUB_CMDS{$cmd_name} ) ) {
-        $cmd->{on_message} = $self->_validate_message_cb( $params->{on_message} );
-      }
-      if ( $self->{_sub_lock} ) {
-        $self->_async_call(
-          sub {
-            $cmd->{on_error}->( "Command '$cmd_name' not allowed after 'multi' command."
-                . ' First, the transaction must be completed', E_OPRN_ERROR );
-          }
-        );
-
-        return;
-      }
-      $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
-    }
-    elsif ( $cmd_name eq 'multi' ) {
-      $self->{_sub_lock} = 1;
-    }
-    elsif ( $cmd_name eq 'exec' ) {
-      $self->{_sub_lock} = 0;
-    }
-  }
-
-  if ( !defined( $self->{_handle} ) ) {
-    if ( $self->{reconnect} ) {
-      $self->_connect();
-    }
-    else {
-      $self->_async_call(
-        sub {
-          $cmd->{on_error}->( "Can't handle the command '$cmd_name'."
-              . ' No connection to the server', E_NO_CONN );
-        }
-      );
-
-      return;
-    }
-  }
-  if ( $self->{_connected} ) {
-    if ( $self->{_auth_status} == S_IS_DONE ) {
-      if ( $self->{_db_select_status} == S_IS_DONE ) {
-        $self->_push_to_handle( $cmd );
-      }
-      else {
-        if ( $self->{_db_select_status} == S_NEED_PERFORM ) {
-          $self->_select_db();
-        }
-        push( @{$self->{_buffer}}, $cmd );
-      }
-    }
-    else {
-      if ( $self->{_auth_status} == S_NEED_PERFORM ) {
-        $self->_auth();
-      }
-      push( @{$self->{_buffer}}, $cmd );
-    }
-  }
-  else {
-    push( @{$self->{_buffer}}, $cmd );
-  }
-
-  return;
-}
-
-####
-sub _validate_common_cbs {
-  my __PACKAGE__ $self = shift;
-  my $params = shift;
-
-  foreach my $name ( qw( on_done on_error ) ) {
-    if (
-      defined( $params->{$name} )
-        and ( !ref( $params->{$name} ) or ref( $params->{$name} ) ne 'CODE' )
-        ) {
-      confess "'$name' callback must be a code reference";
-    }
-  }
-
-  if ( !defined( $params->{on_error} ) ) {
-    $params->{on_error} = $self->{on_error};
-  }
-
-  return $params;
-}
-
-####
-sub _validate_message_cb {
-  my $cb = pop;
-
-  if ( defined( $cb ) and ( !ref( $cb ) or ref( $cb ) ne 'CODE' ) ) {
-    confess "'on_message' callback must be a code reference";
-  }
-
-  return $cb;
-}
-
-####
-sub _auth {
-  my __PACKAGE__ $self = shift;
-  weaken( $self );
-
-  $self->{_auth_status} = S_IN_PROGRESS;
-  $self->_push_to_handle( {
-    name => 'auth',
-    args => [ $self->{password} ],
-    on_done => sub {
-      $self->{_auth_status} = S_IS_DONE;
-      if ( $self->{_db_select_status} == S_NEED_PERFORM ) {
-        $self->_select_db();
-      }
-      else {
-        $self->_flush_buffer();
-      }
-    },
-
-    on_error => sub {
-      my $err_msg = shift;
-      my $err_code = shift;
-
-      $self->{_auth_status} = S_NEED_PERFORM;
-      $self->_abort_all( $err_msg, $err_code );
-      $self->{on_error}->( $err_msg, $err_code );
-    },
-  } );
-
-  return;
-}
-
-####
-sub _select_db {
-  my __PACKAGE__ $self = shift;
-  weaken( $self );
-
-  $self->{_db_select_status} = S_IN_PROGRESS;
-  $self->_push_to_handle( {
-    name => 'select',
-    args => [ $self->{database} ],
-    on_done => sub {
-      $self->{_db_select_status} = S_IS_DONE;
-      $self->_flush_buffer();
-    },
-
-    on_error => sub {
-      my $err_msg = shift;
-      my $err_code = shift;
-
-      $self->{_db_select_status} = S_NEED_PERFORM;
-      $self->_abort_all( $err_msg, $err_code );
-      $self->{on_error}->( $err_msg, $err_code );
-    },
-  } );
-
-  return;
-}
-
-####
 sub _flush_buffer {
   my __PACKAGE__ $self = shift;
 
   my @commands = @{$self->{_buffer}};
   $self->{_buffer} = [];
   foreach my $cmd ( @commands ) {
-    $self->_push_to_handle( $cmd );
+    $self->_push_write( $cmd );
   }
-
-  return;
-}
-
-####
-sub _push_to_handle {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
-
-  push( @{$self->{_processing_queue}}, $cmd );
-  my $cmd_str = '';
-  my $mbulk_len = 0;
-  foreach my $token ( $cmd->{name}, @{$cmd->{args}} ) {
-    if ( defined( $token ) and $token ne '' ) {
-      if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
-        $token = $self->{encoding}->encode( $token );
-      }
-      my $token_len = length( $token );
-      $cmd_str .= "\$$token_len" . EOL . $token . EOL;
-      ++$mbulk_len;
-    }
-  }
-  $cmd_str = "*$mbulk_len" . EOL . $cmd_str;
-  $self->{_handle}->push_write( $cmd_str );
 
   return;
 }
@@ -874,7 +879,18 @@ sub AUTOLOAD {
 
   my $sub = sub {
     my __PACKAGE__ $self = shift;
-    $self->_exec_command( $cmd_name, @_ );
+    my @args = @_;
+
+    my $cmd = {};
+    if ( ref( $args[-1] ) eq 'HASH' ) {
+      $cmd = pop( @args );
+    }
+    $cmd->{name} = $cmd_name,
+    $cmd->{args} = \@args,
+
+    $self->_execute_cmd( $cmd );
+
+    return;
   };
 
   do {
@@ -1258,6 +1274,20 @@ the parameter C<port> you have to specify the path to the socket.
     port => '/tmp/redis.sock',
   );
 
+=head1 LUA SCRIPTS EXECUTION
+
+=head2 eval_cached( $script, $numkeys[, [ @keys, ] [ @args, ] \%params ] );
+
+  $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
+      2, 'key1', 'key2', 'first', 'second', {
+    on_done => sub {
+      my $data = shift;
+      foreach my $val ( @{ $data } ) {
+        print "$val\n";
+      }
+    }
+  } );
+
 =head1 ERROR CODES
 
 Error codes can be used for programmatic handling of errors.
@@ -1347,7 +1377,7 @@ Method for synchronous disconnection.
 
 =head1 SEE ALSO
 
-L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>
+L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>, L<Redis::hiredis>, L<RedisDB>
 
 =head1 AUTHOR
 
