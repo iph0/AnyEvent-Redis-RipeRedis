@@ -28,7 +28,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.200';
+our $VERSION = '1.201';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -936,6 +936,7 @@ feature
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
+
       warn "$err_msg. Error code: $err_code\n";
     },
   );
@@ -1255,6 +1256,7 @@ Unsubscribe from group of channels by pattern.
     on_done => sub {
       my $ch_pattern = shift;
       my $subs_num = shift;
+
       print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
     },
 
@@ -1298,18 +1300,19 @@ or you can use special method C<eval_cached()>.
 
 =head2 eval_cached( $script, $numkeys[, [ @keys, ] [ @args, ] \%params ] );
 
-When you call C<eval_cached()> method, client first evaluate SHA1 hash for the
+When you call C<eval_cached()> method, client first generate SHA1 hash for the
 Lua script and cache it in memory. Then client optimistically send C<EVALSHA>
 command under the hood. If C<NO_SCRIPT> error will be returned, client send
 C<EVAL> command.
 
-If you call C<eval_cached()> method with the same Lua script, client get SHA1
-hash for this script from cache and don't evaluate it repeatedly.
+If you call C<eval_cached()> method with the same Lua script, client don't
+generate SHA1 hash for this script repeatedly, it gets hash from cache.
 
   $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
       2, 'key1', 'key2', 'first', 'second', {
     on_done => sub {
       my $data = shift;
+
       foreach my $val ( @{ $data } ) {
         print "$val\n";
       }
