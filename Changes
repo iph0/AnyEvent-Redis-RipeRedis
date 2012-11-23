@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.203 Fri Nov 23 11:17:00 2012
+  - Internal method _async_call() replaced by AE::postpone() function.
+
 1.202 Fri Nov 23 11:17:00 2012
   - [BUGFIX] Now, lazy connection works correctly if the parameter 'reconnect' is false.
   - Unit-tests improved.

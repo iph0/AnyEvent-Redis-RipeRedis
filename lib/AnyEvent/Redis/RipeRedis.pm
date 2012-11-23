@@ -29,8 +29,9 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.202';
+our $VERSION = '1.203';
 
+use AnyEvent;
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number weaken );
@@ -370,7 +371,7 @@ sub _execute_cmd {
       $cmd = $self->_validate_cmd_params( $cmd );
     }
     if ( $self->{_sub_lock} ) {
-      $self->_async_call(
+      AE::postpone(
         sub {
           $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi'"
               . ' command. First, the transaction must be completed',
@@ -398,7 +399,7 @@ sub _execute_cmd {
       $self->_connect();
     }
     else {
-      $self->_async_call(
+      AE::postpone(
         sub {
           $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
               . ' No connection to the server', E_NO_CONN );
@@ -858,23 +859,6 @@ sub _abort_all {
   foreach my $cmd ( @commands ) {
     $cmd->{on_error}->( "Command '$cmd->{name}' aborted: $err_msg", $err_code );
   }
-
-  return;
-}
-
-####
-sub _async_call {
-  my __PACKAGE__$self = shift;
-  my $cb = shift;
-
-  my $timer;
-  $timer = AnyEvent->timer(
-    after => 0,
-    cb => sub {
-      undef( $timer );
-      $cb->();
-    },
-  );
 
   return;
 }
