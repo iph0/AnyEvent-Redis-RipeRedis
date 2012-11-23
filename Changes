@@ -1,9 +1,14 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.201 Mon Oct 19 11:05:55 2012
+1.202 Fri Nov 23 11:17:00 2012
+  - [BUGFIX] Now, lazy connection works correctly if the parameter 'reconnect' is false.
+  - Unit-tests improved.
+  - Slight internal changes
+
+1.201 Mon Nov 19 11:05:55 2012
   - Fixes in POD
 
-1.200 Sat Oct 17 21:10:10 2012
+1.200 Sat Nov 17 21:10:10 2012
   - Implemented new method eval_cached()
   - Added new error code NO_SCRIPT.
   - Many internal changes.

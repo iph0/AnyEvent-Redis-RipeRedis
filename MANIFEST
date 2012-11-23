@@ -10,10 +10,11 @@ README
 t/01-base.t
 t/02-subs.t
 t/03-eval-cached.t
-t/04-errors.t
-t/05-exceptions.t
-t/06-pod.t
-t/07-pod-coverage.t
+t/04-lazy-conn.t
+t/05-errors.t
+t/06-exceptions.t
+t/07-pod.t
+t/08-pod-coverage.t
 t/tlib/Test/AnyEvent/EVLoop.pm
 t/tlib/Test/AnyEvent/RedisEmulator.pm
 t/tlib/Test/AnyEvent/RedisHandle.pm

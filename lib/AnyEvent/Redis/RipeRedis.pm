@@ -20,15 +20,16 @@ use fields qw(
 
   _handle
   _connected
-  _auth_status
-  _db_select_status
+  _lazy_conn_st
+  _auth_st
+  _db_select_st
   _buffer
   _processing_queue
   _sub_lock
   _subs
 );
 
-our $VERSION = '1.201';
+our $VERSION = '1.202';
 
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
@@ -111,14 +112,15 @@ sub new {
 
   $self->{_handle} = undef;
   $self->{_connected} = 0;
-  $self->{_auth_status} = S_NEED_PERFORM;
-  $self->{_db_select_status} = S_NEED_PERFORM;
+  $self->{_lazy_conn_st} = $params->{lazy};
+  $self->{_auth_st} = S_NEED_PERFORM;
+  $self->{_db_select_st} = S_NEED_PERFORM;
   $self->{_buffer} = [];
   $self->{_processing_queue} = [];
   $self->{_sub_lock} = 0;
   $self->{_subs} = {};
 
-  if ( !$params->{lazy} ) {
+  if ( !$self->{_lazy_conn_st} ) {
     $self->_connect();
   }
 
@@ -158,8 +160,8 @@ sub disconnect {
   my $was_connected = $self->{_connected};
   if ( $was_connected ) {
     $self->{_connected} = 0;
-    $self->{_auth_status} = S_NEED_PERFORM;
-    $self->{_db_select_status} = S_NEED_PERFORM;
+    $self->{_auth_st} = S_NEED_PERFORM;
+    $self->{_db_select_st} = S_NEED_PERFORM;
   }
   $self->_abort_all( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT );
   if ( $was_connected and defined( $self->{on_disconnect} ) ) {
@@ -221,6 +223,10 @@ sub _validate_new_params {
 sub _connect {
   my __PACKAGE__ $self = shift;
 
+  if ( $self->{_lazy_conn_st} ) {
+    $self->{_lazy_conn_st} = 0;
+  }
+
   weaken( $self );
 
   $self->{_handle} = AnyEvent::Handle->new(
@@ -264,16 +270,16 @@ sub _on_connect {
   return sub {
     $self->{_connected} = 1;
     if ( !defined( $self->{password} ) ) {
-      $self->{_auth_status} = S_IS_DONE;
+      $self->{_auth_st} = S_IS_DONE;
     }
     if ( !defined( $self->{database} ) ) {
-      $self->{_db_select_status} = S_IS_DONE;
+      $self->{_db_select_st} = S_IS_DONE;
     }
 
-    if ( $self->{_auth_status} == S_NEED_PERFORM ) {
+    if ( $self->{_auth_st} == S_NEED_PERFORM ) {
       $self->_auth();
     }
-    elsif ( $self->{_db_select_status} == S_NEED_PERFORM ) {
+    elsif ( $self->{_db_select_st} == S_NEED_PERFORM ) {
       $self->_select_db();
     }
     else {
@@ -340,8 +346,8 @@ sub _process_error {
   $self->{_handle}->destroy();
   undef( $self->{_handle} );
   $self->{_connected} = 0;
-  $self->{_auth_status} = S_NEED_PERFORM;
-  $self->{_db_select_status} = S_NEED_PERFORM;
+  $self->{_auth_st} = S_NEED_PERFORM;
+  $self->{_db_select_st} = S_NEED_PERFORM;
   $self->_abort_all( $err_msg, $err_code );
   $self->{on_error}->( $err_msg, $err_code );
   if ( defined( $self->{on_disconnect} ) ) {
@@ -359,6 +365,9 @@ sub _execute_cmd {
   if ( exists( $SUB_UNSUB_CMDS{$cmd->{name}} ) ) {
     if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
       $cmd = $self->_validate_sub_params( $cmd );
+    }
+    else {
+      $cmd = $self->_validate_cmd_params( $cmd );
     }
     if ( $self->{_sub_lock} ) {
       $self->_async_call(
@@ -385,7 +394,7 @@ sub _execute_cmd {
   }
 
   if ( !defined( $self->{_handle} ) ) {
-    if ( $self->{reconnect} ) {
+    if ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
       $self->_connect();
     }
     else {
@@ -400,19 +409,19 @@ sub _execute_cmd {
     }
   }
   if ( $self->{_connected} ) {
-    if ( $self->{_auth_status} == S_IS_DONE ) {
-      if ( $self->{_db_select_status} == S_IS_DONE ) {
+    if ( $self->{_auth_st} == S_IS_DONE ) {
+      if ( $self->{_db_select_st} == S_IS_DONE ) {
         $self->_push_write( $cmd );
       }
       else {
-        if ( $self->{_db_select_status} == S_NEED_PERFORM ) {
+        if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
           $self->_select_db();
         }
         push( @{$self->{_buffer}}, $cmd );
       }
     }
     else {
-      if ( $self->{_auth_status} == S_NEED_PERFORM ) {
+      if ( $self->{_auth_st} == S_NEED_PERFORM ) {
         $self->_auth();
       }
       push( @{$self->{_buffer}}, $cmd );
@@ -471,13 +480,13 @@ sub _auth {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
-  $self->{_auth_status} = S_IN_PROGRESS;
+  $self->{_auth_st} = S_IN_PROGRESS;
   $self->_push_write( {
     name => 'auth',
     args => [ $self->{password} ],
     on_done => sub {
-      $self->{_auth_status} = S_IS_DONE;
-      if ( $self->{_db_select_status} == S_NEED_PERFORM ) {
+      $self->{_auth_st} = S_IS_DONE;
+      if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
         $self->_select_db();
       }
       else {
@@ -489,7 +498,7 @@ sub _auth {
       my $err_msg = shift;
       my $err_code = shift;
 
-      $self->{_auth_status} = S_NEED_PERFORM;
+      $self->{_auth_st} = S_NEED_PERFORM;
       $self->_abort_all( $err_msg, $err_code );
       $self->{on_error}->( $err_msg, $err_code );
     },
@@ -503,12 +512,12 @@ sub _select_db {
   my __PACKAGE__ $self = shift;
   weaken( $self );
 
-  $self->{_db_select_status} = S_IN_PROGRESS;
+  $self->{_db_select_st} = S_IN_PROGRESS;
   $self->_push_write( {
     name => 'select',
     args => [ $self->{database} ],
     on_done => sub {
-      $self->{_db_select_status} = S_IS_DONE;
+      $self->{_db_select_st} = S_IS_DONE;
       $self->_flush_buffer();
     },
 
@@ -516,7 +525,7 @@ sub _select_db {
       my $err_msg = shift;
       my $err_code = shift;
 
-      $self->{_db_select_status} = S_NEED_PERFORM;
+      $self->{_db_select_st} = S_NEED_PERFORM;
       $self->_abort_all( $err_msg, $err_code );
       $self->{on_error}->( $err_msg, $err_code );
     },

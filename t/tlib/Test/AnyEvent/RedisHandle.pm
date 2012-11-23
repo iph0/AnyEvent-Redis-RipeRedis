@@ -43,8 +43,6 @@ $mock->fake_module(
       after => 0,
       cb => sub {
         $mock->_connect();
-
-        undef( $mock->{_start} );
       },
     );
 
@@ -86,7 +84,6 @@ $mock->mock( 'destroy', sub {
   $mock->{_read_queue} = [];
   undef( $mock->{_continue_read} );
   undef( $mock->{_curr_on_read} );
-  undef( $mock->{_start} );
   undef( $mock->{_process_timer} );
 
   return;

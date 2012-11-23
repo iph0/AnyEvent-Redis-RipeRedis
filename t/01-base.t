@@ -7,7 +7,6 @@ use lib 't/tlib';
 use Test::More tests => 28;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
-use AnyEvent;
 
 my $T_CLASS;
 
@@ -22,27 +21,34 @@ can_ok( $T_CLASS, 'AUTOLOAD' );
 can_ok( $T_CLASS, 'DESTROY' );
 
 # Connect
+my $REDIS;
 my $t_connected = 0;
 my $t_disconnected = 0;
-my $cv = AnyEvent->condvar();
-my $REDIS = new_ok( $T_CLASS, [
-  host => 'localhost',
-  port => '6379',
-  password => 'test',
-  database => 1,
-  connection_timeout => 5,
-  encoding => 'utf8',
 
-  on_connect => sub {
-    $t_connected = 1;
-    $cv->send();
-  },
+ev_loop(
+  sub {
+    my $cv = shift;
 
-  on_disconnect => sub {
-    $t_disconnected = 1;
+    $REDIS = new_ok( $T_CLASS, [
+      host => 'localhost',
+      port => '6379',
+      password => 'test',
+      database => 1,
+      connection_timeout => 5,
+      encoding => 'utf8',
+
+      on_connect => sub {
+        $t_connected = 1;
+        $cv->send();
+      },
+
+      on_disconnect => sub {
+        $t_disconnected = 1;
+      },
+    ] );
   },
-] );
-ev_loop( $cv );
+);
+
 ok( $t_connected, 'Connected' );
 
 t_ping();
@@ -63,14 +69,19 @@ t_error_codes();
 ####
 sub t_ping {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->ping( {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->ping( {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, 'PONG', 'ping (status reply)' );
 
@@ -80,14 +91,19 @@ sub t_ping {
 ####
 sub t_incr {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->incr( 'foo', {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->incr( 'foo', {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, 1, 'incr (numeric reply)' );
 
@@ -97,15 +113,20 @@ sub t_incr {
 ####
 sub t_set_get {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->set( 'bar', "Some\r\nstring" );
-  $REDIS->get( 'bar', {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->set( 'bar', "Some\r\nstring" );
+      $REDIS->get( 'bar', {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, "Some\r\nstring", 'get (bulk reply)' );
 
@@ -115,15 +136,20 @@ sub t_set_get {
 ####
 sub t_set_get_utf8 {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->set( 'ключ', 'Значение' );
-  $REDIS->get( 'ключ', {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->set( 'ключ', 'Значение' );
+      $REDIS->get( 'ключ', {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, 'Значение', 'set/get UTF-8 string' );
 
@@ -133,14 +159,19 @@ sub t_set_get_utf8 {
 ####
 sub t_get_non_existent {
   my $t_data = 'not_ubdef';
-  my $cv = AnyEvent->condvar();
-  $REDIS->get( 'non_existent', {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->get( 'non_existent', {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, undef, 'get (non existent key)' );
 
@@ -150,18 +181,23 @@ sub t_get_non_existent {
 ####
 sub t_lrange {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  for ( my $i = 2; $i <= 3; $i++ ) {
-    $REDIS->rpush( 'list', "element_$i" );
-  }
-  $REDIS->lpush( 'list', 'element_1' );
-  $REDIS->lrange( 'list', 0, -1, {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      for ( my $i = 2; $i <= 3; $i++ ) {
+        $REDIS->rpush( 'list', "element_$i" );
+      }
+      $REDIS->lpush( 'list', 'element_1' );
+      $REDIS->lrange( 'list', 0, -1, {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is_deeply( $t_data, [ qw(
     element_1
@@ -175,14 +211,19 @@ sub t_lrange {
 ####
 sub t_get_empty_list {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->lrange( 'non_existent', 0, -1, {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->lrange( 'non_existent', 0, -1, {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is_deeply( $t_data, [], 'lrange (empty list)' );
 
@@ -192,14 +233,19 @@ sub t_get_empty_list {
 ####
 sub t_mbulk_undef {
   my $t_data = 'not_undef';
-  my $cv = AnyEvent->condvar();
-  $REDIS->brpop( 'non_existent', '5', {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->brpop( 'non_existent', '5', {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, undef, 'brpop (multi-bulk undef)' );
 
@@ -209,20 +255,25 @@ sub t_mbulk_undef {
 ####
 sub t_transaction {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->multi();
-  $REDIS->incr( 'foo' );
-  $REDIS->lrange( 'list', 0, -1 );
-  $REDIS->lrange( 'non_existent', 0, -1 );
-  $REDIS->get( 'bar' );
-  $REDIS->lrange( 'list', 0, -1 );
-  $REDIS->exec( {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->multi();
+      $REDIS->incr( 'foo' );
+      $REDIS->lrange( 'list', 0, -1 );
+      $REDIS->lrange( 'non_existent', 0, -1 );
+      $REDIS->get( 'bar' );
+      $REDIS->lrange( 'list', 0, -1 );
+      $REDIS->exec( {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is_deeply( $t_data, [
     2,
@@ -246,14 +297,19 @@ sub t_transaction {
 ####
 sub t_quit {
   my $t_data;
-  my $cv = AnyEvent->condvar();
-  $REDIS->quit( {
-    on_done => sub {
-      $t_data = shift;
-      $cv->send();
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $REDIS->quit( {
+        on_done => sub {
+          $t_data = shift;
+          $cv->send();
+        },
+      } );
     },
-  } );
-  ev_loop( $cv );
+  );
 
   is( $t_data, 'OK', 'quit (status reply)' );
   ok( $t_disconnected, 'Disconnected' );
