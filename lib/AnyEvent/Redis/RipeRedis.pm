@@ -29,7 +29,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.203';
+our $VERSION = '1.204';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -239,7 +239,7 @@ sub _connect {
     on_error => $self->_on_error(),
     on_read => $self->_on_read(
       sub {
-        return $self->_prcoess_response( @_ );
+        return $self->_process_response( @_ );
       }
     ),
   );
@@ -683,7 +683,7 @@ sub _unshift_read {
 }
 
 ####
-sub _prcoess_response {
+sub _process_response {
   my __PACKAGE__ $self = shift;
   my $data = shift;
   my $is_err = shift;

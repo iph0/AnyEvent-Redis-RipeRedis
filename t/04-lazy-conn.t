@@ -14,6 +14,7 @@ my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 my $redis;
 
 my $t_connected = 0;
+
 ev_loop(
   sub {
     my $cv = shift;

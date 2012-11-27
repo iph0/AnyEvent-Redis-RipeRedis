@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.204 Tue Nov 27 22:28:15 2012
+  - Fixed typo in the name of internal method _process_response().
+  Thanks to Natalya Filippova.
+
 1.203 Fri Nov 23 11:17:00 2012
   - Internal method _async_call() replaced by AE::postpone() function.
 
