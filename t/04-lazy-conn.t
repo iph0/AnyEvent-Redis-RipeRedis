@@ -31,26 +31,19 @@ ev_loop(
 
     my $timer;
     $timer = AnyEvent->timer(
-      after => 0.1,
+      after => 0.001,
       cb => sub {
         undef( $timer );
-        $cv->send();
+
+        ok( !$t_connected, 'Lazy connection (yet no connected)' );
+
+        $redis->ping( {
+          on_done => sub {
+            $cv->send();
+          },
+        } );
       },
     );
-  }
-);
-
-ok( !$t_connected, 'Lazy connection (yet no connected)' );
-
-ev_loop(
-  sub {
-    my $cv = shift;
-
-    $redis->ping( {
-      on_done => sub {
-        $cv->send();
-      },
-    } );
   }
 );
 

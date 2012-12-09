@@ -11,6 +11,7 @@ use fields qw(
   password
   database
   connection_timeout
+  response_timeout
   reconnect
   encoding
   on_connect
@@ -29,7 +30,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.204';
+our $VERSION = '1.210';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -42,7 +43,7 @@ BEGIN {
   our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
       E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA
-      E_NO_SCRIPT );
+      E_NO_SCRIPT E_RESP_TIMEDOUT );
 
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
@@ -66,6 +67,7 @@ use constant {
   E_OPRN_ERROR => 9,
   E_UNEXPECTED_DATA => 10,
   E_NO_SCRIPT => 11,
+  E_RESP_TIMEDOUT => 12,
 
   # Command status
   S_NEED_PERFORM => 1,
@@ -104,6 +106,7 @@ sub new {
   $self->{password} = $params->{password};
   $self->{database} = $params->{database};
   $self->{connection_timeout} = $params->{connection_timeout};
+  $self->{response_timeout} = $params->{response_timeout};
   $self->{reconnect} = $params->{reconnect};
   $self->{encoding} = $params->{encoding};
   $self->{on_connect} = $params->{on_connect};
@@ -154,17 +157,9 @@ sub eval_cached {
 sub disconnect {
   my __PACKAGE__ $self = shift;
 
-  if ( defined( $self->{_handle} ) ) {
-    $self->{_handle}->destroy();
-    undef( $self->{_handle} );
-  }
   my $was_connected = $self->{_connected};
-  if ( $was_connected ) {
-    $self->{_connected} = 0;
-    $self->{_auth_st} = S_NEED_PERFORM;
-    $self->{_db_select_st} = S_NEED_PERFORM;
-  }
-  $self->_abort_all( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT );
+  $self->_reset_state();
+  $self->_abort_cmds( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT );
   if ( $was_connected and defined( $self->{on_disconnect} ) ) {
     $self->{on_disconnect}->();
   }
@@ -183,9 +178,19 @@ sub _validate_new_params {
       ) {
     confess 'Connection timeout must be a positive number';
   }
+
+  if (
+    defined( $params->{response_timeout} )
+      and ( !looks_like_number( $params->{response_timeout} )
+        or $params->{response_timeout} < 0 )
+      ) {
+    confess 'Response timeout must be a positive number';
+  }
+
   if ( !exists( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
   }
+
   if ( defined( $params->{encoding} ) ) {
     my $enc = $params->{encoding};
     $params->{encoding} = find_encoding( $enc );
@@ -193,6 +198,7 @@ sub _validate_new_params {
       confess "Encoding '$enc' not found";
     }
   }
+
   foreach my $name (
     qw( on_connect on_disconnect on_connect_error on_error )
       ) {
@@ -224,17 +230,15 @@ sub _validate_new_params {
 sub _connect {
   my __PACKAGE__ $self = shift;
 
-  if ( $self->{_lazy_conn_st} ) {
-    $self->{_lazy_conn_st} = 0;
-  }
-
   weaken( $self );
 
   $self->{_handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
+    rtimeout => $self->{response_timeout},
     on_prepare => $self->_on_prepare(),
     on_connect => $self->_on_connect(),
     on_connect_error => $self->_on_conn_error(),
+    on_rtimeout => $self->_on_rtimeout(),
     on_eof => $self->_on_eof(),
     on_error => $self->_on_error(),
     on_read => $self->_on_read(
@@ -301,15 +305,21 @@ sub _on_conn_error {
   return sub {
     my $err_msg = pop;
 
-    $self->{_handle}->destroy();
-    undef( $self->{_handle} );
-    $err_msg = "Can't connect to $self->{host}:$self->{port}: $err_msg";
-    $self->_abort_all( $err_msg, E_CANT_CONN );
-    if ( defined( $self->{on_connect_error} ) ) {
-      $self->{on_connect_error}->( $err_msg );
-    }
-    else {
-      $self->{on_error}->( $err_msg, E_CANT_CONN );
+    $self->_process_error( "Can't connect to $self->{host}:$self->{port}: "
+        . $err_msg, E_CANT_CONN );
+  };
+}
+
+####
+sub _on_rtimeout {
+  my __PACKAGE__ $self = shift;
+
+  weaken( $self );
+
+  return sub {
+    if ( @{$self->{_processing_queue}} ) {
+      $self->_process_error( 'Timed out waiting for response',
+          E_RESP_TIMEDOUT );
     }
   };
 }
@@ -334,6 +344,7 @@ sub _on_error {
 
   return sub {
     my $err_msg = pop;
+
     $self->_process_error( $err_msg, E_IO );
   };
 }
@@ -344,15 +355,22 @@ sub _process_error {
   my $err_msg = shift;
   my $err_code = shift;
 
-  $self->{_handle}->destroy();
-  undef( $self->{_handle} );
-  $self->{_connected} = 0;
-  $self->{_auth_st} = S_NEED_PERFORM;
-  $self->{_db_select_st} = S_NEED_PERFORM;
-  $self->_abort_all( $err_msg, $err_code );
-  $self->{on_error}->( $err_msg, $err_code );
-  if ( defined( $self->{on_disconnect} ) ) {
-    $self->{on_disconnect}->();
+  $self->_reset_state();
+  $self->_abort_cmds( $err_msg, $err_code );
+
+  if ( $err_code == E_CANT_CONN ) {
+    if ( defined( $self->{on_connect_error} ) ) {
+      $self->{on_connect_error}->( $err_msg );
+    }
+    else {
+      $self->{on_error}->( $err_msg, $err_code );
+    }
+  }
+  else {
+    $self->{on_error}->( $err_msg, $err_code );
+    if ( defined( $self->{on_disconnect} ) ) {
+      $self->{on_disconnect}->();
+    }
   }
 
   return;
@@ -396,6 +414,9 @@ sub _execute_cmd {
 
   if ( !defined( $self->{_handle} ) ) {
     if ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
+      if ( $self->{_lazy_conn_st} ) {
+        $self->{_lazy_conn_st} = 0;
+      }
       $self->_connect();
     }
     else {
@@ -500,7 +521,7 @@ sub _auth {
       my $err_code = shift;
 
       $self->{_auth_st} = S_NEED_PERFORM;
-      $self->_abort_all( $err_msg, $err_code );
+      $self->_abort_cmds( $err_msg, $err_code );
       $self->{on_error}->( $err_msg, $err_code );
     },
   } );
@@ -527,7 +548,7 @@ sub _select_db {
       my $err_code = shift;
 
       $self->{_db_select_st} = S_NEED_PERFORM;
-      $self->_abort_all( $err_msg, $err_code );
+      $self->_abort_cmds( $err_msg, $err_code );
       $self->{on_error}->( $err_msg, $err_code );
     },
   } );
@@ -840,22 +861,34 @@ sub _flush_buffer {
 }
 
 ####
-sub _abort_all {
+sub _reset_state {
+  my __PACKAGE__ $self = shift;
+
+  if ( defined( $self->{_handle} ) ) {
+    $self->{_handle}->destroy();
+    undef( $self->{_handle} );
+  }
+  $self->{_connected} = 0;
+  $self->{_auth_st} = S_NEED_PERFORM;
+  $self->{_db_select_st} = S_NEED_PERFORM;
+  $self->{_sub_lock} = 0;
+  $self->{_subs} = {};
+
+  return;
+}
+
+####
+sub _abort_cmds {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
   my $err_code = shift;
 
-  $self->{_sub_lock} = 0;
-  $self->{_subs} = {};
-  my @commands;
-  if ( @{$self->{_buffer}} ) {
-    @commands =  @{$self->{_buffer}};
-    $self->{_buffer} = [];
-  }
-  elsif ( @{$self->{_processing_queue}} ) {
-    @commands =  @{$self->{_processing_queue}};
-    $self->{_processing_queue} = [];
-  }
+  my @commands = (
+    @{$self->{_processing_queue}},
+    @{$self->{_buffer}}
+  );
+  $self->{_buffer} = [];
+  $self->{_processing_queue} = [];
   foreach my $cmd ( @commands ) {
     $cmd->{on_error}->( "Command '$cmd->{name}' aborted: $err_msg", $err_code );
   }
@@ -1327,6 +1360,7 @@ Error codes can be used for programmatic handling of errors.
   9  - E_OPRN_ERROR
   10 - E_UNEXPECTED_DATA
   11 - E_NO_SCRIPT
+  12 - E_RESP_TIMEDOUT
 
 =over
 
@@ -1378,6 +1412,10 @@ Client received unexpected data from server.
 =item E_NO_SCRIPT
 
 No matching script. Use C<EVAL> command.
+
+=item E_RESP_TIMEDOUT
+
+Timed out waiting for response
 
 =back
 

@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::RedisEmulator;
 use Test::AnyEvent::EVLoop;
@@ -27,16 +27,17 @@ t_sub_after_multi();
 t_conn_closed_by_client();
 t_loading_dataset();
 t_invalid_db_index();
+t_response_timeout();
 
 
 # Subroutines
 
 ####
 sub t_no_connection {
-  Test::AnyEvent::RedisHandle->connection_down( 1 );
+  Test::AnyEvent::RedisHandle->down_connection();
 
   my $redis;
-  my @t_data;
+  my @t_errors;
 
   ev_loop(
     sub {
@@ -48,14 +49,14 @@ sub t_no_connection {
 
         on_connect_error => sub {
           my $err_msg = shift;
-          push( @t_data, $err_msg );
+          push( @t_errors, $err_msg );
         },
 
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
 
-          push( @t_data, [ $err_msg, $err_code ] );
+          push( @t_errors, [ $err_msg, $err_code ] );
         },
       );
 
@@ -64,7 +65,7 @@ sub t_no_connection {
           my $err_msg = shift;
           my $err_code = shift;
 
-          push( @t_data, [ $err_msg, $err_code ] );
+          push( @t_errors, [ $err_msg, $err_code ] );
           $cv->send();
         }
       } );
@@ -80,19 +81,19 @@ sub t_no_connection {
           my $err_msg = shift;
           my $err_code = shift;
 
-          push( @t_data, [ $err_msg, $err_code ] );
+          push( @t_errors, [ $err_msg, $err_code ] );
           $cv->send();
         }
       } );
     },
   );
 
-  Test::AnyEvent::RedisHandle->connection_down( 0 );
+  Test::AnyEvent::RedisHandle->up_connection();
 
-  is_deeply( \@t_data, [
+  is_deeply( \@t_errors, [
     [ "Command 'ping' aborted: Can't connect to localhost:6379:"
-        . " Server not responding", E_CANT_CONN ],
-    "Can't connect to localhost:6379: Server not responding",
+        . " Connection timed out", E_CANT_CONN ],
+    "Can't connect to localhost:6379: Connection timed out",
     [ "Can't handle the command 'ping'. No connection to the server", E_NO_CONN ],
   ], "Can't connect" );
 
@@ -118,7 +119,7 @@ sub t_reconnect {
 
         on_disconnect => sub {
           push( @t_data, 'Disconnected' );
-          Test::AnyEvent::RedisHandle->connection_down( 0 );
+          Test::AnyEvent::RedisHandle->up_connection();
           $cv->send();
         },
 
@@ -132,7 +133,7 @@ sub t_reconnect {
 
       $redis->ping( {
         on_done => sub {
-          Test::AnyEvent::RedisHandle->connection_down( 1 );
+          Test::AnyEvent::RedisHandle->down_connection();
         }
       } );
     },
@@ -193,7 +194,7 @@ sub t_broken_connection {
         weaken( $redis );
         $redis->ping( {
           on_done => sub {
-            Test::AnyEvent::RedisHandle->broken_connection( 1 );
+            Test::AnyEvent::RedisHandle->broke_connection();
             $redis->ping();
           },
         } );
@@ -201,12 +202,12 @@ sub t_broken_connection {
     },
   );
 
-  Test::AnyEvent::RedisHandle->broken_connection( 0 );
+  Test::AnyEvent::RedisHandle->fix_connection();
 
   is_deeply( \@t_data, [
     'Connected',
-    [ "Command 'ping' aborted: Can't write to socket", E_IO ],
-    [ "Can't write to socket", E_IO ],
+    [ "Command 'ping' aborted: Broken pipe", E_IO ],
+    [ "Broken pipe", E_IO ],
   ], 'Broken connection' );
 
   return;
@@ -484,6 +485,54 @@ sub t_invalid_db_index {
     [ "Command 'ping' aborted: ERR invalid DB index", E_OPRN_ERROR ],
     [ "ERR invalid DB index", E_OPRN_ERROR ],
   ], 'Invalid DB index' );
+
+  return;
+}
+
+####
+sub t_response_timeout {
+  my $redis;
+  my @t_errors;
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $redis = $T_CLASS->new(
+        %GENERIC_PARAMS,
+        reconnect => 0,
+        response_timeout => 5,
+
+        on_connect => sub {
+          Test::AnyEvent::RedisHandle->freeze_connection();
+        },
+
+        on_error => sub {
+          my $err_msg = shift;
+          my $err_code = shift;
+
+          push( @t_errors, [ $err_msg, $err_code ] );
+        },
+      );
+
+      $redis->ping( {
+        on_error => sub {
+          my $err_msg = shift;
+          my $err_code = shift;
+
+          push( @t_errors, [ $err_msg, $err_code ] );
+          $cv->send();
+        }
+      } );
+    },
+  );
+
+  Test::AnyEvent::RedisHandle->thaw_connection();
+
+  is_deeply( \@t_errors, [
+    [ "Command 'ping' aborted: Timed out waiting for response", E_RESP_TIMEDOUT ],
+    [ "Timed out waiting for response", E_RESP_TIMEDOUT ],
+  ], 'Timed out waiting for response' );
 
   return;
 }

@@ -10,8 +10,9 @@ use Test::MockObject;
 use Test::AnyEvent::RedisEmulator;
 use AnyEvent;
 
-my $REDIS_IS_DOWN = 0;
-my $CONN_IS_BROKEN = 0;
+my $REDIS_DOWN = 0;
+my $CONN_BROKEN = 0;
+my $CONN_FREEZED = 0;
 
 
 # Create mock object
@@ -26,10 +27,12 @@ $mock->fake_module(
     my $proto = shift;
     my %params = @_;
 
+    $mock->{rtimeout} = $params{rtimeout};
     $mock->{on_prepare} = $params{on_prepare};
     $mock->{on_connect} = $params{on_connect};
     $mock->{on_connect_error} = $params{on_connect_error};
     $mock->{on_error} = $params{on_error};
+    $mock->{on_rtimeout} = $params{on_rtimeout};
     $mock->{on_eof} = $params{on_eof};
     $mock->{on_read} = $params{on_read};
     $mock->{rbuf} = '';
@@ -38,15 +41,13 @@ $mock->fake_module(
     $mock->{_read_queue} = [];
     $mock->{_continue_read} = undef;
     $mock->{_curr_on_read} = undef;
-
-    $mock->{_start_timer} = AnyEvent->timer(
-      after => 0,
-      cb => sub {
-        $mock->_connect();
-      },
-    );
-
     $mock->{_process_timer} = undef;
+
+    AE::postpone(
+      sub {
+        $mock->_connect();
+      }
+    );
 
     return $mock;
   },
@@ -93,8 +94,8 @@ $mock->mock( 'destroy', sub {
 $mock->mock( '_connect', sub {
   my $self = shift;
 
-  if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
-    my $msg = 'Server not responding';
+  if ( $REDIS_DOWN || $CONN_BROKEN ) {
+    my $msg = 'Connection timed out';
     if ( exists( $self->{on_connect_error} ) ) {
       $self->{on_connect_error}->( $self, $msg );
     }
@@ -113,10 +114,8 @@ $mock->mock( '_connect', sub {
     $self->{on_connect}->();
   }
 
-  $self->{_process_timer} = AnyEvent->timer(
-    after => 0,
-    interval => 0.001,
-    cb => sub {
+  $self->{_process_timer} = AE::timer( 0, 0.001,
+    sub {
       if ( @{$self->{_write_queue}} ) {
         $self->_write();
       }
@@ -124,7 +123,7 @@ $mock->mock( '_connect', sub {
         $self->_read();
       }
       if (
-        $REDIS_IS_DOWN
+        $REDIS_DOWN
           && !@{$self->{_write_queue}}
           && !$self->{_continue_read}
           && $self->{_redis_emu}
@@ -142,9 +141,9 @@ $mock->mock( '_connect', sub {
 $mock->mock( '_write', sub {
   my $self = shift;
 
-  if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+  if ( $REDIS_DOWN || $CONN_BROKEN ) {
     undef( $self->{_redis_emu} );
-    $self->{on_error}->( $self, "Can't write to socket" );
+    $self->{on_error}->( $self, "Broken pipe" );
     return;
   }
 
@@ -161,9 +160,13 @@ $mock->mock( '_write', sub {
 $mock->mock( '_read', sub {
   my $self = shift;
 
-  if ( $REDIS_IS_DOWN || $CONN_IS_BROKEN ) {
+  if ( $REDIS_DOWN || $CONN_BROKEN ) {
     undef( $self->{_redis_emu} );
-    $self->{on_error}->( $self, 'Error reading from socket' );
+    $self->{on_error}->( $self, 'Broken pipe' );
+    return;
+  }
+  elsif ( $CONN_FREEZED and $self->{rtimeout} ) {
+    $self->{on_rtimeout}->( $self );
     return;
   }
 
@@ -189,22 +192,38 @@ $mock->mock( '_read', sub {
 # Public methods
 
 ####
-sub connection_down {
-  my $class = shift;
-  my $value = shift;
-
-  $REDIS_IS_DOWN = $value;
-
+sub down_connection {
+  $REDIS_DOWN = 1;
   return;
 }
 
 ####
-sub broken_connection {
-  my $class = shift;
-  my $value = shift;
+sub up_connection {
+  $REDIS_DOWN = 0;
+  return;
+}
 
-  $CONN_IS_BROKEN = $value;
+####
+sub broke_connection {
+  $CONN_BROKEN = 1;
+  return;
+}
 
+####
+sub fix_connection {
+  $CONN_BROKEN = 0;
+  return;
+}
+
+####
+sub freeze_connection {
+  $CONN_FREEZED = 1;
+  return;
+}
+
+####
+sub thaw_connection {
+  $CONN_FREEZED = 0;
   return;
 }
 

@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 28;
+use Test::More tests => 30;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 
@@ -329,4 +329,6 @@ sub t_error_codes {
   is( E_OPRN_NOT_PERMITTED, 8, 'Constant E_OPRN_NOT_PERMITTED' );
   is( E_OPRN_ERROR, 9, 'Constant E_OPRN_ERROR' );
   is( E_UNEXPECTED_DATA, 10, 'Constant E_UNEXPECTED_DATA' );
+  is( E_NO_SCRIPT, 11, 'Constant E_NO_SCRIPT' );
+  is( E_RESP_TIMEDOUT, 12, 'Constant E_RESP_TIMEDOUT' );
 }
