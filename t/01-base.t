@@ -330,5 +330,5 @@ sub t_error_codes {
   is( E_OPRN_ERROR, 9, 'Constant E_OPRN_ERROR' );
   is( E_UNEXPECTED_DATA, 10, 'Constant E_UNEXPECTED_DATA' );
   is( E_NO_SCRIPT, 11, 'Constant E_NO_SCRIPT' );
-  is( E_RESP_TIMEDOUT, 12, 'Constant E_RESP_TIMEDOUT' );
+  is( E_READ_TIMEDOUT, 12, 'Constant E_RESP_TIMEDOUT' );
 }

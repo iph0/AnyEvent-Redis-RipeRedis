@@ -6,7 +6,7 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $cv = AnyEvent->condvar();
+my $cv = AE::cv();
 
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',

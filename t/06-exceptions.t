@@ -11,7 +11,7 @@ use AnyEvent::Redis::RipeRedis;
 my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
 t_conn_timeout();
-t_response_timeout();
+t_read_timeout();
 t_encoding();
 t_on_connect();
 t_on_disconnect();
@@ -56,33 +56,33 @@ sub t_conn_timeout {
 }
 
 ####
-sub t_response_timeout {
+sub t_read_timeout {
   my $t_except;
 
   eval {
     my $redis = $T_CLASS->new(
-      response_timeout => 'invalid_timeout',
+      read_timeout => 'invalid_timeout',
     );
   };
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
   }
-  ok( $t_except =~ m/^Response timeout must be a positive number/o,
-      'Invalid response timeout (character string)' );
+  ok( $t_except =~ m/^Read timeout must be a positive number/o,
+      'Invalid read timeout (character string)' );
 
   undef( $t_except );
   eval {
     my $redis = $T_CLASS->new(
-      response_timeout => -5,
+      read_timeout => -5,
     );
   };
   if ( $@ ) {
     chomp( $@ );
     $t_except = $@;
   }
-  ok( $t_except =~ m/^Response timeout must be a positive number/o,
-      'Invalid response timeout (negative number)' );
+  ok( $t_except =~ m/^Read timeout must be a positive number/o,
+      'Invalid read timeout (negative number)' );
 
   return;
 }

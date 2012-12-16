@@ -22,7 +22,7 @@ my @t_data;
 ev_loop(
   sub {
     my $cv = shift;
-    
+
     my $script = <<LUA
 return redis.status_reply( 'OK' )
 LUA

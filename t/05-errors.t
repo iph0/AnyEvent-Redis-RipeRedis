@@ -27,7 +27,7 @@ t_sub_after_multi();
 t_conn_closed_by_client();
 t_loading_dataset();
 t_invalid_db_index();
-t_response_timeout();
+t_read_timeout();
 
 
 # Subroutines
@@ -180,6 +180,10 @@ sub t_broken_connection {
           push( @t_data, 'Connected' );
         },
 
+        on_disconnect => sub {
+          push( @t_data, 'Disconnected' );
+        },
+
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -194,7 +198,7 @@ sub t_broken_connection {
         weaken( $redis );
         $redis->ping( {
           on_done => sub {
-            Test::AnyEvent::RedisHandle->broke_connection();
+            Test::AnyEvent::RedisHandle->down_connection();
             $redis->ping();
           },
         } );
@@ -202,12 +206,13 @@ sub t_broken_connection {
     },
   );
 
-  Test::AnyEvent::RedisHandle->fix_connection();
+  Test::AnyEvent::RedisHandle->up_connection();
 
   is_deeply( \@t_data, [
     'Connected',
     [ "Command 'ping' aborted: Broken pipe", E_IO ],
     [ "Broken pipe", E_IO ],
+    'Disconnected',
   ], 'Broken connection' );
 
   return;
@@ -490,7 +495,7 @@ sub t_invalid_db_index {
 }
 
 ####
-sub t_response_timeout {
+sub t_read_timeout {
   my $redis;
   my @t_errors;
 
@@ -500,8 +505,9 @@ sub t_response_timeout {
 
       $redis = $T_CLASS->new(
         %GENERIC_PARAMS,
+        password => 'test',
         reconnect => 0,
-        response_timeout => 5,
+        read_timeout => 5,
 
         on_connect => sub {
           Test::AnyEvent::RedisHandle->freeze_connection();
@@ -512,27 +518,18 @@ sub t_response_timeout {
           my $err_code = shift;
 
           push( @t_errors, [ $err_msg, $err_code ] );
+          $cv->send();
         },
       );
-
-      $redis->ping( {
-        on_error => sub {
-          my $err_msg = shift;
-          my $err_code = shift;
-
-          push( @t_errors, [ $err_msg, $err_code ] );
-          $cv->send();
-        }
-      } );
     },
   );
 
   Test::AnyEvent::RedisHandle->thaw_connection();
 
   is_deeply( \@t_errors, [
-    [ "Command 'ping' aborted: Timed out waiting for response", E_RESP_TIMEDOUT ],
-    [ "Timed out waiting for response", E_RESP_TIMEDOUT ],
-  ], 'Timed out waiting for response' );
+    [ "Command 'auth' aborted: Read timed out", E_READ_TIMEDOUT ],
+    [ 'Read timed out', E_READ_TIMEDOUT ],
+  ], 'Read timed out' );
 
   return;
 }

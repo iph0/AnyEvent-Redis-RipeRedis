@@ -6,13 +6,14 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $cv = AnyEvent->condvar();
+my $cv = AE::cv();
 
 my $redis;
 $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
   password => 'your_password',
+  read_timeout => 3,
 
   on_connect => sub {
     print "Connected to Redis server\n";
@@ -30,10 +31,8 @@ $redis = AnyEvent::Redis::RipeRedis->new(
 );
 
 my $timer;
-$timer = AnyEvent->timer(
-  after => 0,
-  interval => 1,
-  cb => sub {
+$timer = AE::timer( 0, 1,
+  sub {
     $redis->incr( 'foo', {
       on_done => sub {
         my $data = shift;
@@ -48,15 +47,8 @@ my $on_signal = sub {
   $cv->send();
 };
 
-my $int_watcher = AnyEvent->signal(
-  signal => 'INT',
-  cb => $on_signal,
-);
-
-my $term_watcher = AnyEvent->signal(
-  signal => 'TERM',
-  cb => $on_signal,
-);
+my $int_w = AE::signal( INT => $on_signal );
+my $term_w = AE::signal( TERM => $on_signal );
 
 $cv->recv();
 

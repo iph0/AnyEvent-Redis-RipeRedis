@@ -6,7 +6,7 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Redis::RipeRedis;
 
-my $cv = AnyEvent->condvar();
+my $cv = AE::cv();
 
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
@@ -60,7 +60,7 @@ $redis->psubscribe( qw( info_* err_* ), {
 } );
 
 # Unsubscribe
-my $sig_cb = sub {
+my $on_signal = sub {
   print "Stopped\n";
 
   $redis->unsubscribe( qw( ch_foo ch_bar ), {
@@ -84,24 +84,16 @@ my $sig_cb = sub {
   } );
 
   my $timer;
-  $timer = AnyEvent->timer(
-    after => 5,
-    cb => sub {
+  $timer = AE::timer( 5, 0,
+    sub {
       undef( $timer );
       exit 0; # Emergency exit
     },
   );
 };
 
-my $int_watcher = AnyEvent->signal(
-  signal => 'INT',
-  cb => $sig_cb,
-);
-
-my $term_watcher = AnyEvent->signal(
-  signal => 'TERM',
-  cb => $sig_cb,
-);
+my $int_w = AE::signal( INT => $on_signal );
+my $term_w = AE::signal( TERM => $on_signal );
 
 $cv->recv();
 

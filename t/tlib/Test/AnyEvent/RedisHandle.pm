@@ -11,7 +11,6 @@ use Test::AnyEvent::RedisEmulator;
 use AnyEvent;
 
 my $REDIS_DOWN = 0;
-my $CONN_BROKEN = 0;
 my $CONN_FREEZED = 0;
 
 
@@ -94,7 +93,7 @@ $mock->mock( 'destroy', sub {
 $mock->mock( '_connect', sub {
   my $self = shift;
 
-  if ( $REDIS_DOWN || $CONN_BROKEN ) {
+  if ( $REDIS_DOWN ) {
     my $msg = 'Connection timed out';
     if ( exists( $self->{on_connect_error} ) ) {
       $self->{on_connect_error}->( $self, $msg );
@@ -141,7 +140,7 @@ $mock->mock( '_connect', sub {
 $mock->mock( '_write', sub {
   my $self = shift;
 
-  if ( $REDIS_DOWN || $CONN_BROKEN ) {
+  if ( $REDIS_DOWN ) {
     undef( $self->{_redis_emu} );
     $self->{on_error}->( $self, "Broken pipe" );
     return;
@@ -160,7 +159,7 @@ $mock->mock( '_write', sub {
 $mock->mock( '_read', sub {
   my $self = shift;
 
-  if ( $REDIS_DOWN || $CONN_BROKEN ) {
+  if ( $REDIS_DOWN ) {
     undef( $self->{_redis_emu} );
     $self->{on_error}->( $self, 'Broken pipe' );
     return;
@@ -200,18 +199,6 @@ sub down_connection {
 ####
 sub up_connection {
   $REDIS_DOWN = 0;
-  return;
-}
-
-####
-sub broke_connection {
-  $CONN_BROKEN = 1;
-  return;
-}
-
-####
-sub fix_connection {
-  $CONN_BROKEN = 0;
   return;
 }
 

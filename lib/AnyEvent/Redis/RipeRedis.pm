@@ -11,7 +11,7 @@ use fields qw(
   password
   database
   connection_timeout
-  response_timeout
+  read_timeout
   reconnect
   encoding
   on_connect
@@ -43,7 +43,7 @@ BEGIN {
   our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
       E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA
-      E_NO_SCRIPT E_RESP_TIMEDOUT );
+      E_NO_SCRIPT E_READ_TIMEDOUT );
 
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
@@ -67,7 +67,7 @@ use constant {
   E_OPRN_ERROR => 9,
   E_UNEXPECTED_DATA => 10,
   E_NO_SCRIPT => 11,
-  E_RESP_TIMEDOUT => 12,
+  E_READ_TIMEDOUT => 12,
 
   # Command status
   S_NEED_PERFORM => 1,
@@ -106,7 +106,7 @@ sub new {
   $self->{password} = $params->{password};
   $self->{database} = $params->{database};
   $self->{connection_timeout} = $params->{connection_timeout};
-  $self->{response_timeout} = $params->{response_timeout};
+  $self->{read_timeout} = $params->{read_timeout};
   $self->{reconnect} = $params->{reconnect};
   $self->{encoding} = $params->{encoding};
   $self->{on_connect} = $params->{on_connect};
@@ -180,11 +180,11 @@ sub _validate_new_params {
   }
 
   if (
-    defined( $params->{response_timeout} )
-      and ( !looks_like_number( $params->{response_timeout} )
-        or $params->{response_timeout} < 0 )
+    defined( $params->{read_timeout} )
+      and ( !looks_like_number( $params->{read_timeout} )
+        or $params->{read_timeout} < 0 )
       ) {
-    confess 'Response timeout must be a positive number';
+    confess 'Read timeout must be a positive number';
   }
 
   if ( !exists( $params->{reconnect} ) ) {
@@ -234,7 +234,7 @@ sub _connect {
 
   $self->{_handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
-    rtimeout => $self->{response_timeout},
+    rtimeout => $self->{read_timeout},
     on_prepare => $self->_on_prepare(),
     on_connect => $self->_on_connect(),
     on_connect_error => $self->_on_conn_error(),
@@ -318,8 +318,7 @@ sub _on_rtimeout {
 
   return sub {
     if ( @{$self->{_processing_queue}} ) {
-      $self->_process_error( 'Timed out waiting for response',
-          E_RESP_TIMEDOUT );
+      $self->_process_error( 'Read timed out', E_READ_TIMEDOUT );
     }
   };
 }
@@ -1360,7 +1359,7 @@ Error codes can be used for programmatic handling of errors.
   9  - E_OPRN_ERROR
   10 - E_UNEXPECTED_DATA
   11 - E_NO_SCRIPT
-  12 - E_RESP_TIMEDOUT
+  12 - E_READ_TIMEDOUT
 
 =over
 
@@ -1413,9 +1412,9 @@ Client received unexpected data from server.
 
 No matching script. Use C<EVAL> command.
 
-=item E_RESP_TIMEDOUT
+=item E_READ_TIMEDOUT
 
-Timed out waiting for response
+Read timed out. Connection closed.
 
 =back
 
