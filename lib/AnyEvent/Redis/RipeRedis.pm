@@ -132,6 +132,68 @@ sub new {
 }
 
 ####
+sub multi {
+  my __PACKAGE__ $self = shift;
+
+  my $cmd = $self->_prepare_cmd( 'multi', @_ );
+  $self->{_sub_lock} = 1;
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
+sub exec {
+  my __PACKAGE__ $self = shift;
+
+  my $cmd = $self->_prepare_cmd( 'exec', @_ );
+  $self->{_sub_lock} = 0;
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
+sub subscribe {
+  my __PACKAGE__ $self = shift;
+
+  my $cmd = $self->_prepare_cmd( 'subscribe', @_ );
+  $self->_execute_sub_cmd( $cmd );
+
+  return;
+}
+
+####
+sub psubscribe {
+  my __PACKAGE__ $self = shift;
+
+  my $cmd = $self->_prepare_cmd( 'psubscribe', @_ );
+  $self->_execute_sub_cmd( $cmd );
+
+  return;
+}
+
+####
+sub unsubscribe {
+  my __PACKAGE__ $self = shift;
+
+  my $cmd = $self->_prepare_cmd( 'unsubscribe', @_ );
+  $self->_execute_sub_cmd( $cmd );
+
+  return;
+}
+
+####
+sub punsubscribe {
+  my __PACKAGE__ $self = shift;
+
+  my $cmd = $self->_prepare_cmd( 'punsubscribe', @_ );
+  $self->_execute_sub_cmd( $cmd );
+
+  return;
+}
+
+####
 sub eval_cached {
   my __PACKAGE__ $self = shift;
   my @args = @_;
@@ -196,17 +258,6 @@ sub _validate_new_params {
     $params->{encoding} = find_encoding( $enc );
     if ( !defined( $params->{encoding} ) ) {
       confess "Encoding '$enc' not found";
-    }
-  }
-
-  foreach my $name (
-    qw( on_connect on_disconnect on_connect_error on_error )
-      ) {
-    if (
-      defined( $params->{$name} )
-        and ref( $params->{$name} ) ne 'CODE'
-        ) {
-      confess "'$name' callback must be a code reference";
     }
   }
 
@@ -305,7 +356,7 @@ sub _on_conn_error {
   return sub {
     my $err_msg = pop;
 
-    $self->_process_error( "Can't connect to $self->{host}:$self->{port}: "
+    $self->_process_hdl_error( "Can't connect to $self->{host}:$self->{port}: "
         . $err_msg, E_CANT_CONN );
   };
 }
@@ -318,7 +369,7 @@ sub _on_rtimeout {
 
   return sub {
     if ( @{$self->{_processing_queue}} ) {
-      $self->_process_error( 'Read timed out', E_READ_TIMEDOUT );
+      $self->_process_hdl_error( 'Read timed out', E_READ_TIMEDOUT );
     }
   };
 }
@@ -330,7 +381,7 @@ sub _on_eof {
   weaken( $self );
 
   return sub {
-    $self->_process_error( 'Connection closed by remote host',
+    $self->_process_hdl_error( 'Connection closed by remote host',
         E_CONN_CLOSED_BY_REMOTE_HOST );
   };
 }
@@ -344,12 +395,12 @@ sub _on_error {
   return sub {
     my $err_msg = pop;
 
-    $self->_process_error( $err_msg, E_IO );
+    $self->_process_hdl_error( $err_msg, E_IO );
   };
 }
 
 ####
-sub _process_error {
+sub _process_hdl_error {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
   my $err_code = shift;
@@ -376,39 +427,59 @@ sub _process_error {
 }
 
 ####
+sub _prepare_cmd {
+  my __PACKAGE__ $self = shift;
+  my $cmd_name = shift;
+  my @args = @_;
+
+  my $cmd;
+  if ( ref( $args[-1] ) eq 'HASH' ) {
+    $cmd = pop( @args );
+  }
+  else {
+    $cmd = {};
+  }
+  $cmd->{name} = $cmd_name,
+  $cmd->{args} = \@args,
+
+  return $cmd;
+}
+
+####
+sub _execute_sub_cmd {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+
+  if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
+    if ( !defined( $cmd->{on_message} ) ) {
+      confess "'on_message' callback must be specified";
+    }
+  }
+  if ( $self->{_sub_lock} ) {
+    AE::postpone(
+      sub {
+        $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi'"
+            . ' command. First, the transaction must be completed',
+            E_OPRN_ERROR );
+      }
+    );
+
+    return;
+  }
+  $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
+
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
 sub _execute_cmd {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  if ( exists( $SUB_UNSUB_CMDS{$cmd->{name}} ) ) {
-    if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
-      $cmd = $self->_validate_sub_params( $cmd );
-    }
-    else {
-      $cmd = $self->_validate_cmd_params( $cmd );
-    }
-    if ( $self->{_sub_lock} ) {
-      AE::postpone(
-        sub {
-          $cmd->{on_error}->( "Command '$cmd->{name}' not allowed after 'multi'"
-              . ' command. First, the transaction must be completed',
-              E_OPRN_ERROR );
-        }
-      );
-
-      return;
-    }
-    $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
-  }
-  else {
-    $cmd = $self->_validate_cmd_params( $cmd );
-
-    if ( $cmd->{name} eq 'multi' ) {
-      $self->{_sub_lock} = 1;
-    }
-    elsif ( $cmd->{name} eq 'exec' ) {
-      $self->{_sub_lock} = 0;
-    }
+  if ( !defined( $cmd->{on_error} ) ) {
+    $cmd->{on_error} = $self->{on_error};
   }
 
   if ( !defined( $self->{_handle} ) ) {
@@ -456,49 +527,9 @@ sub _execute_cmd {
 }
 
 ####
-sub _validate_cmd_params {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
-
-  foreach my $name ( qw( on_done on_error ) ) {
-    if (
-      defined( $cmd->{$name} )
-        and ( !ref( $cmd->{$name} ) or ref( $cmd->{$name} ) ne 'CODE' )
-        ) {
-      confess "'$name' callback must be a code reference";
-    }
-  }
-
-  if ( !defined( $cmd->{on_error} ) ) {
-    $cmd->{on_error} = $self->{on_error};
-  }
-
-  return $cmd;
-}
-
-####
-sub _validate_sub_params {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
-
-  $cmd = $self->_validate_cmd_params( $cmd );
-
-  if ( !defined( $cmd->{on_message} ) ) {
-    confess "'on_message' callback must be specified";
-  }
-  elsif (
-    !ref( $cmd->{on_message} )
-      or ref( $cmd->{on_message} ) ne 'CODE'
-      ) {
-    confess "'on_message' callback must be a code reference";
-  }
-
-  return $cmd;
-}
-
-####
 sub _auth {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   $self->{_auth_st} = S_IN_PROGRESS;
@@ -531,6 +562,7 @@ sub _auth {
 ####
 sub _select_db {
   my __PACKAGE__ $self = shift;
+
   weaken( $self );
 
   $self->{_db_select_st} = S_IN_PROGRESS;
@@ -904,15 +936,8 @@ sub AUTOLOAD {
 
   my $sub = sub {
     my __PACKAGE__ $self = shift;
-    my @args = @_;
 
-    my $cmd = {};
-    if ( ref( $args[-1] ) eq 'HASH' ) {
-      $cmd = pop( @args );
-    }
-    $cmd->{name} = $cmd_name,
-    $cmd->{args} = \@args,
-
+    my $cmd = $self->_prepare_cmd( $cmd_name, @_ );
     $self->_execute_cmd( $cmd );
 
     return;
@@ -1059,6 +1084,10 @@ Default database index is C<0>.
 Connection timeout. If after this timeout client could not connect to the server,
 callback C<on_error> is called. By default used kernel's connection timeout.
 
+=item read_timeout
+
+
+
 =item lazy
 
 If this parameter is set, then connection will be established, when you will send
@@ -1105,7 +1134,7 @@ client just print error message to C<STDERR>.
 
 =head1 COMMAND EXECUTION
 
-=head2 <command>( [ @args[, \%params ] ] )
+=head2 <command>( [ @args[, \%callbacks ] ] )
 
   # Set value
   $redis->set( 'foo', 'Some string' );
@@ -1151,9 +1180,15 @@ Callback C<on_error> is called, when any error occurred.
 
 =back
 
+=head1 TRANSACTION
+
+=head2 multi( \%callbacks )
+
+=head2 exec( \%callbacks )
+
 =head1 SUBSCRIPTIONS
 
-=head2 subscribe( @channels[, \%params ] )
+=head2 subscribe( @channels[, \%callbacks ] )
 
 Subscribe to channels by name.
 
@@ -1196,7 +1231,7 @@ Callback C<on_error> is called, when any error occurred.
 
 =back
 
-=head2 psubscribe( @patterns[, \%params ] )
+=head2 psubscribe( @patterns[, \%callbacks ] )
 
 Subscribe to group of channels by pattern.
 
@@ -1241,7 +1276,7 @@ Callback C<on_error> is called, when any error occurred.
 =back
 
 
-=head2 unsubscribe( @channels[, \%params ] )
+=head2 unsubscribe( @channels[, \%callbacks ] )
 
 Unsubscribe from channels by name.
 
@@ -1273,7 +1308,7 @@ Callback C<on_error> is called, when any error occurred.
 
 =back
 
-=head2 punsubscribe( @patterns[, \%params ] )
+=head2 punsubscribe( @patterns[, \%callbacks ] )
 
 Unsubscribe from group of channels by pattern.
 
@@ -1323,7 +1358,7 @@ Redis 2.6 and higher support execution of the Lua scripts on the server side.
 To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
 or you can use special method C<eval_cached()>.
 
-=head2 eval_cached( $script, $numkeys[, [ @keys, ] [ @args, ] \%params ] );
+=head2 eval_cached( $script, $numkeys[, [ @keys, ] [ @args, ] \%callbacks ] );
 
 When you call C<eval_cached()> method, client first generate SHA1 hash for the
 Lua script and cache it in memory. Then client optimistically send C<EVALSHA>

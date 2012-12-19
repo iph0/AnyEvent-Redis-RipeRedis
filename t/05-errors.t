@@ -49,6 +49,7 @@ sub t_no_connection {
 
         on_connect_error => sub {
           my $err_msg = shift;
+
           push( @t_errors, $err_msg );
         },
 

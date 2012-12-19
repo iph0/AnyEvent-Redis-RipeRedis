@@ -13,14 +13,13 @@ our @EXPORT = qw( ev_loop );
 sub ev_loop {
   my $sub = shift;
 
-  my $cv = AnyEvent->condvar();
+  my $cv = AE::cv();
 
   $sub->( $cv );
 
   my $timer;
-  $timer = AnyEvent->timer(
-    after => 3,
-    cb => sub {
+  $timer = AE::timer( 3, 0,
+    sub {
       diag( 'Emergency exit from event loop. Test failed' );
       $cv->send();
     },
