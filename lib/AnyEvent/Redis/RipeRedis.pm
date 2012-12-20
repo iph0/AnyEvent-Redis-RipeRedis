@@ -974,19 +974,15 @@ feature
     port => '6379',
     password => 'your_password',
     encoding => 'utf8',
-
     on_connect => sub {
       print "Connected to Redis server\n";
     },
-
     on_disconnect => sub {
       print "Disconnected from Redis server\n";
     },
-
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       warn "$err_msg. Error code: $err_code\n";
     },
   );
@@ -994,16 +990,12 @@ feature
   # Set value
   $redis->set( 'foo', 'Some string', {
     on_done => sub {
-      my $data = shift;
-
-      print "$data\n";
+      print "SET is done\n";
       $cv->send();
     },
-
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       $cv->croak( "$err_msg. Error code: $err_code" );
     }
   } );
@@ -1015,8 +1007,7 @@ feature
 =head1 DESCRIPTION
 
 AnyEvent::Redis::RipeRedis is a non-blocking flexible Redis client with reconnect
-feature. It supports subscriptions, transactions, has simple API and it faster
-than AnyEvent::Redis.
+feature. It supports subscriptions, transactions and has simple API.
 
 Requires Redis 1.2 or higher, and any supported event loop.
 
@@ -1031,26 +1022,22 @@ Requires Redis 1.2 or higher, and any supported event loop.
     database => 7,
     lazy => 1,
     connection_timeout => 5,
+    read_timeout => 5,
     reconnect => 1,
     encoding => 'utf8',
-
     on_connect => sub {
       print "Connected to Redis server\n";
     },
-
     on_disconnect => sub {
       print "Disconnected from Redis server\n";
     },
-
     on_connect_error => sub {
       my $err_msg = shift;
       warn "$err_msg\n";
     },
-
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       warn "$err_msg. Error code: $err_code\n";
     },
   );
@@ -1068,25 +1055,28 @@ Server port (default: 6379)
 =item password
 
 Authentication password. If it specified, then C<AUTH> command will be send
-immediately to the server after successfully connection and after every
-successfully reconnection.
+immediately to the server after connection and after every reconnection.
 
 =item database
 
 Database index. If it set, then client will be switched to specified database
-immediately after successfully connection and after every successfully
-reconnection.
+immediately after connection and after every reconnection.
 
 Default database index is C<0>.
 
 =item connection_timeout
 
 Connection timeout. If after this timeout client could not connect to the server,
-callback C<on_error> is called. By default used kernel's connection timeout.
+callback C<on_error> is called with error code C<E_CANT_CONN>. By default used
+kernel's connection timeout.
 
 =item read_timeout
 
+Read timeout. If after this timeout client do not received response from the
+server on any command, callback C<on_error> is called with error code
+C<E_READ_TIMEOUT>.
 
+Not set by default.
 
 =item lazy
 
@@ -1123,7 +1113,7 @@ Not set by default.
 
 Callback C<on_connect_error> is called, when the connection could not be
 established. If this collback isn't specified, then C<on_error> callback is
-called.
+called with error code C<E_CANT_CONN>.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
@@ -1136,6 +1126,8 @@ client just print error message to C<STDERR>.
 
 =head2 <command>( [ @args[, \%callbacks ] ] )
 
+Full list of Redis commands can be found L<here|http://redis.io/commands>.
+
   # Set value
   $redis->set( 'foo', 'Some string' );
 
@@ -1143,7 +1135,6 @@ client just print error message to C<STDERR>.
   $redis->incr( 'bar', {
     on_done => sub {
       my $data = shift;
-
       print "$data\n";
     },
   } );
@@ -1152,21 +1143,16 @@ client just print error message to C<STDERR>.
   $redis->lrange( 'list', 0, -1, {
     on_done => sub {
       my $data = shift;
-
-      foreach my $val ( @{ $data } ) {
+      foreach my $val ( @{$data}  ) {
         print "$val\n";
       }
     },
-
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
-
-Full list of Redis commands can be found here: L<http://redis.io/commands>
 
 =over
 
@@ -1180,37 +1166,64 @@ Callback C<on_error> is called, when any error occurred.
 
 =back
 
-=head1 TRANSACTION
+=head1 TRANSACTIONS
 
-=head2 multi( \%callbacks )
+Detailed information abount Redis transactions can be found
+L<here|http://redis.io/topics/transactions>.
 
-=head2 exec( \%callbacks )
+=head2 multi( [ \%callbacks ] )
+
+Marks the start of a transaction block. Subsequent commands will be queued for
+atomic execution using C<EXEC>.
+
+=head2 exec( [ \%callbacks ] )
+
+Executes all previously queued commands in a transaction and restores the
+connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
+only if the watched keys were not modified.
+
+=head2 discard( [ \%callbacks ] )
+
+Flushes all previously queued commands in a transaction and restores the
+connection state to normal.
+
+If C<WATCH> was used, C<DISCARD> unwatches all keys.
+
+=head2 watch( @keys[, \%callbacks ] )
+
+Marks the given keys to be watched for conditional execution of a transaction.
+
+=head2 unwatch( [ \%callbacks ] )
+
+Forget about all watched keys.
 
 =head1 SUBSCRIPTIONS
 
+Detailed information about Redis Pub/Sub can be found
+L<here|http://redis.io/topics/pubsub>
+
 =head2 subscribe( @channels[, \%callbacks ] )
 
-Subscribe to channels by name.
+Subscribes the client to the specified channels.
+
+Once the client enters the subscribed state it is not supposed to issue any
+other commands, except for additional C<SUBSCRIBE>, C<PSUBSCRIBE>, C<UNSUBSCRIBE>
+and C<PUNSUBSCRIBE> commands.
 
   $redis->subscribe( qw( ch_foo ch_bar ), {
     on_done =>  sub {
       my $ch_name = shift;
       my $subs_num = shift;
-
       print "Subscribed: $ch_name. Active: $subs_num\n";
     },
-
     on_message => sub {
       my $ch_name = shift;
       my $msg = shift;
-
       print "$ch_name: $msg\n";
     },
-
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
@@ -1219,42 +1232,37 @@ Subscribe to channels by name.
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
-Callback C<on_done> is called, when subscription is done.
+Callback C<on_done> is called, when subscription operation is done.
 
 =item on_message => $cb->( $ch_name, $msg )
 
-Callback C<on_message> is called, when published message is successfully received.
+Callback C<on_message> is called, when published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-Callback C<on_error> is called, when any error occurred.
+Callback C<on_error> is called, when subscription operation failed.
 
 =back
 
 =head2 psubscribe( @patterns[, \%callbacks ] )
 
-Subscribe to group of channels by pattern.
+Subscribes the client to the given patterns.
 
   $redis->psubscribe( qw( info_* err_* ), {
     on_done =>  sub {
       my $ch_pattern = shift;
       my $subs_num = shift;
-
       print "Subscribed: $ch_pattern. Active: $subs_num\n";
     },
-
     on_message => sub {
       my $ch_name = shift;
       my $msg = shift;
       my $ch_pattern = shift;
-
       print "$ch_name ($ch_pattern): $msg\n";
     },
-
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-
       $cv->croak( "$err_msg. Error code: $err_code" );
     },
   } );
@@ -1263,83 +1271,39 @@ Subscribe to group of channels by pattern.
 
 =item on_done => $cb->( $ch_pattern, $sub_num )
 
-Callback C<on_done> is called, when subscription is done.
+Callback C<on_done> is called, when subscription operation is done.
 
 =item on_message => $cb->( $ch_name, $msg, $ch_pattern )
 
-Callback C<on_message> is called, when published message is successfully received.
+Callback C<on_message> is called, when published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-Callback C<on_error> is called, when any error occurred.
+Callback C<on_error> is called, when subscription operation failed.
 
 =back
 
+=head2 publish( $channel, $message[, \%callbacks ] )
 
-=head2 unsubscribe( @channels[, \%callbacks ] )
+Posts a message to the given channel.
 
-Unsubscribe from channels by name.
+=head2 unsubscribe( [ @channels ][, \%callbacks ] )
 
-  $redis->unsubscribe( qw( ch_foo ch_bar ), {
-    on_done => sub {
-      my $ch_name = shift;
-      my $subs_num = shift;
+Unsubscribes the client from the given channels, or from all of them if none
+is given.
 
-      print "Unsubscribed: $ch_name. Active: $subs_num\n";
-    },
+When no channels are specified, the client is unsubscribed from all the
+previously subscribed channels. In this case, a message for every unsubscribed
+channel will be sent to the client.
 
-    on_error => sub {
-      my $err_msg = shift;
-      my $err_code = shift;
+=head2 punsubscribe( [ @patterns ][, \%callbacks ] )
 
-      $cv->croak( "$err_msg. Error code: $err_code" );
-    },
-  } );
+Unsubscribes the client from the given patterns, or from all of them if none
+is given.
 
-=over
-
-=item on_done => $cb->( $ch_name, $sub_num )
-
-Callback C<on_done> is called, when unsubscription is done.
-
-=item on_error => $cb->( $err_msg, $err_code )
-
-Callback C<on_error> is called, when any error occurred.
-
-=back
-
-=head2 punsubscribe( @patterns[, \%callbacks ] )
-
-Unsubscribe from group of channels by pattern.
-
-  $redis->punsubscribe( qw( info_* err_* ), {
-    on_done => sub {
-      my $ch_pattern = shift;
-      my $subs_num = shift;
-
-      print "Unsubscribed: $ch_pattern. Active: $subs_num\n";
-    },
-
-    on_error => sub {
-      my $err_msg = shift;
-      my $err_code = shift;
-
-      $cv->croak( "$err_msg. Error code: $err_code" );
-    },
-  } );
-
-=over
-
-=item on_done => $cb->( $ch_pattern, $sub_num )
-
-Callback C<on_done> is called, when unsubscription is done.
-
-=item on_error => $cb->( $err_msg, $err_code )
-
-Callback C<on_error> is called, when any error occurred.
-
-=back
-
+When no patters are specified, the client is unsubscribed from all the
+previously subscribed patterns. In this case, a message for every unsubscribed
+pattern will be sent to the client.
 
 =head1 CONNECTION VIA UNIX-SOCKET
 
@@ -1372,8 +1336,7 @@ generate SHA1 hash for this script repeatedly, it gets hash from cache.
       2, 'key1', 'key2', 'first', 'second', {
     on_done => sub {
       my $data = shift;
-
-      foreach my $val ( @{ $data } ) {
+      foreach my $val ( @{$data}  ) {
         print "$val\n";
       }
     }
@@ -1381,20 +1344,13 @@ generate SHA1 hash for this script repeatedly, it gets hash from cache.
 
 =head1 ERROR CODES
 
-Error codes can be used for programmatic handling of errors.
+Every time when C<on_error> callback is called, current error code passed to it
+in second argument. Error codes can be used for programmatic handling of errors.
 
-  1  - E_CANT_CONN
-  2  - E_LOADING_DATASET
-  3  - E_IO
-  4  - E_CONN_CLOSED_BY_REMOTE_HOST
-  5  - E_CONN_CLOSED_BY_CLIENT
-  6  - E_NO_CONN
-  7  - E_INVALID_PASS
-  8  - E_OPRN_NOT_PERMITTED
-  9  - E_OPRN_ERROR
-  10 - E_UNEXPECTED_DATA
-  11 - E_NO_SCRIPT
-  12 - E_READ_TIMEDOUT
+L<AnyEvent::Redis::RipeRedis> provides constants of error codes, that can be
+imported and used in expressions.
+
+  use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 =over
 
@@ -1408,7 +1364,7 @@ Redis is loading the dataset in memory.
 
 =item E_IO
 
-Input/Output operation error. Connection closed.
+Input/Output operation error. On this error client close the connection.
 
 =item E_CONN_CLOSED_BY_REMOTE_HOST
 
@@ -1418,13 +1374,13 @@ Connection closed by remote host.
 
 Connection closed unexpectedly by client.
 
-Error occur, if at time of disconnection in client queue were uncompleted commands.
+Error occurs, if at time of disconnection in client queue were uncompleted commands.
 
 =item E_NO_CONN
 
 No connection to the server.
 
-Error occur, if at time of command execution connection has been closed by any
+Error occurs, if at time of command execution connection has been closed by any
 reason and parameter C<reconnect> was set to FALSE.
 
 =item E_INVALID_PASS
@@ -1433,7 +1389,7 @@ Invalid password.
 
 =item E_OPRN_NOT_PERMITTED
 
-Operation not permitted. Authentication required.
+Operation not permitted.
 
 =item E_OPRN_ERROR
 
@@ -1449,13 +1405,9 @@ No matching script. Use C<EVAL> command.
 
 =item E_READ_TIMEDOUT
 
-Read timed out. Connection closed.
+Read timed out. On this error client close the connection.
 
 =back
-
-To use these constants you have to import them.
-
-  use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 =head1 DISCONNECTION
 

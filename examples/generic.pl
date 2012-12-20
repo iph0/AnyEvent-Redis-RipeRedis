@@ -44,8 +44,7 @@ $redis->incr( 'foo', {
 # Set value
 $redis->set( 'bar', 'Some string', {
   on_done => sub {
-    my $data = shift;
-    print "$data\n";
+    print "SET is done\n";
   },
 } );
 
@@ -81,8 +80,7 @@ $redis->lrange( 'list', 0, -1, {
 # Transaction
 $redis->multi( {
   on_done => sub {
-    my $data = shift;
-    print "$data\n";
+    print "Transaction begun\n";
   },
 } );
 $redis->incr( 'foo', {
@@ -123,16 +121,13 @@ $redis->exec( {
 # Delete keys
 $redis->del( qw( foo bar list ), {
   on_done => sub {
-    my $data = shift;
-    print "$data\n";
+    print "Keys removed\n";
   }
 } );
 
 # Disconnect
 $redis->quit( {
   on_done => sub {
-    my $data = shift;
-    print "$data\n";
     $cv->send();
   }
 } );
