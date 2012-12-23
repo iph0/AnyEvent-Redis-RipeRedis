@@ -1,8 +1,11 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.211 24 Mon Dec 01:05:35 2012
+  - Fixes in POD.
+
 1.210 24 Mon Dec 00:10:00 2012
-  - Implemented parameter 'read_timeout' in constructor.
-  - Added error code constant E_READ_TIMEDOUT.
+  - [FEATURE] Implemented parameter 'read_timeout' in constructor.
+  - [FEATURE] Added error code constant E_READ_TIMEDOUT.
   - Now, if client received unexpected data, it abort all commands and close
   connection.
   - Validation of input parameters became less strict.

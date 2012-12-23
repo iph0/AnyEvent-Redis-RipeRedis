@@ -30,7 +30,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.210';
+our $VERSION = '1.211';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1100,17 +1100,20 @@ By default is TRUE.
 
 =item encoding
 
-Used to encode an decode strings during input/output operations. Not set by
-default.
+Used to encode an decode strings during input/output operations.
+
+Not set by default.
 
 =item on_connect => $cb->()
 
 Callback C<on_connect> is called, when connection is successfully established.
+
 Not set by default.
 
 =item on_disconnect => $cb->()
 
 Callback C<on_disconnect> is called, when connection is closed by any reason.
+
 Not set by default.
 
 =item on_connect_error => $cb->( $err_msg )
@@ -1130,7 +1133,7 @@ client just print error message to C<STDERR>.
 
 =head2 <command>( [ @args[, \%callbacks ] ] )
 
-Full list of Redis commands can be found L<here|http://redis.io/commands>.
+Full list of Redis commands can be found here: L<http://redis.io/commands>.
 
   # Set value
   $redis->set( 'foo', 'Some string' );
@@ -1172,8 +1175,8 @@ Callback C<on_error> is called, when any error occurred.
 
 =head1 TRANSACTIONS
 
-Detailed information abount Redis transactions can be found
-L<here|http://redis.io/topics/transactions>.
+Detailed information abount Redis transactions can be found here:
+L<http://redis.io/topics/transactions>.
 
 =head2 multi( [ \%callbacks ] )
 
@@ -1203,8 +1206,8 @@ Forget about all watched keys.
 
 =head1 SUBSCRIPTIONS
 
-Detailed information about Redis Pub/Sub can be found
-L<here|http://redis.io/topics/pubsub>
+Detailed information about Redis Pub/Sub can be found here:
+L<http://redis.io/topics/pubsub>
 
 =head2 subscribe( @channels[, \%callbacks ] )
 
@@ -1351,7 +1354,7 @@ generate SHA1 hash for this script repeatedly, it gets hash from cache.
 Every time when C<on_error> callback is called, current error code passed to it
 in second argument. Error codes can be used for programmatic handling of errors.
 
-L<AnyEvent::Redis::RipeRedis> provides constants of error codes, that can be
+AnyEvent::Redis::RipeRedis provides constants of error codes, that can be
 imported and used in expressions.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
@@ -1360,7 +1363,7 @@ imported and used in expressions.
 
 =item E_CANT_CONN
 
-Can't connect to server.
+Can't connect to server. If this error occurred, client abort all operations.
 
 =item E_LOADING_DATASET
 
@@ -1368,17 +1371,18 @@ Redis is loading the dataset in memory.
 
 =item E_IO
 
-Input/Output operation error. On this error client close the connection.
+Input/Output operation error. If this error occurred, client abort all operations
+and close the connection.
 
 =item E_CONN_CLOSED_BY_REMOTE_HOST
 
-Connection closed by remote host.
+Connection closed by remote host. If this error occurred, client abort all operations.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
 Connection closed unexpectedly by client.
 
-Error occurs, if at time of disconnection in client queue were uncompleted commands.
+Error occurs, if at time of disconnection in client queue were uncompleted operations.
 
 =item E_NO_CONN
 
@@ -1401,7 +1405,8 @@ Operation error. Usually returned by the Redis server.
 
 =item E_UNEXPECTED_DATA
 
-Client received unexpected data from server.
+Client received unexpected data from the server. If this error occurred, client
+abort all operations and close the connection.
 
 =item E_NO_SCRIPT
 
@@ -1409,7 +1414,8 @@ No matching script. Use C<EVAL> command.
 
 =item E_READ_TIMEDOUT
 
-Read timed out. On this error client close the connection.
+Read timed out. If this error occurred, client abort all operations and close
+the connection.
 
 =back
 
