@@ -356,7 +356,7 @@ sub _on_conn_error {
   return sub {
     my $err_msg = pop;
 
-    $self->_process_hdl_error( "Can't connect to $self->{host}:$self->{port}: "
+    $self->_process_crit_error( "Can't connect to $self->{host}:$self->{port}: "
         . $err_msg, E_CANT_CONN );
   };
 }
@@ -369,7 +369,7 @@ sub _on_rtimeout {
 
   return sub {
     if ( @{$self->{_processing_queue}} ) {
-      $self->_process_hdl_error( 'Read timed out', E_READ_TIMEDOUT );
+      $self->_process_crit_error( 'Read timed out', E_READ_TIMEDOUT );
     }
   };
 }
@@ -381,7 +381,7 @@ sub _on_eof {
   weaken( $self );
 
   return sub {
-    $self->_process_hdl_error( 'Connection closed by remote host',
+    $self->_process_crit_error( 'Connection closed by remote host',
         E_CONN_CLOSED_BY_REMOTE_HOST );
   };
 }
@@ -395,12 +395,12 @@ sub _on_error {
   return sub {
     my $err_msg = pop;
 
-    $self->_process_hdl_error( $err_msg, E_IO );
+    $self->_process_crit_error( $err_msg, E_IO );
   };
 }
 
 ####
-sub _process_hdl_error {
+sub _process_crit_error {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
   my $err_code = shift;
@@ -674,6 +674,10 @@ sub _on_read {
             return 1 if $cb->( [] );
           }
         }
+        else {
+          $self->_process_crit_error( 'Unexpected data type received',
+              E_UNEXPECTED_DATA );
+        }
       }
     }
   };
@@ -773,7 +777,7 @@ sub _process_data {
     }
   }
   else {
-    $self->{on_error}->( "Don't known how process response data."
+    $self->_process_crit_error( "Don't known how process response data."
         . ' Command queue is empty', E_UNEXPECTED_DATA );
   }
 
@@ -795,7 +799,7 @@ sub _process_pub_message {
     }
   }
   else {
-    $self->{on_error}->( "Don't known how process published message."
+    $self->_process_crit_error( "Don't known how process published message."
         . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED_DATA );
   }
 
@@ -835,8 +839,8 @@ sub _process_cmd_error {
     $cmd->{on_error}->( $err_msg, $err_code );
   }
   else {
-    $self->{on_error}->( "Don't known how process error message '$err_msg'."
-        . " Command queue is empty", E_UNEXPECTED_DATA );
+    $self->_process_crit_error( "Don't known how process error message"
+        . " '$err_msg'. Command queue is empty", E_UNEXPECTED_DATA );
   }
 
   return;
@@ -1066,15 +1070,15 @@ Default database index is C<0>.
 
 =item connection_timeout
 
-Connection timeout. If after this timeout client could not connect to the server,
-callback C<on_error> is called with error code C<E_CANT_CONN>. By default used
-kernel's connection timeout.
+If after this timeout client could not connect to the server, callback
+C<on_error> is called with error code C<E_CANT_CONN>.
+
+By default used kernel's connection timeout.
 
 =item read_timeout
 
-Read timeout. If after this timeout client do not received response from the
-server on any command, callback C<on_error> is called with error code
-C<E_READ_TIMEOUT>.
+If after this timeout client do not received response from the server on any
+command, callback C<on_error> is called with error code C<E_READ_TIMEOUT>.
 
 Not set by default.
 

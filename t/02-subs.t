@@ -3,12 +3,17 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 6;
+use Test::More tests => 10;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 use AnyEvent::Redis::RipeRedis;
 
 my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+
+can_ok( $T_CLASS, 'subscribe' );
+can_ok( $T_CLASS, 'psubscribe' );
+can_ok( $T_CLASS, 'unsubscribe' );
+can_ok( $T_CLASS, 'punsubscribe' );
 
 my $redis = $T_CLASS->new(
   password => 'test',
