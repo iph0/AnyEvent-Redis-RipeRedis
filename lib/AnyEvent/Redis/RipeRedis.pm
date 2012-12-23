@@ -1162,7 +1162,7 @@ Full list of Redis commands can be found L<here|http://redis.io/commands>.
 
 =item on_done => $cb->( [ $data ] )
 
-Callback C<on_done> is called, when response successfully received.
+Callback C<on_done> is called, when current operation is done.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
