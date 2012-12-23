@@ -5,6 +5,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Added error code constant E_READ_TIMEDOUT.
   - Now, if client received unexpected data, it abort all commands and close
   connection.
+  - Slight optimization.
   - Added section TRANSACTIONS in POD.
   - POD improved.
   - Slight refactoring.
