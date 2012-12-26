@@ -7,7 +7,7 @@ WriteMakefile(
   VERSION_FROM => 'lib/AnyEvent/Redis/RipeRedis.pm', # finds $VERSION
   MIN_PERL_VERSION => '5.006000',
   PREREQ_PM => {
-    'AnyEvent' => 0,
+    'AnyEvent' => 6.01,
     'Encode' => 0,
     'Scalar::Util' => 0,
     'Digest::SHA1' => 0,

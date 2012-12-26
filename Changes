@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.212 26 Wed Dec 09:43:35 2012
+  - Specified minimum version of AnyEvent in Makefile.PL.
+
 1.211 24 Mon Dec 01:05:35 2012
   - Fixes in POD.
 

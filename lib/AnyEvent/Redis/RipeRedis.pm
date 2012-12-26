@@ -30,7 +30,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.211';
+our $VERSION = '1.212';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1380,16 +1380,14 @@ Connection closed by remote host. If this error occurred, client abort all opera
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-Connection closed unexpectedly by client.
-
-Error occurs, if at time of disconnection in client queue were uncompleted operations.
+Connection closed unexpectedly by client. Error occurs, if at time of
+disconnection in client queue were uncompleted operations.
 
 =item E_NO_CONN
 
-No connection to the server.
-
-Error occurs, if at time of command execution connection has been closed by any
-reason and parameter C<reconnect> was set to FALSE.
+No connection to the server. Error occurs, if at time of command execution
+connection has been closed by any reason and parameter C<reconnect> was set to
+FALSE.
 
 =item E_INVALID_PASS
 
