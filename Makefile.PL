@@ -12,6 +12,8 @@ WriteMakefile(
     'Scalar::Util' => 0,
     'Digest::SHA1' => 0,
     'Carp' => 0,
+  },
+  BUILD_REQUIRES => {
     'Test::More' => 0,
     'Test::MockObject' => 0,
   },
