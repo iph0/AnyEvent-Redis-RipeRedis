@@ -159,9 +159,6 @@ sub new {
   return $self;
 }
 
-
-# Public methods
-
 ####
 sub loading_dataset {
   my $class = shift;
@@ -218,9 +215,6 @@ sub process_command {
 
   return $resp_szd;
 }
-
-
-# Private methods
 
 ####
 sub _parse_command {

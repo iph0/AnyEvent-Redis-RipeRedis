@@ -187,9 +187,6 @@ $mock->mock( '_read', sub {
   return;
 } );
 
-
-# Public methods
-
 ####
 sub down_connection {
   $REDIS_DOWN = 1;

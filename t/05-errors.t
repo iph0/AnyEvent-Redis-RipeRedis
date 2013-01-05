@@ -30,8 +30,6 @@ t_invalid_db_index();
 t_read_timeout();
 
 
-# Subroutines
-
 ####
 sub t_no_connection {
   Test::AnyEvent::RedisHandle->down_connection();

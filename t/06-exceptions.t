@@ -16,8 +16,6 @@ t_encoding();
 t_on_message();
 
 
-# Subroutines
-
 ####
 sub t_conn_timeout {
   my $t_except;

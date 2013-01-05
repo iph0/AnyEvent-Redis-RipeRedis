@@ -20,6 +20,7 @@ use fields qw(
   on_error
 
   _handle
+  _encoding_obj
   _connected
   _lazy_conn_st
   _auth_st
@@ -30,7 +31,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.212';
+our $VERSION = '1.220';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -97,7 +98,7 @@ sub new {
   my $proto = shift;
   my $params = { @_ };
 
-  $params = $proto->_validate_new_params( $params );
+  $params = $proto->_vld_new_params( $params );
 
   my __PACKAGE__ $self = fields::new( $proto );
 
@@ -108,13 +109,14 @@ sub new {
   $self->{connection_timeout} = $params->{connection_timeout};
   $self->{read_timeout} = $params->{read_timeout};
   $self->{reconnect} = $params->{reconnect};
-  $self->{encoding} = $params->{encoding};
+  $self->encoding( $params->{encoding} );
   $self->{on_connect} = $params->{on_connect};
   $self->{on_disconnect} = $params->{on_disconnect};
   $self->{on_connect_error} = $params->{on_connect_error};
   $self->{on_error} = $params->{on_error};
 
   $self->{_handle} = undef;
+  $self->{_encoding_obj} = undef;
   $self->{_connected} = 0;
   $self->{_lazy_conn_st} = $params->{lazy};
   $self->{_auth_st} = S_NEED_PERFORM;
@@ -123,6 +125,7 @@ sub new {
   $self->{_processing_queue} = [];
   $self->{_sub_lock} = 0;
   $self->{_subs} = {};
+
 
   if ( !$self->{_lazy_conn_st} ) {
     $self->_connect();
@@ -230,35 +233,85 @@ sub disconnect {
 }
 
 ####
-sub _validate_new_params {
-  my $params = pop;
+sub connection_timeout {
+  my __PACKAGE__ $self = shift;
 
-  if (
-    defined( $params->{connection_timeout} )
-      and ( !looks_like_number( $params->{connection_timeout} )
-        or $params->{connection_timeout} < 0 )
-      ) {
-    confess 'Connection timeout must be a positive number';
+  if ( @_ ) {
+    $self->{connection_timeout} = $self->_vld_conn_timeout( shift );
   }
 
-  if (
-    defined( $params->{read_timeout} )
-      and ( !looks_like_number( $params->{read_timeout} )
-        or $params->{read_timeout} < 0 )
-      ) {
-    confess 'Read timeout must be a positive number';
+  return $self->{connection_timeout};
+}
+
+####
+sub read_timeout {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{read_timeout} = $self->_vld_read_timeout( shift );
   }
+
+  return $self->{read_timeout};
+}
+
+####
+sub encoding {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    my $enc = shift;
+
+    if ( defined( $enc ) ) {
+      $self->{encoding} = $enc;
+      $self->{_encoding_obj} = find_encoding( $self->{encoding} );
+      if ( !defined( $self->{_encoding_obj} ) ) {
+        confess "Encoding '$self->{encoding}' not found";
+      }
+    }
+    else {
+      undef( $self->{encoding} );
+      undef( $self->{_encoding_obj} );
+    }
+  }
+
+  return $self->{encoding};
+}
+
+####
+sub on_disconnect {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{on_disconnect} = shift;
+  }
+
+  return $self->{on_disconnect};
+}
+
+####
+sub on_error {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{on_error} = $self->_vld_on_error( shift );
+  }
+
+  return $self->{on_error};
+}
+
+####
+sub _vld_new_params {
+  my __PACKAGE__ $self = shift;
+  my $params = shift;
+
+  $params->{connection_timeout} = $self->_vld_conn_timeout(
+      $params->{connection_timeout} );
+  $params->{read_timeout} = $self->_vld_read_timeout(
+      $params->{read_timeout} );
+  $params->{on_error} = $self->_vld_on_error( $params->{on_error} );
 
   if ( !exists( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
-  }
-
-  if ( defined( $params->{encoding} ) ) {
-    my $enc = $params->{encoding};
-    $params->{encoding} = find_encoding( $enc );
-    if ( !defined( $params->{encoding} ) ) {
-      confess "Encoding '$enc' not found";
-    }
   }
 
   if ( !defined( $params->{host} ) ) {
@@ -267,14 +320,49 @@ sub _validate_new_params {
   if ( !defined( $params->{port} ) ) {
     $params->{port} = D_PORT;
   }
-  if ( !defined( $params->{on_error} ) ) {
-    $params->{on_error} = sub {
+
+  return $params;
+}
+
+####
+sub _vld_conn_timeout {
+  my $conn_timeout = pop;
+
+  if (
+    defined( $conn_timeout )
+      and ( !looks_like_number( $conn_timeout ) or $conn_timeout < 0 )
+      ) {
+    confess 'Connection timeout must be a positive number';
+  }
+
+  return $conn_timeout;
+}
+
+####
+sub _vld_read_timeout {
+  my $read_timeout = pop;
+
+  if (
+    defined( $read_timeout )
+      and ( !looks_like_number( $read_timeout ) or $read_timeout < 0 )
+      ) {
+    confess 'Read timeout must be a positive number';
+  }
+
+  return $read_timeout;
+}
+
+sub _vld_on_error {
+  my $on_error = pop;
+
+  if ( !defined( $on_error ) ) {
+    $on_error = sub {
       my $err_msg = shift;
       warn "$err_msg\n";
     };
   }
 
-  return $params;
+  return $on_error;
 }
 
 ####
@@ -596,8 +684,8 @@ sub _push_write {
   my $mbulk_len = 0;
   foreach my $token ( $cmd->{name}, @{$cmd->{args}} ) {
     if ( defined( $token ) and $token ne '' ) {
-      if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
-        $token = $self->{encoding}->encode( $token );
+      if ( defined( $self->{_encoding_obj} ) and is_utf8( $token ) ) {
+        $token = $self->{_encoding_obj}->encode( $token );
       }
       my $token_len = length( $token );
       $cmd_str .= "\$$token_len" . EOL . $token . EOL;
@@ -631,8 +719,8 @@ sub _on_read {
         }
         my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
         substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
-        if ( defined( $self->{encoding} ) ) {
-          $data = $self->{encoding}->decode( $data );
+        if ( defined( $self->{_encoding_obj} ) ) {
+          $data = $self->{_encoding_obj}->decode( $data );
         }
         undef( $bulk_len );
 
