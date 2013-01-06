@@ -21,7 +21,7 @@ sub t_conn_timeout {
   my $t_except;
 
   eval {
-    my $redis = $T_CLASS->new(
+    my $t_redis = $T_CLASS->new(
       connection_timeout => 'invalid_timeout',
     );
   };
@@ -34,7 +34,7 @@ sub t_conn_timeout {
 
   undef( $t_except );
   eval {
-    my $redis = $T_CLASS->new(
+    my $t_redis = $T_CLASS->new(
       connection_timeout => -5,
     );
   };
@@ -53,7 +53,7 @@ sub t_read_timeout {
   my $t_except;
 
   eval {
-    my $redis = $T_CLASS->new(
+    my $t_redis = $T_CLASS->new(
       read_timeout => 'invalid_timeout',
     );
   };
@@ -66,7 +66,7 @@ sub t_read_timeout {
 
   undef( $t_except );
   eval {
-    my $redis = $T_CLASS->new(
+    my $t_redis = $T_CLASS->new(
       read_timeout => -5,
     );
   };
@@ -83,7 +83,7 @@ sub t_read_timeout {
 ####
 sub t_encoding {
   eval {
-    my $redis = $T_CLASS->new(
+    my $t_redis = $T_CLASS->new(
       encoding => 'invalid_enc',
     );
   };
@@ -101,12 +101,12 @@ sub t_encoding {
 
 ####
 sub t_on_message {
-  my $redis = $T_CLASS->new();
+  my $t_redis = $T_CLASS->new();
 
   my $t_except;
 
   eval {
-    $redis->subscribe( 'channel' );
+    $t_redis->subscribe( 'channel' );
   };
   if ( $@ ) {
     chomp( $@ );

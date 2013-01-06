@@ -13,7 +13,7 @@ my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
 can_ok( $T_CLASS, 'eval_cached' );
 
-my $redis = $T_CLASS->new(
+my $t_redis = $T_CLASS->new(
   password => 'test',
 );
 
@@ -27,14 +27,14 @@ ev_loop(
 return redis.status_reply( 'OK' )
 LUA
 ;
-    my $redis = $redis;
-    weaken( $redis );
-    $redis->eval_cached( $script, 0, {
+    my $t_redis = $t_redis;
+    weaken( $t_redis );
+    $t_redis->eval_cached( $script, 0, {
       on_done => sub {
         my $data = shift;
         push( @t_data, $data );
 
-        $redis->eval_cached( $script, 0, {
+        $t_redis->eval_cached( $script, 0, {
           on_done => sub {
             my $data = shift;
             push( @t_data, $data );
@@ -48,4 +48,4 @@ LUA
 
 is_deeply( \@t_data, [ qw( OK OK ) ], 'Script execution' );
 
-$redis->disconnect();
+$t_redis->disconnect();

@@ -15,7 +15,7 @@ can_ok( $T_CLASS, 'psubscribe' );
 can_ok( $T_CLASS, 'unsubscribe' );
 can_ok( $T_CLASS, 'punsubscribe' );
 
-my $redis = $T_CLASS->new(
+my $t_redis = $T_CLASS->new(
   password => 'test',
 );
 
@@ -31,7 +31,7 @@ ev_loop(
     my $cv = shift;
 
     # Subscribe to channels by name
-    $redis->subscribe( qw( ch_foo ch_bar ), {
+    $t_redis->subscribe( qw( ch_foo ch_bar ), {
       on_done =>  sub {
         my $ch_name = shift;
         my $subs_num = shift;
@@ -54,7 +54,7 @@ ev_loop(
     } );
 
     # Subscribe to channels by pattern
-    $redis->psubscribe( qw( info_* err_* ), {
+    $t_redis->psubscribe( qw( info_* err_* ), {
       on_done =>  sub {
         my $ch_pattern = shift;
         my $subs_num = shift;
@@ -85,7 +85,7 @@ ev_loop(
       cb => sub {
         undef( $unsub_timer );
 
-        $redis->unsubscribe( qw( ch_foo ch_bar ), {
+        $t_redis->unsubscribe( qw( ch_foo ch_bar ), {
           on_done => sub {
             my $ch_name = shift;
             my $subs_num = shift;
@@ -97,7 +97,7 @@ ev_loop(
           },
         } );
 
-        $redis->punsubscribe( qw( info_* err_* ), {
+        $t_redis->punsubscribe( qw( info_* err_* ), {
           on_done => sub {
             my $ch_pattern = shift;
             my $subs_num = shift;
@@ -185,4 +185,4 @@ is_deeply( \@t_punsub_data, [
   },
 ], 'punsubscribe' );
 
-$redis->disconnect();
+$t_redis->disconnect();

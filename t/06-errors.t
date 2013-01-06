@@ -34,14 +34,14 @@ t_read_timeout();
 sub t_no_connection {
   Test::AnyEvent::RedisHandle->down_connection();
 
-  my $redis;
+  my $t_redis;
   my @t_errors;
 
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         reconnect => 0,
 
@@ -59,7 +59,7 @@ sub t_no_connection {
         },
       );
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -75,7 +75,7 @@ sub t_no_connection {
     sub {
       my $cv = shift;
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -102,13 +102,13 @@ sub t_no_connection {
 ####
 sub t_reconnect {
   my @t_data;
-  my $redis;
+  my $t_redis;
 
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         password => 'test',
 
@@ -130,7 +130,7 @@ sub t_reconnect {
         },
       );
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_done => sub {
           Test::AnyEvent::RedisHandle->down_connection();
         }
@@ -142,7 +142,7 @@ sub t_reconnect {
     sub {
       my $cv = shift;
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_done => sub {
           my $resp = shift;
           push( @t_data, $resp );
@@ -166,12 +166,12 @@ sub t_reconnect {
 ####
 sub t_broken_connection {
   my @t_data;
-  my $redis;
+  my $t_redis;
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         password => 'test',
 
@@ -193,12 +193,12 @@ sub t_broken_connection {
       );
 
       {
-        my $redis = $redis;
-        weaken( $redis );
-        $redis->ping( {
+        my $t_redis = $t_redis;
+        weaken( $t_redis );
+        $t_redis->ping( {
           on_done => sub {
             Test::AnyEvent::RedisHandle->down_connection();
-            $redis->ping();
+            $t_redis->ping();
           },
         } );
       }
@@ -219,7 +219,7 @@ sub t_broken_connection {
 
 ####
 sub t_cmd_on_error {
-  my $redis = $T_CLASS->new(
+  my $t_redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
   );
@@ -230,14 +230,14 @@ sub t_cmd_on_error {
     sub {
       my $cv = shift;
 
-      $redis->set( 'bar', 'Some string' );
+      $t_redis->set( 'bar', 'Some string' );
 
       $SIG{__WARN__} = sub {
         $t_err = shift;
         chomp( $t_err );
         $cv->send();
       };
-      $redis->incr( 'bar' );
+      $t_redis->incr( 'bar' );
     },
   );
 
@@ -249,8 +249,8 @@ sub t_cmd_on_error {
     sub {
       my $cv = shift;
 
-      $redis->multi();
-      $redis->set( '', undef, {
+      $t_redis->multi();
+      $t_redis->set( '', undef, {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -258,8 +258,8 @@ sub t_cmd_on_error {
           push( @t_errors, [ $err_msg, $err_code ] );
         },
       } );
-      $redis->incr( 'bar' );
-      $redis->exec( {
+      $t_redis->incr( 'bar' );
+      $t_redis->exec( {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -281,13 +281,13 @@ sub t_cmd_on_error {
 
 ####
 sub t_invalid_password {
-  my $redis;
+  my $t_redis;
   my @t_errors;
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         password => 'invalid',
         on_error => sub {
@@ -298,7 +298,7 @@ sub t_invalid_password {
         },
       );
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -320,7 +320,7 @@ sub t_invalid_password {
 
 ####
 sub t_oprn_not_permitted {
-  my $redis = $T_CLASS->new(
+  my $t_redis = $T_CLASS->new(
     %GENERIC_PARAMS,
   );
 
@@ -330,7 +330,7 @@ sub t_oprn_not_permitted {
     sub {
       my $cv = shift;
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_error => sub {
           $t_err_msg = shift;
           $t_err_code = shift;
@@ -349,7 +349,7 @@ sub t_oprn_not_permitted {
 
 ####
 sub t_sub_after_multi {
-  my $redis = $T_CLASS->new(
+  my $t_redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
   );
@@ -360,8 +360,8 @@ sub t_sub_after_multi {
     sub {
       my $cv = shift;
 
-      $redis->multi();
-      $redis->subscribe( 'channel', {
+      $t_redis->multi();
+      $t_redis->subscribe( 'channel', {
         on_message => sub {
           my $msg = shift;
         },
@@ -385,19 +385,19 @@ sub t_sub_after_multi {
 
 ####
 sub t_conn_closed_by_client {
-  my $redis = $T_CLASS->new(
+  my $t_redis = $T_CLASS->new(
     %GENERIC_PARAMS,
     password => 'test',
   );
   my $t_err_msg;
   my $t_err_code;
-  $redis->ping( {
+  $t_redis->ping( {
     on_error => sub {
       $t_err_msg = shift;
       $t_err_code = shift;
     },
   } );
-  $redis->disconnect();
+  $t_redis->disconnect();
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'ping' aborted: Connection"
       . " closed by client", E_CONN_CLOSED_BY_CLIENT ],
@@ -410,13 +410,13 @@ sub t_conn_closed_by_client {
 sub t_loading_dataset {
   Test::AnyEvent::RedisEmulator->loading_dataset( 1 );
 
-  my $redis;
+  my $t_redis;
   my @t_errors;
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         password => 'test',
 
@@ -429,7 +429,7 @@ sub t_loading_dataset {
         },
       );
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -454,13 +454,13 @@ sub t_loading_dataset {
 
 ####
 sub t_invalid_db_index {
-  my $redis;
+  my $t_redis;
   my @t_errors;
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         password => 'test',
         database => 16,
@@ -474,7 +474,7 @@ sub t_invalid_db_index {
         },
       );
 
-      $redis->ping( {
+      $t_redis->ping( {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;
@@ -495,14 +495,14 @@ sub t_invalid_db_index {
 
 ####
 sub t_read_timeout {
-  my $redis;
+  my $t_redis;
   my @t_errors;
 
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis = $T_CLASS->new(
+      $t_redis = $T_CLASS->new(
         %GENERIC_PARAMS,
         password => 'test',
         reconnect => 0,

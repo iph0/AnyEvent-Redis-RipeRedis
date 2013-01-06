@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 32;
+use Test::More tests => 35;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 
@@ -19,39 +19,57 @@ can_ok( $T_CLASS, 'new' );
 can_ok( $T_CLASS, 'multi' );
 can_ok( $T_CLASS, 'exec' );
 can_ok( $T_CLASS, 'disconnect' );
-can_ok( $T_CLASS, 'AUTOLOAD' );
-can_ok( $T_CLASS, 'DESTROY' );
+can_ok( $T_CLASS, 'connection_timeout' );
+can_ok( $T_CLASS, 'read_timeout' );
+can_ok( $T_CLASS, 'encoding' );
+can_ok( $T_CLASS, 'on_disconnect' );
+can_ok( $T_CLASS, 'on_error' );
+
+is( E_CANT_CONN, 1, 'E_CANT_CONN' );
+is( E_LOADING_DATASET, 2, 'E_LOADING_DATASET' );
+is( E_IO, 3, 'E_IO' );
+is( E_CONN_CLOSED_BY_REMOTE_HOST, 4, 'E_CONN_CLOSED_BY_REMOTE_HOST' );
+is( E_CONN_CLOSED_BY_CLIENT, 5, 'E_CONN_CLOSED_BY_CLIENT' );
+is( E_NO_CONN, 6, 'E_NO_CONN' );
+is( E_INVALID_PASS, 7, 'E_INVALID_PASS' );
+is( E_OPRN_NOT_PERMITTED, 8, 'E_OPRN_NOT_PERMITTED' );
+is( E_OPRN_ERROR, 9, 'E_OPRN_ERROR' );
+is( E_UNEXPECTED_DATA, 10, 'E_UNEXPECTED_DATA' );
+is( E_NO_SCRIPT, 11, 'E_NO_SCRIPT' );
+is( E_READ_TIMEDOUT, 12, 'E_RESP_TIMEDOUT' );
+
 
 # Connect
-my $REDIS;
-my $t_connected = 0;
-my $t_disconnected = 0;
+my $T_REDIS;
+my $T_CONNECTED = 0;
+my $T_DISCONNECTED = 0;
 
 ev_loop(
   sub {
     my $cv = shift;
 
-    $REDIS = new_ok( $T_CLASS, [
+    $T_REDIS = new_ok( $T_CLASS, [
       host => 'localhost',
       port => '6379',
       password => 'test',
       database => 1,
       connection_timeout => 5,
+      read_timeout => 5,
       encoding => 'utf8',
 
       on_connect => sub {
-        $t_connected = 1;
+        $T_CONNECTED = 1;
         $cv->send();
       },
 
       on_disconnect => sub {
-        $t_disconnected = 1;
+        $T_DISCONNECTED = 1;
       },
     ] );
   },
 );
 
-ok( $t_connected, 'Connected' );
+ok( $T_CONNECTED, 'Connected' );
 
 t_ping();
 t_incr();
@@ -63,10 +81,7 @@ t_get_empty_list();
 t_mbulk_undef();
 t_transaction();
 t_quit();
-t_error_codes();
 
-
-# Subroutines
 
 ####
 sub t_ping {
@@ -76,7 +91,7 @@ sub t_ping {
     sub {
       my $cv = shift;
 
-      $REDIS->ping( {
+      $T_REDIS->ping( {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -98,7 +113,7 @@ sub t_incr {
     sub {
       my $cv = shift;
 
-      $REDIS->incr( 'foo', {
+      $T_REDIS->incr( 'foo', {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -120,8 +135,8 @@ sub t_set_get {
     sub {
       my $cv = shift;
 
-      $REDIS->set( 'bar', "Some\r\nstring" );
-      $REDIS->get( 'bar', {
+      $T_REDIS->set( 'bar', "Some\r\nstring" );
+      $T_REDIS->get( 'bar', {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -143,8 +158,8 @@ sub t_set_get_utf8 {
     sub {
       my $cv = shift;
 
-      $REDIS->set( 'ключ', 'Значение' );
-      $REDIS->get( 'ключ', {
+      $T_REDIS->set( 'ключ', 'Значение' );
+      $T_REDIS->get( 'ключ', {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -166,7 +181,7 @@ sub t_get_non_existent {
     sub {
       my $cv = shift;
 
-      $REDIS->get( 'non_existent', {
+      $T_REDIS->get( 'non_existent', {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -189,10 +204,10 @@ sub t_lrange {
       my $cv = shift;
 
       for ( my $i = 2; $i <= 3; $i++ ) {
-        $REDIS->rpush( 'list', "element_$i" );
+        $T_REDIS->rpush( 'list', "element_$i" );
       }
-      $REDIS->lpush( 'list', 'element_1' );
-      $REDIS->lrange( 'list', 0, -1, {
+      $T_REDIS->lpush( 'list', 'element_1' );
+      $T_REDIS->lrange( 'list', 0, -1, {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -218,7 +233,7 @@ sub t_get_empty_list {
     sub {
       my $cv = shift;
 
-      $REDIS->lrange( 'non_existent', 0, -1, {
+      $T_REDIS->lrange( 'non_existent', 0, -1, {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -240,7 +255,7 @@ sub t_mbulk_undef {
     sub {
       my $cv = shift;
 
-      $REDIS->brpop( 'non_existent', '5', {
+      $T_REDIS->brpop( 'non_existent', '5', {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -262,13 +277,13 @@ sub t_transaction {
     sub {
       my $cv = shift;
 
-      $REDIS->multi();
-      $REDIS->incr( 'foo' );
-      $REDIS->lrange( 'list', 0, -1 );
-      $REDIS->lrange( 'non_existent', 0, -1 );
-      $REDIS->get( 'bar' );
-      $REDIS->lrange( 'list', 0, -1 );
-      $REDIS->exec( {
+      $T_REDIS->multi();
+      $T_REDIS->incr( 'foo' );
+      $T_REDIS->lrange( 'list', 0, -1 );
+      $T_REDIS->lrange( 'non_existent', 0, -1 );
+      $T_REDIS->get( 'bar' );
+      $T_REDIS->lrange( 'list', 0, -1 );
+      $T_REDIS->exec( {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -304,7 +319,7 @@ sub t_quit {
     sub {
       my $cv = shift;
 
-      $REDIS->quit( {
+      $T_REDIS->quit( {
         on_done => sub {
           $t_data = shift;
           $cv->send();
@@ -314,23 +329,7 @@ sub t_quit {
   );
 
   is( $t_data, 'OK', 'quit (status reply)' );
-  ok( $t_disconnected, 'Disconnected' );
+  ok( $T_DISCONNECTED, 'Disconnected' );
 
   return;
-}
-
-####
-sub t_error_codes {
-  is( E_CANT_CONN, 1, 'Constant E_CANT_CONN' );
-  is( E_LOADING_DATASET, 2, 'Constant E_LOADING_DATASET' );
-  is( E_IO, 3, 'Constant E_IO' );
-  is( E_CONN_CLOSED_BY_REMOTE_HOST, 4, 'Constant E_CONN_CLOSED_BY_REMOTE_HOST' );
-  is( E_CONN_CLOSED_BY_CLIENT, 5, 'Constant E_CONN_CLOSED_BY_CLIENT' );
-  is( E_NO_CONN, 6, 'Constant E_NO_CONN' );
-  is( E_INVALID_PASS, 7, 'Constant E_INVALID_PASS' );
-  is( E_OPRN_NOT_PERMITTED, 8, 'Constant E_OPRN_NOT_PERMITTED' );
-  is( E_OPRN_ERROR, 9, 'Constant E_OPRN_ERROR' );
-  is( E_UNEXPECTED_DATA, 10, 'Constant E_UNEXPECTED_DATA' );
-  is( E_NO_SCRIPT, 11, 'Constant E_NO_SCRIPT' );
-  is( E_READ_TIMEDOUT, 12, 'Constant E_RESP_TIMEDOUT' );
 }

@@ -11,7 +11,7 @@ use Scalar::Util qw( weaken );
 
 my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
 
-my $redis;
+my $t_redis;
 
 my $t_connected = 0;
 
@@ -19,7 +19,7 @@ ev_loop(
   sub {
     my $cv = shift;
 
-    $redis = $T_CLASS->new(
+    $t_redis = $T_CLASS->new(
       password => 'test',
       lazy => 1,
       reconnect => 0,
@@ -37,7 +37,7 @@ ev_loop(
 
         ok( !$t_connected, 'Lazy connection (yet no connected)' );
 
-        $redis->ping( {
+        $t_redis->ping( {
           on_done => sub {
             $cv->send();
           },
@@ -49,4 +49,4 @@ ev_loop(
 
 ok( $t_connected, 'Lazy connection (connected)' );
 
-$redis->disconnect();
+$t_redis->disconnect();

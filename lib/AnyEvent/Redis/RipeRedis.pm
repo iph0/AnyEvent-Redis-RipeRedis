@@ -20,7 +20,6 @@ use fields qw(
   on_error
 
   _handle
-  _encoding_obj
   _connected
   _lazy_conn_st
   _auth_st
@@ -116,7 +115,6 @@ sub new {
   $self->{on_error} = $params->{on_error};
 
   $self->{_handle} = undef;
-  $self->{_encoding_obj} = undef;
   $self->{_connected} = 0;
   $self->{_lazy_conn_st} = $params->{lazy};
   $self->{_auth_st} = S_NEED_PERFORM;
@@ -232,7 +230,6 @@ sub disconnect {
   return;
 }
 
-####
 sub connection_timeout {
   my __PACKAGE__ $self = shift;
 
@@ -262,15 +259,13 @@ sub encoding {
     my $enc = shift;
 
     if ( defined( $enc ) ) {
-      $self->{encoding} = $enc;
-      $self->{_encoding_obj} = find_encoding( $self->{encoding} );
-      if ( !defined( $self->{_encoding_obj} ) ) {
-        confess "Encoding '$self->{encoding}' not found";
+      $self->{encoding} = find_encoding( $enc );
+      if ( !defined( $self->{encoding} ) ) {
+        confess "Encoding '$enc' not found";
       }
     }
     else {
       undef( $self->{encoding} );
-      undef( $self->{_encoding_obj} );
     }
   }
 
@@ -313,7 +308,6 @@ sub _vld_new_params {
   if ( !exists( $params->{reconnect} ) ) {
     $params->{reconnect} = 1;
   }
-
   if ( !defined( $params->{host} ) ) {
     $params->{host} = D_HOST;
   }
@@ -684,8 +678,8 @@ sub _push_write {
   my $mbulk_len = 0;
   foreach my $token ( $cmd->{name}, @{$cmd->{args}} ) {
     if ( defined( $token ) and $token ne '' ) {
-      if ( defined( $self->{_encoding_obj} ) and is_utf8( $token ) ) {
-        $token = $self->{_encoding_obj}->encode( $token );
+      if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
+        $token = $self->{encoding}->encode( $token );
       }
       my $token_len = length( $token );
       $cmd_str .= "\$$token_len" . EOL . $token . EOL;
@@ -719,8 +713,8 @@ sub _on_read {
         }
         my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
         substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
-        if ( defined( $self->{_encoding_obj} ) ) {
-          $data = $self->{_encoding_obj}->decode( $data );
+        if ( defined( $self->{encoding} ) ) {
+          $data = $self->{encoding}->decode( $data );
         }
         undef( $bulk_len );
 
