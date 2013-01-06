@@ -52,7 +52,7 @@ sub t_read_timeout {
   is( $t_read_timeout, 5, "Get 'read_timeout'" );
 
   $T_REDIS->read_timeout( undef );
-  is( $T_REDIS->{read_timeout}, undef, "Remove 'read_timeout'" );
+  is( $T_REDIS->{read_timeout}, undef, "Disable 'read_timeout'" );
 
   $T_REDIS->read_timeout( 10 );
   is( $T_REDIS->{read_timeout}, 10, "Set 'read_timeout'" );
@@ -66,7 +66,7 @@ sub t_encoding {
   is( $T_REDIS->{encoding}->name(), 'UTF-16', "Get 'encoding'" );
 
   $T_REDIS->encoding( undef );
-  is( $T_REDIS->{encoding}, undef, "Remove 'encoding'" );
+  is( $T_REDIS->{encoding}, undef, "Disable 'encoding'" );
 
   $T_REDIS->encoding( 'utf8' );
   is( $T_REDIS->{encoding}->name(), 'utf8', "Set 'encoding'" );
@@ -80,7 +80,7 @@ sub t_on_disconnect {
   is( $on_disconn->(), 1, "Get 'on_disconnect' callback" );
 
   $T_REDIS->on_disconnect( undef );
-  is( $T_REDIS->{on_disconnect}, undef, "Remove 'on_disconnect' callback" );
+  is( $T_REDIS->{on_disconnect}, undef, "Disable 'on_disconnect' callback" );
 
   $T_REDIS->on_disconnect(
     sub {

@@ -1,5 +1,11 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.220 Jan 2013
+  - [FEATURE] Added accessors for following object attributes: 'connection_timeout',
+    'read_timeout', 'encoding', 'on_disconnect', 'on_error'
+  - Added section BUILD_REQUIRES in Makefile.PL
+  - POD improved.
+
 1.212 26 Wed Dec 09:43:35 2012
   - Specified minimum version of AnyEvent in Makefile.PL.
 
