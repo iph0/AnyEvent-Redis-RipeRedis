@@ -3,13 +3,24 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 15;
+use Test::More tests => 23;
 use Test::AnyEvent::RedisHandle;
-use AnyEvent::Redis::RipeRedis qw( E_OPRN_ERROR );
 
-my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+my $T_CLASS;
 
-my $T_REDIS = $T_CLASS->new(
+BEGIN {
+  $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+  use_ok( $T_CLASS, qw( E_OPRN_ERROR ) );
+}
+
+can_ok( $T_CLASS, 'new' );
+can_ok( $T_CLASS, 'connection_timeout' );
+can_ok( $T_CLASS, 'read_timeout' );
+can_ok( $T_CLASS, 'encoding' );
+can_ok( $T_CLASS, 'on_disconnect' );
+can_ok( $T_CLASS, 'on_error' );
+
+my $T_REDIS = new_ok( $T_CLASS, [
   password => 'test',
   connection_timeout => 10,
   read_timeout => 5,
@@ -22,7 +33,7 @@ my $T_REDIS = $T_CLASS->new(
   on_error => sub {
     return 2;
   },
-);
+] );
 
 t_conn_timeout();
 t_read_timeout();

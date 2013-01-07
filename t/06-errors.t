@@ -3,14 +3,20 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 12;
+use Test::More tests => 25;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::RedisEmulator;
 use Test::AnyEvent::EVLoop;
-use AnyEvent::Redis::RipeRedis qw( :err_codes );
 use Scalar::Util qw( weaken );
 
-my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+my $T_CLASS;
+
+BEGIN {
+  $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+  use_ok( $T_CLASS, qw( :err_codes ) );
+}
+
+can_ok( $T_CLASS, 'new' );
 
 my %GENERIC_PARAMS = (
   host => 'localhost',
@@ -41,7 +47,7 @@ sub t_no_connection {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         reconnect => 0,
 
@@ -57,7 +63,7 @@ sub t_no_connection {
 
           push( @t_errors, [ $err_msg, $err_code ] );
         },
-      );
+      ] );
 
       $t_redis->ping( {
         on_error => sub {
@@ -108,7 +114,7 @@ sub t_reconnect {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         password => 'test',
 
@@ -128,7 +134,7 @@ sub t_reconnect {
 
           push( @t_data, [ $err_msg, $err_code ] );
         },
-      );
+      ] );
 
       $t_redis->ping( {
         on_done => sub {
@@ -171,7 +177,7 @@ sub t_broken_connection {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         password => 'test',
 
@@ -190,7 +196,7 @@ sub t_broken_connection {
           push( @t_data, [ $err_msg, $err_code ] );
           $cv->send();
         },
-      );
+      ] );
 
       {
         my $t_redis = $t_redis;
@@ -219,10 +225,10 @@ sub t_broken_connection {
 
 ####
 sub t_cmd_on_error {
-  my $t_redis = $T_CLASS->new(
+  my $t_redis = new_ok( $T_CLASS, [
     %GENERIC_PARAMS,
     password => 'test',
-  );
+  ] );
 
   local %SIG;
   my $t_err;
@@ -287,7 +293,7 @@ sub t_invalid_password {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         password => 'invalid',
         on_error => sub {
@@ -296,7 +302,7 @@ sub t_invalid_password {
 
           push( @t_errors, [ $err_msg, $err_code ] );
         },
-      );
+      ] );
 
       $t_redis->ping( {
         on_error => sub {
@@ -320,9 +326,9 @@ sub t_invalid_password {
 
 ####
 sub t_oprn_not_permitted {
-  my $t_redis = $T_CLASS->new(
+  my $t_redis = new_ok( $T_CLASS, [
     %GENERIC_PARAMS,
-  );
+  ] );
 
   my $t_err_msg;
   my $t_err_code;
@@ -349,10 +355,10 @@ sub t_oprn_not_permitted {
 
 ####
 sub t_sub_after_multi {
-  my $t_redis = $T_CLASS->new(
+  my $t_redis = new_ok( $T_CLASS, [
     %GENERIC_PARAMS,
     password => 'test',
-  );
+  ] );
 
   my $t_err_msg;
   my $t_err_code;
@@ -385,10 +391,10 @@ sub t_sub_after_multi {
 
 ####
 sub t_conn_closed_by_client {
-  my $t_redis = $T_CLASS->new(
+  my $t_redis = new_ok( $T_CLASS, [
     %GENERIC_PARAMS,
     password => 'test',
-  );
+  ] );
   my $t_err_msg;
   my $t_err_code;
   $t_redis->ping( {
@@ -416,7 +422,7 @@ sub t_loading_dataset {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         password => 'test',
 
@@ -427,7 +433,7 @@ sub t_loading_dataset {
           push( @t_errors, [ $err_msg, $err_code ] );
           $cv->send();
         },
-      );
+      ] );
 
       $t_redis->ping( {
         on_error => sub {
@@ -460,7 +466,7 @@ sub t_invalid_db_index {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         password => 'test',
         database => 16,
@@ -472,7 +478,7 @@ sub t_invalid_db_index {
           push( @t_errors, [ $err_msg, $err_code ] );
           $cv->send();
         },
-      );
+      ] );
 
       $t_redis->ping( {
         on_error => sub {
@@ -502,7 +508,7 @@ sub t_read_timeout {
     sub {
       my $cv = shift;
 
-      $t_redis = $T_CLASS->new(
+      $t_redis = new_ok( $T_CLASS, [
         %GENERIC_PARAMS,
         password => 'test',
         reconnect => 0,
@@ -519,7 +525,7 @@ sub t_read_timeout {
           push( @t_errors, [ $err_msg, $err_code ] );
           $cv->send();
         },
-      );
+      ] );
     },
   );
 

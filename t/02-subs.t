@@ -3,21 +3,26 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 10;
+use Test::More tests => 13;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
-use AnyEvent::Redis::RipeRedis;
 
-my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+my $T_CLASS;
 
+BEGIN {
+  $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+  use_ok( $T_CLASS );
+}
+
+can_ok( $T_CLASS, 'new' );
 can_ok( $T_CLASS, 'subscribe' );
 can_ok( $T_CLASS, 'psubscribe' );
 can_ok( $T_CLASS, 'unsubscribe' );
 can_ok( $T_CLASS, 'punsubscribe' );
 
-my $t_redis = $T_CLASS->new(
+my $t_redis = new_ok( $T_CLASS, [
   password => 'test',
-);
+] );
 
 my @t_sub_data;
 my @t_sub_msgs;

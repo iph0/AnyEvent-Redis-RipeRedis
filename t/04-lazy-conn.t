@@ -3,13 +3,19 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 2;
+use Test::More tests => 5;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
-use AnyEvent::Redis::RipeRedis;
 use Scalar::Util qw( weaken );
 
-my $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+my $T_CLASS;
+
+BEGIN {
+  $T_CLASS = 'AnyEvent::Redis::RipeRedis';
+  use_ok( $T_CLASS );
+}
+
+can_ok( $T_CLASS, 'new' );
 
 my $t_redis;
 
@@ -19,7 +25,7 @@ ev_loop(
   sub {
     my $cv = shift;
 
-    $t_redis = $T_CLASS->new(
+    $t_redis = new_ok( $T_CLASS, [
       password => 'test',
       lazy => 1,
       reconnect => 0,
@@ -27,7 +33,7 @@ ev_loop(
       on_connect => sub {
         $t_connected = 1;
       },
-    );
+    ] );
 
     my $timer;
     $timer = AnyEvent->timer(
