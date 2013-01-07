@@ -1141,20 +1141,25 @@ Server port (default: 6379)
 =item password
 
 Authentication password. If the password is specified, then the C<AUTH> command
-will be send immediately to the server after connection and after every
+will be send immediately to the server after a connection and after every
 reconnection.
 
 =item database
 
 Database index. If the index is specified, then client will be switched to
-the specified database immediately after connection and after every reconnection.
+the specified database immediately after a connection and after every reconnection.
 
 The default database index is C<0>.
 
 =item connection_timeout
 
 If after this timeout the client could not connect to the server, the callback
-C<on_error> is called with the error code C<E_CANT_CONN>.
+C<on_error> is called with the error code C<E_CANT_CONN>. The timeout must be
+specified in seconds and can contain a fractional part.
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    connection_timeout => 10.5,
+  );
 
 By default the client use kernel's connection timeout.
 
@@ -1162,7 +1167,12 @@ By default the client use kernel's connection timeout.
 
 If after this timeout the client do not received a response from the server to
 any command, the callback C<on_error> is called with the error code
-C<E_READ_TIMEOUT>.
+C<E_READ_TIMEOUT>. The timeout must be specified in seconds and can contain
+a fractional part.
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    read_timeout => 0.5,
+  );
 
 Not set by default.
 
@@ -1174,12 +1184,12 @@ calling of the method C<new>.
 
 =item reconnect
 
-If this parameter is TRUE and the connection to the Redis server was lost, then
-the client will try to reconnect to the server while executing a next command.
-The client try to reconnect only once and if it fails, then it call the
-C<on_error> callback. If you need several attempts of the reconnection, just
-retry a command from the C<on_error> callback as many times, as you need. This
-feature made the client more responsive.
+If the connection to the Redis server was lost and the parameter 'reconnect' is
+TRUE, then the client try to restore the connection, when executing a next command.
+The client try to reconnect only once and if it fails, then is called the C<on_error>
+callback. If you need several attempts of the reconnection, just retry a command
+from the C<on_error> callback as many times, as you need. This feature made the
+client more responsive.
 
 By default is TRUE.
 
@@ -1257,7 +1267,9 @@ The callback C<on_done> is called, when the current operation is done.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when any error occurred.
+The callback C<on_error> is called, when any error occurred. If the callback is
+not set, then the C<on_error> callback, that was specified in constructor, is
+called.
 
 =back
 
@@ -1335,7 +1347,9 @@ The callback C<on_message> is called, when a published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when subscription operation failed.
+The callback C<on_error> is called, when the subscription operation fails. If
+the callback is not set, then the C<on_error> callback, that was specified in
+constructor, is called.
 
 =back
 
@@ -1374,7 +1388,9 @@ The callback C<on_message> is called, when published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when subscription operation failed.
+The callback C<on_error> is called, when the subscription operation fails. If
+the callback is not set, then the C<on_error> callback, that was specified in
+constructor, is called.
 
 =back
 
@@ -1534,7 +1550,7 @@ Get, set or disable the C<read_timeout> of the client.
 
 =head2 encoding( $enc_name )
 
-Get, set or disable the C<encoding> attribute of the client.
+Get, set or disable the C<encoding>.
 
 =head2 on_disconnect( $callback )
 
