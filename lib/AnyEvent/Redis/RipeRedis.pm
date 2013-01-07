@@ -1565,7 +1565,7 @@ The method for synchronous disconnection.
 
 =head2 connection_timeout( $seconds )
 
-Get, set or reset to default value the C<connection_timeout> of the client.
+Get, set or reset to default the C<connection_timeout> of the client.
 
 =head2 read_timeout( $seconds )
 
