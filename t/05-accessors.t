@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 23;
+use Test::More tests => 31;
 use Test::AnyEvent::RedisHandle;
 
 my $T_CLASS;
@@ -17,7 +17,9 @@ can_ok( $T_CLASS, 'new' );
 can_ok( $T_CLASS, 'connection_timeout' );
 can_ok( $T_CLASS, 'read_timeout' );
 can_ok( $T_CLASS, 'encoding' );
+can_ok( $T_CLASS, 'on_connect' );
 can_ok( $T_CLASS, 'on_disconnect' );
+can_ok( $T_CLASS, 'on_connect_error' );
 can_ok( $T_CLASS, 'on_error' );
 
 my $T_REDIS = new_ok( $T_CLASS, [
@@ -26,19 +28,29 @@ my $T_REDIS = new_ok( $T_CLASS, [
   read_timeout => 5,
   encoding => 'UTF-16',
 
-  on_disconnect => sub {
+  on_connect => sub {
     return 1;
   },
 
-  on_error => sub {
+  on_disconnect => sub {
     return 2;
+  },
+
+  on_connect_error => sub {
+    return 3;
+  },
+
+  on_error => sub {
+    return 4;
   },
 ] );
 
 t_conn_timeout();
 t_read_timeout();
 t_encoding();
+t_on_connect();
 t_on_disconnect();
+t_on_connect_error();
 t_on_error();
 
 
@@ -86,19 +98,55 @@ sub t_encoding {
 }
 
 ####
+sub t_on_connect {
+  my $on_conn = $T_REDIS->on_connect();
+  is( $on_conn->(), 1, "Get 'on_connect' callback" );
+
+  $T_REDIS->on_connect( undef );
+  is( $T_REDIS->{on_connect}, undef, "Disable 'on_connect' callback" );
+
+  $T_REDIS->on_connect(
+    sub {
+      return 5;
+    }
+  );
+  is( $T_REDIS->{on_connect}->(), 5, "Set 'on_connect' callback" );
+
+  return;
+}
+
+####
 sub t_on_disconnect {
   my $on_disconn = $T_REDIS->on_disconnect();
-  is( $on_disconn->(), 1, "Get 'on_disconnect' callback" );
+  is( $on_disconn->(), 2, "Get 'on_disconnect' callback" );
 
   $T_REDIS->on_disconnect( undef );
   is( $T_REDIS->{on_disconnect}, undef, "Disable 'on_disconnect' callback" );
 
   $T_REDIS->on_disconnect(
     sub {
-      return 3;
+      return 6;
     }
   );
-  is( $T_REDIS->{on_disconnect}->(), 3, "Set 'on_disconnect' callback" );
+  is( $T_REDIS->{on_disconnect}->(), 6, "Set 'on_disconnect' callback" );
+
+  return;
+}
+
+####
+sub t_on_connect_error {
+  my $on_conn_error = $T_REDIS->on_connect_error();
+  is( $on_conn_error->(), 3, "Get 'on_connect_error' callback" );
+
+  $T_REDIS->on_connect_error( undef );
+  is( $T_REDIS->{on_connect_error}, undef, "Disable 'on_connect_error' callback" );
+
+  $T_REDIS->on_connect_error(
+    sub {
+      return 7;
+    }
+  );
+  is( $T_REDIS->{on_connect_error}->(), 7, "Set 'on_connect_error' callback" );
 
   return;
 }
@@ -106,7 +154,7 @@ sub t_on_disconnect {
 ####
 sub t_on_error {
   my $on_error = $T_REDIS->on_error();
-  is( $on_error->(), 2, "Get 'on_error' callback" );
+  is( $on_error->(), 4, "Get 'on_error' callback" );
 
   local %SIG;
   my $t_err;
@@ -120,10 +168,10 @@ sub t_on_error {
 
   $T_REDIS->on_error(
     sub {
-      return 4;
+      return 8;
     }
   );
-  is( $T_REDIS->{on_error}->(), 4, "Set 'on_error' callback" );
+  is( $T_REDIS->{on_error}->(), 8, "Set 'on_error' callback" );
 
   return;
 }

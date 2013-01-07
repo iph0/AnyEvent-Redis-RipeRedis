@@ -273,6 +273,17 @@ sub encoding {
 }
 
 ####
+sub on_connect {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{on_connect} = shift;
+  }
+
+  return $self->{on_connect};
+}
+
+####
 sub on_disconnect {
   my __PACKAGE__ $self = shift;
 
@@ -281,6 +292,17 @@ sub on_disconnect {
   }
 
   return $self->{on_disconnect};
+}
+
+####
+sub on_connect_error {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{on_connect_error} = shift;
+  }
+
+  return $self->{on_connect_error};
 }
 
 ####
@@ -1093,7 +1115,8 @@ feature
 =head1 DESCRIPTION
 
 AnyEvent::Redis::RipeRedis is the non-blocking flexible Redis client with reconnect
-feature. The client supports subscriptions, transactions and has simple API.
+feature. The client supports subscriptions, transactions and connection via
+UNIX-socket.
 
 Requires Redis 1.2 or higher, and any supported event loop.
 
@@ -1167,7 +1190,7 @@ By default the client use kernel's connection timeout.
 
 If after this timeout the client do not received a response from the server to
 any command, the callback C<on_error> is called with the error code
-C<E_READ_TIMEOUT>. The timeout must be specified in seconds and can contain
+C<E_READ_TIMEDOUT>. The timeout must be specified in seconds and can contain
 a fractional part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
@@ -1552,9 +1575,17 @@ Get, set or disable the C<read_timeout> of the client.
 
 Get, set or disable the C<encoding>.
 
+=head2 on_connect( $callback )
+
+Get, set or disable the C<on_connect> callback.
+
 =head2 on_disconnect( $callback )
 
 Get, set or disable the C<on_disconnect> callback.
+
+=head2 on_connect_error( $callback )
+
+Get, set or disable the C<on_connect_error> callback.
 
 =head2 on_error( $callback )
 
