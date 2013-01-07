@@ -230,6 +230,7 @@ sub disconnect {
   return;
 }
 
+####
 sub connection_timeout {
   my __PACKAGE__ $self = shift;
 
@@ -249,6 +250,17 @@ sub read_timeout {
   }
 
   return $self->{read_timeout};
+}
+
+####
+sub reconnect {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{reconnect} = shift;
+  }
+
+  return $self->{reconnect};
 }
 
 ####
@@ -1570,6 +1582,10 @@ Get, set or reset to default the C<connection_timeout> of the client.
 =head2 read_timeout( $seconds )
 
 Get, set or disable the C<read_timeout> of the client.
+
+=head2 reconnect( $boolean )
+
+Enable or disable reconnection mode of the client.
 
 =head2 encoding( $enc_name )
 

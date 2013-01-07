@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 31;
+use Test::More tests => 35;
 use Test::AnyEvent::RedisHandle;
 
 my $T_CLASS;
@@ -16,6 +16,7 @@ BEGIN {
 can_ok( $T_CLASS, 'new' );
 can_ok( $T_CLASS, 'connection_timeout' );
 can_ok( $T_CLASS, 'read_timeout' );
+can_ok( $T_CLASS, 'reconnect' );
 can_ok( $T_CLASS, 'encoding' );
 can_ok( $T_CLASS, 'on_connect' );
 can_ok( $T_CLASS, 'on_disconnect' );
@@ -26,6 +27,7 @@ my $T_REDIS = new_ok( $T_CLASS, [
   password => 'test',
   connection_timeout => 10,
   read_timeout => 5,
+  reconnect => 1,
   encoding => 'UTF-16',
 
   on_connect => sub {
@@ -47,6 +49,7 @@ my $T_REDIS = new_ok( $T_CLASS, [
 
 t_conn_timeout();
 t_read_timeout();
+t_reconnect();
 t_encoding();
 t_on_connect();
 t_on_disconnect();
@@ -79,6 +82,20 @@ sub t_read_timeout {
 
   $T_REDIS->read_timeout( 10 );
   is( $T_REDIS->{read_timeout}, 10, "Set 'read_timeout'" );
+
+  return;
+}
+
+####
+sub t_reconnect {
+  my $reconn_state = $T_REDIS->reconnect();
+  is( $reconn_state, 1, "Get current reconnection mode state" );
+
+  $T_REDIS->reconnect( undef );
+  is( $T_REDIS->{reconnect}, undef, "Disable reconnection mode" );
+
+  $T_REDIS->reconnect( 1 );
+  is( $T_REDIS->{reconnect}, 1, "Enable reconnection mode" );
 
   return;
 }
