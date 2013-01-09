@@ -815,40 +815,40 @@ sub _process_data {
   my $data = shift;
 
   my $cmd = $self->{_processing_queue}[0];
-  if ( defined( $cmd ) ) {
-    if ( exists( $SUB_UNSUB_CMDS{$cmd->{name}} ) ) {
-      if ( --$cmd->{resp_remaining} == 0 ) {
-        shift( @{$self->{_processing_queue}} );
-      }
 
-      if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
-        $self->{_subs}{$data->[1]} = $cmd->{on_message};
-        if ( defined( $cmd->{on_done} ) ) {
-          $cmd->{on_done}->( $data->[1], $data->[2] );
-        }
-      }
-      else {
-        if ( exists( $self->{_subs}{$data->[1]} ) ) {
-          delete( $self->{_subs}{$data->[1]} );
-        }
-        if ( defined( $cmd->{on_done} ) ) {
-          $cmd->{on_done}->( $data->[1], $data->[2] );
-        }
+  if ( !defined( $cmd ) ) {
+    $self->_process_crit_error( "Don't known how process response data."
+        . ' Command queue is empty', E_UNEXPECTED_DATA );
+  }
+
+  if ( exists( $SUB_UNSUB_CMDS{$cmd->{name}} ) ) {
+    if ( --$cmd->{resp_remaining} == 0 ) {
+      shift( @{$self->{_processing_queue}} );
+    }
+
+    if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
+      $self->{_subs}{$data->[1]} = $cmd->{on_message};
+      if ( defined( $cmd->{on_done} ) ) {
+        $cmd->{on_done}->( $data->[1], $data->[2] );
       }
     }
     else {
-      shift( @{$self->{_processing_queue}} );
-      if ( $cmd->{name} eq 'quit' ) {
-        $self->disconnect();
+      if ( exists( $self->{_subs}{$data->[1]} ) ) {
+        delete( $self->{_subs}{$data->[1]} );
       }
       if ( defined( $cmd->{on_done} ) ) {
-        $cmd->{on_done}->( $data );
+        $cmd->{on_done}->( $data->[1], $data->[2] );
       }
     }
   }
   else {
-    $self->_process_crit_error( "Don't known how process response data."
-        . ' Command queue is empty', E_UNEXPECTED_DATA );
+    shift( @{$self->{_processing_queue}} );
+    if ( $cmd->{name} eq 'quit' ) {
+      $self->disconnect();
+    }
+    if ( defined( $cmd->{on_done} ) ) {
+      $cmd->{on_done}->( $data );
+    }
   }
 
   return;
@@ -859,18 +859,17 @@ sub _process_pub_message {
   my __PACKAGE__ $self = shift;
   my $data = shift;
 
-  if ( exists( $self->{_subs}{$data->[1]} ) ) {
-    my $msg_cb = $self->{_subs}{$data->[1]};
-    if ( $data->[0] eq 'message' ) {
-      $msg_cb->( $data->[1], $data->[2] );
-    }
-    else {
-      $msg_cb->( $data->[2], $data->[3], $data->[1] );
-    }
-  }
-  else {
+  if ( !exists( $self->{_subs}{$data->[1]} ) ) {
     $self->_process_crit_error( "Don't known how process published message."
         . " Unknown channel or pattern '$data->[1]'", E_UNEXPECTED_DATA );
+  }
+
+  my $msg_cb = $self->{_subs}{$data->[1]};
+  if ( $data->[0] eq 'message' ) {
+    $msg_cb->( $data->[1], $data->[2] );
+  }
+  else {
+    $msg_cb->( $data->[2], $data->[3], $data->[1] );
   }
 
   return;
@@ -883,36 +882,35 @@ sub _process_cmd_error {
 
   my $cmd = shift( @{$self->{_processing_queue}} );
 
-  if ( defined( $cmd ) ) {
-    my $err_code;
-    if ( index( $err_msg, 'NOSCRIPT' ) == 0 ) {
-      $err_code = E_NO_SCRIPT;
-      if ( exists( $cmd->{script} ) ) {
-        $cmd->{name} = 'eval';
-        $cmd->{args}[0] = $cmd->{script};
-        $self->_push_write( $cmd );
-
-        return;
-      }
-    }
-    elsif ( index( $err_msg, 'LOADING' ) == 0 ) {
-      $err_code = E_LOADING_DATASET;
-    }
-    elsif ( $err_msg eq 'ERR invalid password' ) {
-      $err_code = E_INVALID_PASS;
-    }
-    elsif ( $err_msg eq 'ERR operation not permitted' ) {
-      $err_code = E_OPRN_NOT_PERMITTED;
-    }
-    else {
-      $err_code = E_OPRN_ERROR;
-    }
-    $cmd->{on_error}->( $err_msg, $err_code );
-  }
-  else {
+  if ( !defined( $cmd ) ) {
     $self->_process_crit_error( "Don't known how process error message"
         . " '$err_msg'. Command queue is empty", E_UNEXPECTED_DATA );
   }
+
+  my $err_code;
+  if ( index( $err_msg, 'NOSCRIPT' ) == 0 ) {
+    $err_code = E_NO_SCRIPT;
+    if ( exists( $cmd->{script} ) ) {
+      $cmd->{name} = 'eval';
+      $cmd->{args}[0] = $cmd->{script};
+      $self->_push_write( $cmd );
+
+      return;
+    }
+  }
+  elsif ( index( $err_msg, 'LOADING' ) == 0 ) {
+    $err_code = E_LOADING_DATASET;
+  }
+  elsif ( $err_msg eq 'ERR invalid password' ) {
+    $err_code = E_INVALID_PASS;
+  }
+  elsif ( $err_msg eq 'ERR operation not permitted' ) {
+    $err_code = E_OPRN_NOT_PERMITTED;
+  }
+  else {
+    $err_code = E_OPRN_ERROR;
+  }
+  $cmd->{on_error}->( $err_msg, $err_code );
 
   return;
 }
@@ -950,6 +948,7 @@ sub _reset_state {
   $self->{_auth_st} = S_NEED_PERFORM;
   $self->{_db_select_st} = S_NEED_PERFORM;
   $self->{_ready_to_write} = 0;
+  $self->{_sub_lock} = 0;
   $self->{_subs} = {};
 
   return;
