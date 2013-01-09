@@ -4,7 +4,7 @@ use warnings;
 use utf8;
 
 use lib 't/tlib';
-use Test::More tests => 30;
+use Test::More tests => 28;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 
@@ -16,8 +16,6 @@ BEGIN {
 }
 
 can_ok( $T_CLASS, 'new' );
-can_ok( $T_CLASS, 'multi' );
-can_ok( $T_CLASS, 'exec' );
 can_ok( $T_CLASS, 'disconnect' );
 
 is( E_CANT_CONN, 1, 'E_CANT_CONN' );

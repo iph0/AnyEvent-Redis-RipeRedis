@@ -1,5 +1,7 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.230 8 Tue Jan 23:41:15 2013
+
 1.220 7 Mon Jan 17:47:47 2013
   - [FEATURE] Added following accessors:
     - connection_timeout,

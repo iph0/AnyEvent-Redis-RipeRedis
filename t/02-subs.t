@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 13;
+use Test::More tests => 9;
 use Test::AnyEvent::RedisHandle;
 use Test::AnyEvent::EVLoop;
 
@@ -15,10 +15,6 @@ BEGIN {
 }
 
 can_ok( $T_CLASS, 'new' );
-can_ok( $T_CLASS, 'subscribe' );
-can_ok( $T_CLASS, 'psubscribe' );
-can_ok( $T_CLASS, 'unsubscribe' );
-can_ok( $T_CLASS, 'punsubscribe' );
 
 my $t_redis = new_ok( $T_CLASS, [
   password => 'test',
