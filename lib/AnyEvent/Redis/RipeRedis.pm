@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.230';
+our $VERSION = '1.231';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -828,21 +828,17 @@ sub _process_data {
 
     if ( exists( $SUB_CMDS{$cmd->{name}} ) ) {
       $self->{_subs}{$data->[1]} = $cmd->{on_message};
-      if ( defined( $cmd->{on_done} ) ) {
-        $cmd->{on_done}->( $data->[1], $data->[2] );
-      }
     }
-    else {
-      if ( exists( $self->{_subs}{$data->[1]} ) ) {
-        delete( $self->{_subs}{$data->[1]} );
-      }
-      if ( defined( $cmd->{on_done} ) ) {
-        $cmd->{on_done}->( $data->[1], $data->[2] );
-      }
+    elsif ( exists( $self->{_subs}{$data->[1]} ) ) {
+      delete( $self->{_subs}{$data->[1]} );
+    }
+    if ( defined( $cmd->{on_done} ) ) {
+      $cmd->{on_done}->( $data->[1], $data->[2] );
     }
   }
   else {
     shift( @{$self->{_processing_queue}} );
+
     if ( $cmd->{name} eq 'quit' ) {
       $self->disconnect();
     }
@@ -1061,7 +1057,7 @@ feature
 
 =head1 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is the non-blocking flexible Redis client with reconnect
+AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with reconnect
 feature. The client supports subscriptions, transactions and connection via
 UNIX-socket.
 

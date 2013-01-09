@@ -1,4 +1,4 @@
-AnyEvent-Redis-RipeRedis version 1.230
+AnyEvent-Redis-RipeRedis version 1.231
 ======================
 
 INSTALLATION
@@ -12,7 +12,7 @@ To install this module type the following:
 
 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is the non-blocking flexible Redis client with reconnect
+AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with reconnect
 feature. The client supports subscriptions, transactions and connection via
 UNIX-socket.
 
