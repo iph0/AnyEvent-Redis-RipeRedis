@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.231';
+our $VERSION = '1.232';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1018,7 +1018,7 @@ feature
   use AnyEvent;
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
-  my $cv = AnyEvent->condvar();
+  my $cv = AE::cv();
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'localhost',
