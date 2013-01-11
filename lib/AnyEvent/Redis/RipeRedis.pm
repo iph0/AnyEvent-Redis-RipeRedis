@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.232';
+our $VERSION = '1.233';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -551,23 +551,21 @@ sub _execute_cmd {
         }
       }
     }
+    elsif ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
+      if ( $self->{_lazy_conn_st} ) {
+        $self->{_lazy_conn_st} = 0;
+      }
+      $self->_connect();
+    }
     else {
-      if ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
-        if ( $self->{_lazy_conn_st} ) {
-          $self->{_lazy_conn_st} = 0;
+      AE::postpone(
+        sub {
+          $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
+              . ' No connection to the server', E_NO_CONN );
         }
-        $self->_connect();
-      }
-      else {
-        AE::postpone(
-          sub {
-            $cmd->{on_error}->( "Can't handle the command '$cmd->{name}'."
-                . ' No connection to the server', E_NO_CONN );
-          }
-        );
+      );
 
-        return;
-      }
+      return;
     }
 
     push( @{$self->{_input_buf}}, $cmd );
