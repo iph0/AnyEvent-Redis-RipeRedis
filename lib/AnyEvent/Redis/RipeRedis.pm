@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.233';
+our $VERSION = '1.234';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1186,7 +1186,7 @@ Not set by default.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when any error occurred. If the callback is
+The callback C<on_error> is called, if any error occurred. If the callback is
 not set, the client just print an error message to C<STDERR>.
 
 =back
@@ -1231,7 +1231,7 @@ The callback C<on_done> is called, when the current operation is done.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when any error occurred. If the callback is
+The callback C<on_error> is called, if any error occurred. If the callback is
 not set, then the C<on_error> callback, that was specified in constructor, is
 called.
 
@@ -1311,7 +1311,7 @@ The callback C<on_message> is called, when a published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when the subscription operation fails. If
+The callback C<on_error> is called, if the subscription operation fails. If
 the callback is not set, then the C<on_error> callback, that was specified in
 constructor, is called.
 
@@ -1352,7 +1352,7 @@ The callback C<on_message> is called, when published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, when the subscription operation fails. If
+The callback C<on_error> is called, if the subscription operation fails. If
 the callback is not set, then the C<on_error> callback, that was specified in
 constructor, is called.
 
@@ -1397,7 +1397,7 @@ Redis 2.6 and higher support execution of Lua scripts on the server side.
 To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
 or you can use the special method C<eval_cached()>.
 
-=head2 eval_cached( $script, $numkeys[, [ @keys, ] [ @args, ] \%callbacks ] );
+=head2 eval_cached( $script, $numkeys[, [ @keys, ][ @args, ]\%callbacks ] );
 
 When you call the C<eval_cached()> method, the client first generate a SHA1
 hash for a Lua script and cache it in memory. Then the client optimistically
@@ -1451,8 +1451,9 @@ all operations.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-The connection closed unexpectedly by the client. Error occurs, if at time of
-a disconnection in the client queue were uncompleted operations.
+If in the client queue are uncompleted operations, when application calling method
+C<disconnect()> or executing command C<QUIT>, the client abort them with
+this error.
 
 =item E_NO_CONN
 
