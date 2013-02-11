@@ -1,5 +1,10 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.235 11 Mon Feb 16:41:30 2013
+  - [BUGFIX] Empty strings in command arguments now processed correctly
+  (bug discovered by Andrey Kuzmin).
+  - Slight changes in unit-tests.
+
 1.234 14 Mon Jan 18:10::40 2013
   - Fixes in POD
 
@@ -49,8 +54,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Unit-tests improved.
 
 1.204 Tue Nov 27 22:28:15 2012
-  - Fixed typo in the name of internal method _process_response().
-  Thanks to Natalya Filippova.
+  - Fixed typo in the name of internal method _process_response() (typo discovered
+  by Natalya Filippova).
 
 1.203 Fri Nov 23 11:17:00 2012
   - Internal method _async_call() replaced by AE::postpone() function.

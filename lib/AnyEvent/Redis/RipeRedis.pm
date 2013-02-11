@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.234';
+our $VERSION = '1.235';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -645,14 +645,15 @@ sub _push_write {
   my $cmd_str = '';
   my $mbulk_len = 0;
   foreach my $token ( $cmd->{name}, @{$cmd->{args}} ) {
-    if ( defined( $token ) and $token ne '' ) {
-      if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
-        $token = $self->{encoding}->encode( $token );
-      }
-      my $token_len = length( $token );
-      $cmd_str .= "\$$token_len" . EOL . $token . EOL;
-      $mbulk_len++;
+    if ( !defined( $token ) ) {
+      $token = '';
     }
+    if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
+      $token = $self->{encoding}->encode( $token );
+    }
+    my $token_len = length( $token );
+    $cmd_str .= "\$$token_len" . EOL . $token . EOL;
+    $mbulk_len++;
   }
   $cmd_str = "*$mbulk_len" . EOL . $cmd_str;
 

@@ -251,12 +251,13 @@ sub t_cmd_on_error {
       "Default 'on_error' callback" );
 
   my @t_errors;
+
   ev_loop(
     sub {
       my $cv = shift;
 
       $t_redis->multi();
-      $t_redis->set( '', undef, {
+      $t_redis->set( '', {
         on_error => sub {
           my $err_msg = shift;
           my $err_code = shift;

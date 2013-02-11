@@ -256,7 +256,7 @@ sub _parse_m_bulk {
   my $bulk_len;
   my $args_remaining = $m_bulk_len;
   while ( $args_remaining ) {
-    if ( $bulk_len ) {
+    if ( defined( $bulk_len ) ) {
       my $arg = substr( $cmd_szd, 0, $bulk_len, '' );
       substr( $cmd_szd, 0, EOL_LEN, '' );
       push( @args, $arg );
@@ -331,7 +331,7 @@ sub _serialize_response {
     return $resp->{type}. $err_pref . $resp->{data} . EOL;
   }
   elsif ( $resp->{type} eq '$' ) {
-    if ( defined( $resp->{data} ) and $resp->{data} ne ''  ){
+    if ( defined( $resp->{data} ) and $resp->{data} ne '' ){
       my $bulk_len = length( $resp->{data} );
       return $resp->{type}. $bulk_len . EOL . $resp->{data} . EOL;
     }
@@ -368,12 +368,9 @@ sub _serialize_response {
 ####
 sub _validate_auth {
   my $cmd = pop;
-  my @args = @{$cmd->{args}};
-  my $pass = shift( @args );
 
-  if ( !defined( $pass ) or $pass eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+  if ( @{$cmd->{args}} != 1 ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -409,12 +406,9 @@ sub _exec_auth {
 ####
 sub _validate_select {
   my $cmd = pop;
-  my @args = @{$cmd->{args}};
-  my $index = shift( @args );
 
-  if ( !defined( $index ) or $index eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+  if ( @{$cmd->{args}} != 1 ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -465,12 +459,9 @@ sub _exec_ping {
 ####
 sub _validate_incr {
   my $cmd = pop;
-  my @args = @{$cmd->{args}};
-  my $key = shift( @args );
 
-  if ( !defined( $key ) or $key eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+  if ( @{$cmd->{args}} != 1 ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -518,16 +509,9 @@ sub _exec_incr {
 ####
 sub _validate_set {
   my $cmd = pop;
-  my @args = @{$cmd->{args}};
-  my $key = shift( @args );
-  my $val = shift( @args );
 
-  if (
-    !defined( $key ) or $key eq ''
-      or !defined( $val ) or $val eq ''
-      ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+  if ( @{$cmd->{args}} != 2 ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -557,12 +541,9 @@ sub _exec_set {
 ####
 sub _validate_get {
   my $cmd = pop;
-  my @args = @{$cmd->{args}};
-  my $key = shift( @args );
 
-  if ( !defined( $key ) or $key eq '' ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+  if ( @{$cmd->{args}} != 1 ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -603,16 +584,9 @@ sub _exec_get {
 ####
 sub _validate_push {
   my $cmd = pop;
-  my @args = @{$cmd->{args}};
-  my $key = shift( @args );
-  my $val = shift( @args );
 
-  if (
-    !defined( $key ) or $key eq ''
-      or !defined( $val ) or $val eq ''
-      ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+  if ( @{$cmd->{args}} != 2 ) {
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -668,8 +642,7 @@ sub _validate_bpop {
     scalar( @keys ) == 0
       or !defined( $timeout ) or $timeout eq ''
       ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
@@ -737,7 +710,7 @@ sub _validate_lrange {
   my $stop = shift( @args );
 
   if (
-    !defined( $key ) or $key eq ''
+    !defined( $key )
       or !defined( $start ) or $start eq ''
       or !defined( $stop ) or $stop eq ''
       ) {
@@ -831,8 +804,7 @@ sub _validate_sub {
   my @ch_proto = @{$cmd->{args}};
 
   if ( scalar( @ch_proto ) == 0 ) {
-    ( my $msg = $ERR_MESSAGES{wrong_args} )
-        =~ s/%c/$cmd->{name}/go;
+    ( my $msg = $ERR_MESSAGES{wrong_args} ) =~ s/%c/$cmd->{name}/go;
 
     die {
       type => '-',
