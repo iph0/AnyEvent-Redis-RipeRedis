@@ -32,13 +32,13 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.235';
+our $VERSION = '1.236';
 
 use AnyEvent;
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number weaken );
-use Digest::SHA1 qw( sha1_hex );
+use Digest::SHA qw( sha1_hex );
 use Carp qw( confess );
 
 BEGIN {

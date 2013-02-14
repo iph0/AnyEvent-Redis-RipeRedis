@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.236 14 Thu Feb 15:20:25 2013
+  - Module Digest::SHA1 replaced on Digest::SHA
+
 1.235 11 Mon Feb 16:41:30 2013
   - [BUGFIX] Empty strings in command arguments now processed correctly
   (bug discovered by Andrey Kuzmin).

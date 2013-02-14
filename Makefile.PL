@@ -10,7 +10,7 @@ WriteMakefile(
     'AnyEvent' => 6.01,
     'Encode' => 0,
     'Scalar::Util' => 0,
-    'Digest::SHA1' => 0,
+    'Digest::SHA' => 0,
     'Carp' => 0,
   },
   BUILD_REQUIRES => {
