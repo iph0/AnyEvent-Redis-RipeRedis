@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.237 16 Sat Feb 12:36:55 2013
+  - Module Digest::SHA1 replaced on Digest::SHA in unit-tests too
+
 1.236 14 Thu Feb 15:20:25 2013
   - Module Digest::SHA1 replaced on Digest::SHA
 

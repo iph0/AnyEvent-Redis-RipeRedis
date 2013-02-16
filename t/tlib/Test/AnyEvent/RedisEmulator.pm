@@ -15,9 +15,9 @@ use fields qw(
   eval_cache
 );
 
-our $VERSION = '0.100003';
+our $VERSION = '0.1001';
 
-use Digest::SHA1 qw( sha1_hex );
+use Digest::SHA qw( sha1_hex );
 
 use constant {
   PASSWORD => 'test',

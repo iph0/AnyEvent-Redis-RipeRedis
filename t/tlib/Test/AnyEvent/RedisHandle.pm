@@ -4,7 +4,7 @@ use 5.006000;
 use strict;
 use warnings;
 
-our $VERSION = '0.101000';
+our $VERSION = '0.1011';
 
 use Test::MockObject;
 use Test::AnyEvent::RedisEmulator;
