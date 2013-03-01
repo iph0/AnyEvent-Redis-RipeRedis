@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.237';
+our $VERSION = '1.238';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -105,22 +105,23 @@ sub new {
   my $proto = shift;
   my $params = { @_ };
 
-  $params = $proto->_vld_new_params( $params );
-
   my __PACKAGE__ $self = fields::new( $proto );
 
-  $self->{host} = $params->{host};
-  $self->{port} = $params->{port};
+  $self->{host} = $params->{host} || D_HOST;
+  $self->{port} = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
   $self->{database} = $params->{database};
-  $self->{connection_timeout} = $params->{connection_timeout};
-  $self->{read_timeout} = $params->{read_timeout};
+  $self->connection_timeout( $params->{connection_timeout} );
+  $self->read_timeout( $params->{read_timeout} );
+  if ( !exists( $params->{reconnect} ) ) {
+    $params->{reconnect} = 1;
+  }
   $self->{reconnect} = $params->{reconnect};
   $self->encoding( $params->{encoding} );
   $self->{on_connect} = $params->{on_connect};
   $self->{on_disconnect} = $params->{on_disconnect};
   $self->{on_connect_error} = $params->{on_connect_error};
-  $self->{on_error} = $params->{on_error};
+  $self->on_error( $params->{on_error} );
 
   $self->{_handle} = undef;
   $self->{_connected} = 0;
@@ -188,7 +189,14 @@ sub connection_timeout {
   my __PACKAGE__ $self = shift;
 
   if ( @_ ) {
-    $self->{connection_timeout} = $self->_vld_conn_timeout( shift );
+    my $conn_timeout = shift;
+    if (
+      defined( $conn_timeout )
+        and ( !looks_like_number( $conn_timeout ) or $conn_timeout < 0 )
+        ) {
+      confess 'Connection timeout must be a positive number';
+    }
+    $self->{connection_timeout} = $conn_timeout;
   }
 
   return $self->{connection_timeout};
@@ -199,7 +207,14 @@ sub read_timeout {
   my __PACKAGE__ $self = shift;
 
   if ( @_ ) {
-    $self->{read_timeout} = $self->_vld_read_timeout( shift );
+    my $read_timeout = shift;
+    if (
+      defined( $read_timeout )
+        and ( !looks_like_number( $read_timeout ) or $read_timeout < 0 )
+        ) {
+      confess 'Read timeout must be a positive number';
+    }
+    $self->{read_timeout} = $read_timeout;
   }
 
   return $self->{read_timeout};
@@ -275,76 +290,17 @@ sub on_error {
   my __PACKAGE__ $self = shift;
 
   if ( @_ ) {
-    $self->{on_error} = $self->_vld_on_error( shift );
+    my $on_error = shift;
+    if ( !defined( $on_error ) ) {
+      $on_error = sub {
+        my $err_msg = shift;
+        warn "$err_msg\n";
+      };
+    }
+    $self->{on_error} = $on_error;
   }
 
   return $self->{on_error};
-}
-
-####
-sub _vld_new_params {
-  my __PACKAGE__ $self = shift;
-  my $params = shift;
-
-  $params->{connection_timeout} = $self->_vld_conn_timeout(
-      $params->{connection_timeout} );
-  $params->{read_timeout} = $self->_vld_read_timeout(
-      $params->{read_timeout} );
-  $params->{on_error} = $self->_vld_on_error( $params->{on_error} );
-
-  if ( !exists( $params->{reconnect} ) ) {
-    $params->{reconnect} = 1;
-  }
-  if ( !defined( $params->{host} ) ) {
-    $params->{host} = D_HOST;
-  }
-  if ( !defined( $params->{port} ) ) {
-    $params->{port} = D_PORT;
-  }
-
-  return $params;
-}
-
-####
-sub _vld_conn_timeout {
-  my $conn_timeout = pop;
-
-  if (
-    defined( $conn_timeout )
-      and ( !looks_like_number( $conn_timeout ) or $conn_timeout < 0 )
-      ) {
-    confess 'Connection timeout must be a positive number';
-  }
-
-  return $conn_timeout;
-}
-
-####
-sub _vld_read_timeout {
-  my $read_timeout = pop;
-
-  if (
-    defined( $read_timeout )
-      and ( !looks_like_number( $read_timeout ) or $read_timeout < 0 )
-      ) {
-    confess 'Read timeout must be a positive number';
-  }
-
-  return $read_timeout;
-}
-
-####
-sub _vld_on_error {
-  my $on_error = pop;
-
-  if ( !defined( $on_error ) ) {
-    $on_error = sub {
-      my $err_msg = shift;
-      warn "$err_msg\n";
-    };
-  }
-
-  return $on_error;
 }
 
 ####
@@ -1429,6 +1385,21 @@ imported and used in expressions.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
+Error codes and corresponding to them constants:
+
+  1  - E_CANT_CONN
+  2  - E_LOADING_DATASET
+  3  - E_IO
+  4  - E_CONN_CLOSED_BY_REMOTE_HOST
+  5  - E_CONN_CLOSED_BY_CLIENT
+  6  - E_NO_CONN
+  7  - E_INVALID_PASS
+  8  - E_OPRN_NOT_PERMITTED
+  9  - E_OPRN_ERROR
+  10 - E_UNEXPECTED_DATA
+  11 - E_NO_SCRIPT
+  12 - E_READ_TIMEDOUT
+
 =over
 
 =item E_CANT_CONN
@@ -1566,7 +1537,7 @@ Konstantin Uvarin
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights
+Copyright (c) 2012-2013, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights
 reserved.
 
 This module is free software; you can redistribute it and/or modify it under

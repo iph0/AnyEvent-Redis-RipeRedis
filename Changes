@@ -1,10 +1,14 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.238 01 Fri Mar 18:00:00 2013
+  - Slight refactoring of input parameters validation.
+  - Added list of error codes in POD.
+
 1.237 16 Sat Feb 12:36:55 2013
-  - Module Digest::SHA1 replaced on Digest::SHA in unit-tests too
+  - Module Digest::SHA1 replaced on Digest::SHA in unit-tests too.
 
 1.236 14 Thu Feb 15:20:25 2013
-  - Module Digest::SHA1 replaced on Digest::SHA
+  - Module Digest::SHA1 replaced on Digest::SHA.
 
 1.235 11 Mon Feb 16:41:30 2013
   - [BUGFIX] Empty strings in command arguments now processed correctly
@@ -12,7 +16,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Slight changes in unit-tests.
 
 1.234 14 Mon Jan 18:10::40 2013
-  - Fixes in POD
+  - Fixes in POD.
 
 1.233 11 Fri Jan 10:40::10 2013
   - Slight improvements.
