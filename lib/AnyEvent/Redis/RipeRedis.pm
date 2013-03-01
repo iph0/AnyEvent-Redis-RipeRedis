@@ -1385,7 +1385,7 @@ imported and used in expressions.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
-Error codes and corresponding to them constants:
+Error codes and corresponding constants to them:
 
   1  - E_CANT_CONN
   2  - E_LOADING_DATASET
