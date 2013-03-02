@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.238';
+our $VERSION = '1.239';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1385,7 +1385,7 @@ imported and used in expressions.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
-Error codes and corresponding constants to them:
+Error codes and constants corresponding to them:
 
   1  - E_CANT_CONN
   2  - E_LOADING_DATASET
