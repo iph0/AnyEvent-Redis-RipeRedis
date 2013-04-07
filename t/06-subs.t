@@ -2,23 +2,23 @@ use 5.006000;
 use strict;
 use warnings;
 
-use lib 't/tlib';
-use Test::More tests => 9;
-use Test::AnyEvent::RedisHandle;
-use Test::AnyEvent::EVLoop;
+use Test::More;
+use AnyEvent::Redis::RipeRedis;
+require 't/test_helper.pl';
 
-my $T_CLASS;
+my $server_info = run_redis_instance();
 
-BEGIN {
-  $T_CLASS = 'AnyEvent::Redis::RipeRedis';
-  use_ok( $T_CLASS );
-}
+plan tests => 6;
 
-can_ok( $T_CLASS, 'new' );
-
-my $t_redis = new_ok( $T_CLASS, [
-  password => 'test',
-] );
+# Connect
+my $r_consum = AnyEvent::Redis::RipeRedis->new(
+  host => $server_info->{host},
+  port => $server_info->{port},
+);
+my $r_transm = AnyEvent::Redis::RipeRedis->new(
+  host => $server_info->{host},
+  port => $server_info->{port},
+);
 
 my @t_sub_data;
 my @t_sub_msgs;
@@ -31,8 +31,8 @@ ev_loop(
   sub {
     my $cv = shift;
 
-    # Subscribe to channels by name
-    $t_redis->subscribe( qw( ch_foo ch_bar ), {
+    # Sub/Unsub to channels by name
+    $r_consum->subscribe( qw( ch_foo ch_bar ), {
       on_done =>  sub {
         my $ch_name = shift;
         my $subs_num = shift;
@@ -51,11 +51,27 @@ ev_loop(
           ch_name => $ch_name,
           message => $msg,
         } );
+
+        if ( $msg eq 'unsub' ) {
+          $r_consum->unsubscribe( qw( ch_foo ch_bar ), {
+            on_done => sub {
+              my $ch_name = shift;
+              my $subs_num = shift;
+
+              push( @t_unsub_data, {
+                ch_name => $ch_name,
+                subs_num => $subs_num,
+              } );
+            },
+          } );
+        }
       },
     } );
+    $r_transm->publish( 'ch_foo', 'test' );
+    $r_transm->publish( 'ch_bar', 'unsub' );
 
     # Subscribe to channels by pattern
-    $t_redis->psubscribe( qw( info_* err_* ), {
+    $r_consum->psubscribe( qw( info_* err_* ), {
       on_done =>  sub {
         my $ch_pattern = shift;
         my $subs_num = shift;
@@ -76,45 +92,28 @@ ev_loop(
           message => $msg,
           ch_pattern => $ch_pattern,
         } );
+
+        if ( $msg eq 'unsub' ) {
+          $r_consum->punsubscribe( qw( info_* err_* ), {
+            on_done => sub {
+              my $ch_pattern = shift;
+              my $subs_num = shift;
+
+              push( @t_punsub_data, {
+                ch_pattern => $ch_pattern,
+                subs_num => $subs_num,
+              } );
+
+              if ( $subs_num == 0 ) {
+                $cv->send();
+              }
+            },
+          } );
+        }
       },
     } );
-
-    # Unsubscribe after timeout
-    my $unsub_timer;
-    $unsub_timer = AnyEvent->timer(
-      after => 0.001,
-      cb => sub {
-        undef( $unsub_timer );
-
-        $t_redis->unsubscribe( qw( ch_foo ch_bar ), {
-          on_done => sub {
-            my $ch_name = shift;
-            my $subs_num = shift;
-
-            push( @t_unsub_data, {
-              ch_name => $ch_name,
-              subs_num => $subs_num,
-            } );
-          },
-        } );
-
-        $t_redis->punsubscribe( qw( info_* err_* ), {
-          on_done => sub {
-            my $ch_pattern = shift;
-            my $subs_num = shift;
-
-            push( @t_punsub_data, {
-              ch_pattern => $ch_pattern,
-              subs_num => $subs_num,
-            } );
-
-            if ( $subs_num == 0 ) {
-              $cv->send();
-            }
-          },
-        } );
-      }
-    );
+    $r_transm->publish( 'info_some', 'test' );
+    $r_transm->publish( 'err_some', 'unsub' );
   },
 );
 
@@ -136,7 +135,7 @@ is_deeply( \@t_sub_msgs, [
   },
   {
     ch_name => 'ch_bar',
-    message => 'test',
+    message => 'unsub',
   },
 ], 'message' );
 
@@ -170,7 +169,7 @@ is_deeply( \@t_psub_msgs, [
   },
   {
     ch_name => 'err_some',
-    message => 'test',
+    message => 'unsub',
     ch_pattern => 'err_*',
   },
 ], 'pmessage' );
@@ -186,4 +185,4 @@ is_deeply( \@t_punsub_data, [
   },
 ], 'punsubscribe' );
 
-$t_redis->disconnect();
+$r_consum->disconnect();

@@ -2,19 +2,8 @@ use 5.006000;
 use strict;
 use warnings;
 
-use lib 't/tlib';
-use Test::More tests => 16;
-use Test::AnyEvent::RedisHandle;
-use AnyEvent;
-
-my $T_CLASS;
-
-BEGIN {
-  $T_CLASS = 'AnyEvent::Redis::RipeRedis';
-  use_ok( $T_CLASS );
-}
-
-can_ok( $T_CLASS, 'new' );
+use Test::More tests => 11;
+use AnyEvent::Redis::RipeRedis;
 
 t_conn_timeout();
 t_read_timeout();
@@ -27,7 +16,7 @@ sub t_conn_timeout {
   my $t_except;
 
   eval {
-    my $t_redis = $T_CLASS->new(
+    my $redis = AnyEvent::Redis::RipeRedis->new(
       connection_timeout => 'invalid',
     );
   };
@@ -40,7 +29,7 @@ sub t_conn_timeout {
   undef( $t_except );
 
   eval {
-    my $t_redis = $T_CLASS->new(
+    my $redis = AnyEvent::Redis::RipeRedis->new(
       connection_timeout => -5,
     );
   };
@@ -52,10 +41,10 @@ sub t_conn_timeout {
       'Invalid connection timeout (constructor, negative number)' );
   undef( $t_except );
 
-  my $t_redis = new_ok( $T_CLASS );
+  my $redis = AnyEvent::Redis::RipeRedis->new();
 
   eval {
-    $t_redis->connection_timeout( 'invalid' );
+    $redis->connection_timeout( 'invalid' );
   };
   if ( $@ ) {
     chomp( $@ );
@@ -66,7 +55,7 @@ sub t_conn_timeout {
   undef( $t_except );
 
   eval {
-    $t_redis->connection_timeout( -5 );
+    $redis->connection_timeout( -5 );
   };
   if ( $@ ) {
     chomp( $@ );
@@ -83,7 +72,7 @@ sub t_read_timeout {
   my $t_except;
 
   eval {
-    my $t_redis = $T_CLASS->new(
+    my $redis = AnyEvent::Redis::RipeRedis->new(
       read_timeout => 'invalid',
     );
   };
@@ -96,7 +85,7 @@ sub t_read_timeout {
   undef( $t_except );
 
   eval {
-    my $t_redis = $T_CLASS->new(
+    my $redis = AnyEvent::Redis::RipeRedis->new(
       read_timeout => -5,
     );
   };
@@ -108,10 +97,10 @@ sub t_read_timeout {
       'Invalid read timeout (constructor, negative number)' );
   undef( $t_except );
 
-  my $t_redis = new_ok( $T_CLASS );
+  my $redis = AnyEvent::Redis::RipeRedis->new();
 
   eval {
-    $t_redis->read_timeout( 'invalid' );
+    $redis->read_timeout( 'invalid' );
   };
   if ( $@ ) {
     chomp( $@ );
@@ -122,7 +111,7 @@ sub t_read_timeout {
   undef( $t_except );
 
   eval {
-    $t_redis->read_timeout( -5 );
+    $redis->read_timeout( -5 );
   };
   if ( $@ ) {
     chomp( $@ );
@@ -139,7 +128,7 @@ sub t_encoding {
   my $t_except;
 
   eval {
-    my $t_redis = $T_CLASS->new(
+    my $redis = AnyEvent::Redis::RipeRedis->new(
       encoding => 'utf88',
     );
   };
@@ -151,10 +140,10 @@ sub t_encoding {
       'Invalid encoding (constructor)' );
   undef( $t_except );
 
-  my $t_redis = new_ok( $T_CLASS );
+  my $redis = AnyEvent::Redis::RipeRedis->new();
 
   eval {
-    $t_redis->encoding( 'utf88' );
+    $redis->encoding( 'utf88' );
   };
   if ( $@ ) {
     chomp( $@ );
@@ -168,12 +157,12 @@ sub t_encoding {
 
 ####
 sub t_on_message {
-  my $t_redis = $T_CLASS->new();
+  my $redis = AnyEvent::Redis::RipeRedis->new();
 
   my $t_except;
 
   eval {
-    $t_redis->subscribe( 'channel' );
+    $redis->subscribe( 'channel' );
   };
   if ( $@ ) {
     chomp( $@ );
