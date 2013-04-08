@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.239';
+our $VERSION = '1.240';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -485,7 +485,7 @@ sub _execute_cmd {
     elsif ( $cmd->{name} eq 'multi' ) {
       $self->{_sub_lock} = 1;
     }
-    elsif ( $cmd->{name} eq 'exec' ) {
+    else { # exec
       $self->{_sub_lock} = 0;
     }
   }
@@ -661,7 +661,7 @@ sub _on_read {
           return 1 if $cb->( $data, 1 );
         }
         elsif ( $type eq '$' ) {
-          if ( $data > 0 ) {
+          if ( $data >= 0 ) {
             $bulk_len = $data;
           }
           else {

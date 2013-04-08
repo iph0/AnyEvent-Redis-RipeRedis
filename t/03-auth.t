@@ -1,29 +1,63 @@
 use 5.006000;
 use strict;
 use warnings;
-use utf8;
 
 use Test::More;
-use AnyEvent::Redis::RipeRedis qw( E_INVALID_PASS );
+use AnyEvent::Redis::RipeRedis qw( :err_codes );
 require 't/test_helper.pl';
 
-my $password = 'testpass';
 my $server_info = run_redis_instance(
-  requirepass => $password,
+  requirepass => 'testpass',
 );
+if ( !defined( $server_info ) ) {
+  plan skip_all => 'redis-server is required to this test';
+}
+plan tests => 3;
 
-plan tests => 2;
-
-t_auth();
-t_invalid_password();
+t_oprn_not_permitted( $server_info );
+t_successful_auth( $server_info );
+t_invalid_password( $server_info );
 
 
 ####
-sub t_auth {
+sub t_oprn_not_permitted {
+  my $server_info = shift;
+
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => $server_info->{host},
     port => $server_info->{port},
-    password => $password,
+  );
+
+  my $t_err_code;
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $redis->ping( {
+        on_error => sub {
+          $t_err_code = pop;
+          $cv->send();
+        }
+      } );
+    },
+  );
+
+  $redis->disconnect();
+
+  is( $t_err_code, E_OPRN_NOT_PERMITTED, 'operation not permitted' );
+
+  return;
+}
+
+####
+sub t_successful_auth {
+  my $server_info = shift;
+
+  my $redis = AnyEvent::Redis::RipeRedis->new(
+    host => $server_info->{host},
+    port => $server_info->{port},
+    password => $server_info->{password},
   );
 
   my $t_data;
@@ -41,23 +75,23 @@ sub t_auth {
     },
   );
 
-  is( $t_data, 'PONG', 'Successful auth' );
-
   $redis->disconnect();
+
+  is( $t_data, 'PONG', 'successful AUTH' );
 }
 
 ####
 sub t_invalid_password {
+  my $server_info = shift;
+
   my @t_err_codes;
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => $server_info->{host},
     port => $server_info->{port},
     password => 'invalid',
-
     on_error => sub {
       my $err_code = pop;
-
       push( @t_err_codes, $err_code );
     },
   );
@@ -69,7 +103,6 @@ sub t_invalid_password {
       $redis->ping( {
         on_error => sub {
           my $err_code = pop;
-
           push( @t_err_codes, $err_code );
           $cv->send();
         }
@@ -77,10 +110,10 @@ sub t_invalid_password {
     },
   );
 
-  is_deeply( \@t_err_codes, [ E_INVALID_PASS, E_INVALID_PASS ],
-      'Invalid password' );
-
   $redis->disconnect();
+
+  is_deeply( \@t_err_codes, [ E_INVALID_PASS, E_INVALID_PASS ],
+      'invalid password' );
 
   return;
 }

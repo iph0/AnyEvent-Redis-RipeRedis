@@ -4,11 +4,12 @@ use warnings;
 
 use Test::More;
 use AnyEvent::Redis::RipeRedis;
-use Scalar::Util qw( weaken );
 require 't/test_helper.pl';
 
 my $server_info = run_redis_instance();
-
+if ( !defined( $server_info ) ) {
+  plan skip_all => 'redis-server is required to this test';
+}
 plan tests => 2;
 
 my $t_is_conn = 0;
@@ -22,7 +23,6 @@ ev_loop(
       port => $server_info->{port},
       lazy => 1,
       reconnect => 0,
-
       on_connect => sub {
         $t_is_conn = 1;
       },
@@ -34,7 +34,7 @@ ev_loop(
       cb => sub {
         undef( $timer );
 
-        ok( !$t_is_conn, 'Lazy connection (yet no connected)' );
+        ok( !$t_is_conn, 'lazy connection (no connected yet)' );
 
         $redis->ping( {
           on_done => sub {
@@ -48,5 +48,4 @@ ev_loop(
   }
 );
 
-ok( $t_is_conn, 'Lazy connection (connected)' );
-
+ok( $t_is_conn, 'lazy connection (connected)' );

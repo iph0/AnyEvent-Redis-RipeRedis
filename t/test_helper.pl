@@ -7,6 +7,11 @@ use Test::RedisServer;
 use AnyEvent;
 
 ####
+sub get_tcp_port {
+  return 50000 + int( rand() * 1000 );
+}
+
+####
 sub run_redis_instance {
   my %params = @_;
 
@@ -16,7 +21,7 @@ sub run_redis_instance {
     );
   };
   if ( !defined( $redis_server ) ) {
-    plan skip_all => 'redis-server is required to this test';
+    return;
   }
 
   my $host;
@@ -37,6 +42,7 @@ sub run_redis_instance {
     server => $redis_server,
     host => $host,
     port => $port,
+    password => $params{requirepass},
   };
 }
 
