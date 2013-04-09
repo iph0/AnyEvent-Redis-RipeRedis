@@ -2,7 +2,7 @@ use 5.006000;
 use strict;
 use warnings;
 
-use Test::More tests => 23;
+use Test::More tests => 21;
 
 my $T_CLASS;
 
@@ -35,8 +35,6 @@ is( E_IO, 3, 'E_IO' );
 is( E_CONN_CLOSED_BY_REMOTE_HOST, 4, 'E_CONN_CLOSED_BY_REMOTE_HOST' );
 is( E_CONN_CLOSED_BY_CLIENT, 5, 'E_CONN_CLOSED_BY_CLIENT' );
 is( E_NO_CONN, 6, 'E_NO_CONN' );
-is( E_INVALID_PASS, 7, 'E_INVALID_PASS' );
-is( E_OPRN_NOT_PERMITTED, 8, 'E_OPRN_NOT_PERMITTED' );
 is( E_OPRN_ERROR, 9, 'E_OPRN_ERROR' );
 is( E_UNEXPECTED_DATA, 10, 'E_UNEXPECTED_DATA' );
 is( E_NO_SCRIPT, 11, 'E_NO_SCRIPT' );

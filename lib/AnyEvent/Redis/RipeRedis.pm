@@ -44,8 +44,7 @@ use Carp qw( confess );
 BEGIN {
   our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
       E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
-      E_INVALID_PASS E_OPRN_NOT_PERMITTED E_OPRN_ERROR E_UNEXPECTED_DATA
-      E_NO_SCRIPT E_READ_TIMEDOUT );
+      E_OPRN_ERROR E_UNEXPECTED_DATA E_NO_SCRIPT E_READ_TIMEDOUT );
 
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
@@ -64,8 +63,6 @@ use constant {
   E_CONN_CLOSED_BY_REMOTE_HOST => 4,
   E_CONN_CLOSED_BY_CLIENT => 5,
   E_NO_CONN => 6,
-  E_INVALID_PASS => 7,
-  E_OPRN_NOT_PERMITTED => 8,
   E_OPRN_ERROR => 9,
   E_UNEXPECTED_DATA => 10,
   E_NO_SCRIPT => 11,
@@ -135,7 +132,6 @@ sub new {
   $self->{_sub_lock} = 0;
   $self->{_subs} = {};
 
-
   if ( !$self->{_lazy_conn_st} ) {
     $self->_connect();
   }
@@ -174,12 +170,7 @@ sub eval_cached {
 sub disconnect {
   my __PACKAGE__ $self = shift;
 
-  my $was_connected = $self->{_connected};
-  $self->_reset_state();
-  $self->_abort_cmds( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT );
-  if ( $was_connected and defined( $self->{on_disconnect} ) ) {
-    $self->{on_disconnect}->();
-  }
+  $self->_disconnect();
 
   return;
 }
@@ -537,6 +528,7 @@ sub _auth {
   weaken( $self );
 
   $self->{_auth_st} = S_IN_PROGRESS;
+
   $self->_push_write( {
     name => 'auth',
     args => [ $self->{password} ],
@@ -795,7 +787,7 @@ sub _process_data {
     shift( @{$self->{_processing_queue}} );
 
     if ( $cmd->{name} eq 'quit' ) {
-      $self->disconnect();
+      $self->_disconnect();
     }
     if ( defined( $cmd->{on_done} ) ) {
       $cmd->{on_done}->( $data );
@@ -852,12 +844,6 @@ sub _process_cmd_error {
   elsif ( index( $err_msg, 'LOADING' ) == 0 ) {
     $err_code = E_LOADING_DATASET;
   }
-  elsif ( $err_msg eq 'ERR invalid password' ) {
-    $err_code = E_INVALID_PASS;
-  }
-  elsif ( $err_msg eq 'ERR operation not permitted' ) {
-    $err_code = E_OPRN_NOT_PERMITTED;
-  }
   else {
     $err_code = E_OPRN_ERROR;
   }
@@ -888,6 +874,21 @@ sub _flush_input_buf {
 }
 
 ####
+sub _disconnect {
+  my __PACKAGE__ $self = shift;
+  my $safe_abort = shift;
+
+  $self->_reset_state();
+  $self->_abort_cmds( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT,
+      $safe_abort );
+  if ( !$safe_abort and defined( $self->{on_disconnect} ) ) {
+    $self->{on_disconnect}->();
+  }
+
+  return;
+}
+
+####
 sub _reset_state {
   my __PACKAGE__ $self = shift;
 
@@ -910,6 +911,7 @@ sub _abort_cmds {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
   my $err_code = shift;
+  my $safe_abort = shift;
 
   my @cmds = (
     @{$self->{_processing_queue}},
@@ -920,7 +922,13 @@ sub _abort_cmds {
   $self->{_tmp_buf} = [],
   $self->{_processing_queue} = [];
   foreach my $cmd ( @cmds ) {
-    $cmd->{on_error}->( "Command '$cmd->{name}' aborted: $err_msg", $err_code );
+    my $full_err_msg = "Command '$cmd->{name}' aborted: $err_msg";
+    if ( !$safe_abort ) {
+      $cmd->{on_error}->( $full_err_msg, $err_code );
+    }
+    else {
+      warn "$full_err_msg\n";
+    }
   }
 
   return;
@@ -958,7 +966,17 @@ sub AUTOLOAD {
 }
 
 ####
-sub DESTROY {}
+sub DESTROY {
+  my __PACKAGE__ $self = shift;
+
+  # Check whether the object was created entirely
+  if ( defined( $self->{_subs} ) ) {
+    # Disconnect without calling any callbacks
+    $self->_disconnect( 1 );
+  }
+
+  return;
+}
 
 1;
 __END__
@@ -1393,8 +1411,6 @@ Error codes and constants corresponding to them:
   4  - E_CONN_CLOSED_BY_REMOTE_HOST
   5  - E_CONN_CLOSED_BY_CLIENT
   6  - E_NO_CONN
-  7  - E_INVALID_PASS
-  8  - E_OPRN_NOT_PERMITTED
   9  - E_OPRN_ERROR
   10 - E_UNEXPECTED_DATA
   11 - E_NO_SCRIPT
@@ -1432,14 +1448,6 @@ this error.
 No connection to the server. Error occurs, if at time of a command execution
 the connection has been closed by any reason and the parameter C<reconnect> was
 set to FALSE.
-
-=item E_INVALID_PASS
-
-Invalid password.
-
-=item E_OPRN_NOT_PERMITTED
-
-Operation not permitted.
 
 =item E_OPRN_ERROR
 

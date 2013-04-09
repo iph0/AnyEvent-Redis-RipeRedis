@@ -12,43 +12,11 @@ my $server_info = run_redis_instance(
 if ( !defined( $server_info ) ) {
   plan skip_all => 'redis-server is required to this test';
 }
-plan tests => 3;
+plan tests => 2;
 
-t_oprn_not_permitted( $server_info );
 t_successful_auth( $server_info );
 t_invalid_password( $server_info );
 
-
-####
-sub t_oprn_not_permitted {
-  my $server_info = shift;
-
-  my $redis = AnyEvent::Redis::RipeRedis->new(
-    host => $server_info->{host},
-    port => $server_info->{port},
-  );
-
-  my $t_err_code;
-
-  ev_loop(
-    sub {
-      my $cv = shift;
-
-      $redis->ping( {
-        on_error => sub {
-          $t_err_code = pop;
-          $cv->send();
-        }
-      } );
-    },
-  );
-
-  $redis->disconnect();
-
-  is( $t_err_code, E_OPRN_NOT_PERMITTED, 'operation not permitted' );
-
-  return;
-}
 
 ####
 sub t_successful_auth {
@@ -112,7 +80,7 @@ sub t_invalid_password {
 
   $redis->disconnect();
 
-  is_deeply( \@t_err_codes, [ E_INVALID_PASS, E_INVALID_PASS ],
+  is_deeply( \@t_err_codes, [ E_OPRN_ERROR, E_OPRN_ERROR ],
       'invalid password' );
 
   return;

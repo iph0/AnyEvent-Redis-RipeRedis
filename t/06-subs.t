@@ -245,6 +245,9 @@ sub t_sub_after_multi {
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => $server_info->{host},
     port => $server_info->{port},
+    on_error => sub {
+      # do not print this errors
+    },
   );
 
   my $t_err_msg;
@@ -268,6 +271,8 @@ sub t_sub_after_multi {
       } );
     },
   );
+
+  $redis->disconnect();
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'subscribe' not allowed"
       . " after 'multi' command. First, the transaction must be completed",

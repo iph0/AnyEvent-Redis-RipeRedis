@@ -126,9 +126,8 @@ sub t_reconnection {
 
         $redis->ping( {
           on_done => sub {
-            my $resp = shift;
-
-            push( @t_data, $resp );
+            my $pong = shift;
+            push( @t_data, $pong );
             $cv->send();
           }
         } );
