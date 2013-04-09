@@ -876,12 +876,12 @@ sub _flush_input_buf {
 ####
 sub _disconnect {
   my __PACKAGE__ $self = shift;
-  my $safe_abort = shift;
+  my $safe_disconn = shift;
 
   $self->_reset_state();
   $self->_abort_cmds( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT,
-      $safe_abort );
-  if ( !$safe_abort and defined( $self->{on_disconnect} ) ) {
+      $safe_disconn );
+  if ( !$safe_disconn and defined( $self->{on_disconnect} ) ) {
     $self->{on_disconnect}->();
   }
 
