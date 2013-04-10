@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 use Test::More tests => 11;
+use Test::Fatal;
 use AnyEvent::Redis::RipeRedis;
 
 t_conn_timeout();
@@ -13,112 +14,86 @@ t_on_message();
 
 ####
 sub t_conn_timeout {
-  my $t_except;
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        connection_timeout => 'invalid',
+      );
+    },
+    qr/Connection timeout must be a positive number/,
+    'invalid connection timeout (character string; constructor)'
+  );
 
-  eval {
-    my $redis = AnyEvent::Redis::RipeRedis->new(
-      connection_timeout => 'invalid',
-    );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Connection timeout must be a positive number/o,
-      'Invalid connection timeout (constructor, character string)' );
-  undef( $t_except );
-
-  eval {
-    my $redis = AnyEvent::Redis::RipeRedis->new(
-      connection_timeout => -5,
-    );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Connection timeout must be a positive number/o,
-      'Invalid connection timeout (constructor, negative number)' );
-  undef( $t_except );
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        connection_timeout => -5,
+      );
+    },
+    qr/Connection timeout must be a positive number/,
+    'invalid connection timeout (negative number; constructor)'
+  );
 
   my $redis = AnyEvent::Redis::RipeRedis->new();
 
-  eval {
-    $redis->connection_timeout( 'invalid' );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Connection timeout must be a positive number/o,
-      'Invalid connection timeout (accessor, character string)' );
-  undef( $t_except );
+  like(
+    exception {
+      $redis->connection_timeout( 'invalid' );
+    },
+    qr/Connection timeout must be a positive number/,
+    'invalid connection timeout (character string; accessor)'
+  );
 
-  eval {
-    $redis->connection_timeout( -5 );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Connection timeout must be a positive number/o,
-      'Invalid connection timeout (accessor, negative number)' );
+  like(
+    exception {
+      $redis->connection_timeout( -5 );
+    },
+    qr/Connection timeout must be a positive number/,
+    'invalid connection timeout (negative number; accessor)'
+  );
 
   return;
 }
 
 ####
 sub t_read_timeout {
-  my $t_except;
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        read_timeout => 'invalid',
+      );
+    },
+    qr/Read timeout must be a positive number/,
+    'invalid read timeout (character string; constructor)',
+  );
 
-  eval {
-    my $redis = AnyEvent::Redis::RipeRedis->new(
-      read_timeout => 'invalid',
-    );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Read timeout must be a positive number/o,
-      'Invalid read timeout (constructor, character string)' );
-  undef( $t_except );
-
-  eval {
-    my $redis = AnyEvent::Redis::RipeRedis->new(
-      read_timeout => -5,
-    );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Read timeout must be a positive number/o,
-      'Invalid read timeout (constructor, negative number)' );
-  undef( $t_except );
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        read_timeout => -5,
+      );
+    },
+    qr/Read timeout must be a positive number/,
+    'invalid read timeout (negative number; constructor)',
+  );
 
   my $redis = AnyEvent::Redis::RipeRedis->new();
 
-  eval {
-    $redis->read_timeout( 'invalid' );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Read timeout must be a positive number/o,
-      'Invalid read timeout (accessor, character string)' );
-  undef( $t_except );
+  like(
+    exception {
+      $redis->read_timeout( 'invalid' );
+    },
+    qr/Read timeout must be a positive number/,
+    'invalid read timeout (character string; accessor)',
+  );
 
-  eval {
-    $redis->read_timeout( -5 );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Read timeout must be a positive number/o,
-      'Invalid read timeout (accessor, negative number)' );
+  like(
+    exception {
+      $redis->read_timeout( -5 );
+    },
+    qr/Read timeout must be a positive number/,
+    'invalid read timeout (negative number; accessor)',
+  );
 
   return;
 }
@@ -127,30 +102,25 @@ sub t_read_timeout {
 sub t_encoding {
   my $t_except;
 
-  eval {
-    my $redis = AnyEvent::Redis::RipeRedis->new(
-      encoding => 'utf88',
-    );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Encoding 'utf88' not found/o,
-      'Invalid encoding (constructor)' );
-  undef( $t_except );
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        encoding => 'utf88',
+      );
+    },
+    qr/Encoding 'utf88' not found/,
+    'invalid encoding (constructor)',
+  );
 
   my $redis = AnyEvent::Redis::RipeRedis->new();
 
-  eval {
-    $redis->encoding( 'utf88' );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^Encoding 'utf88' not found/o,
-      'Invalid encoding (accessor)' );
+  like(
+    exception {
+      $redis->encoding( 'utf88' );
+    },
+    qr/Encoding 'utf88' not found/,
+    'invalid encoding (accessor)',
+  );
 
   return;
 }
@@ -159,17 +129,13 @@ sub t_encoding {
 sub t_on_message {
   my $redis = AnyEvent::Redis::RipeRedis->new();
 
-  my $t_except;
-
-  eval {
-    $redis->subscribe( 'channel' );
-  };
-  if ( $@ ) {
-    chomp( $@ );
-    $t_except = $@;
-  }
-  ok( $t_except =~ m/^'on_message' callback must be specified/o,
-      "'on_message' callback not specified" );
+  like(
+    exception {
+      $redis->subscribe( 'channel' );
+    },
+    qr/'on_message' callback must be specified/,
+    "'on_message' callback not specified",
+  );
 
   return;
 }
