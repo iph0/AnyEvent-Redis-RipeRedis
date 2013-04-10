@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.241 10 Wed Mar 07:35:25 2013
+  - Removed Test::MockObject from dependencies.
+  - Slight fix in POD.
+
 1.240 09 Tue Mar 19:40:55 2013
   - [FEATURE] Now, destroying of object can produce warnings if some commands were not completed.
   - [BUGFIX] Fixed parsing of empty bulk reply.

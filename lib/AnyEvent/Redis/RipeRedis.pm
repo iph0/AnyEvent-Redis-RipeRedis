@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.240';
+our $VERSION = '1.241';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1478,7 +1478,7 @@ the connection.
 When the connection to the server is no longer needed you can close it in three
 ways: call the method C<disconnect()>, send the C<QUIT> command or you can just
 "forget" any references to an AnyEvent::Redis::RipeRedis object, but in this
-case a client object is destroyed silently without calling any callbacks including
+case a client object is destroyed without calling any callbacks including
 the C<on_disconnect> callback to avoid an unexpected behavior.
 
 =head2 disconnect()

@@ -15,7 +15,6 @@ WriteMakefile(
   },
   BUILD_REQUIRES => {
     'Test::More' => 0,
-    'Test::MockObject' => 0,
     'Test::RedisServer' => 0,
   },
   META_MERGE => {
