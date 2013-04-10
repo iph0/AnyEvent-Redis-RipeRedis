@@ -878,10 +878,14 @@ sub _disconnect {
   my __PACKAGE__ $self = shift;
   my $safe_disconn = shift;
 
+  my $was_connected = $self->{_connected};
   $self->_reset_state();
   $self->_abort_cmds( 'Connection closed by client', E_CONN_CLOSED_BY_CLIENT,
       $safe_disconn );
-  if ( !$safe_disconn and defined( $self->{on_disconnect} ) ) {
+  if (
+    $was_connected and !$safe_disconn
+      and defined( $self->{on_disconnect} )
+      ) {
     $self->{on_disconnect}->();
   }
 
