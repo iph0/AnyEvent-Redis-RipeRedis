@@ -16,6 +16,7 @@ WriteMakefile(
   BUILD_REQUIRES => {
     'Test::More' => 0,
     'Test::RedisServer' => 0,
+    'Test::Fatal' => 0,
   },
   META_MERGE => {
     resources => {
