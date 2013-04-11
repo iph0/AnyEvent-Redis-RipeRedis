@@ -1094,7 +1094,7 @@ The default database index is C<0>.
 =item connection_timeout
 
 If this parameter specified and connection to the Redis server is fails after
-this timeout, then the C<on_error> or C<on_connect_error> callback is called.
+specified timeout, then the C<on_error> or C<on_connect_error> callback is called.
 In case, when C<on_error> callback is called, C<E_CANT_CONN> error code is passed
 to callback as second argument. The timeout must be specified in seconds and can
 contain a fractional part.
@@ -1108,9 +1108,10 @@ By default the client use kernel's connection timeout.
 =item read_timeout
 
 If this parameter specified and the client could not receive a response from the
-Redis server after this timeout on any command, then the client close connection
-to the server and call C<on_error> callback with the C<E_READ_TIMEDOUT> error
-code. The timeout must be specified in seconds and can contain a fractional part.
+Redis server after specified timeout on any command, then the client close
+connection to the server and call C<on_error> callback with the C<E_READ_TIMEDOUT>
+error code. The timeout must be specified in seconds and can contain a fractional
+part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     read_timeout => 3.5,
