@@ -11,20 +11,12 @@ my $cv = AE::cv();
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
-  password => 'your_password',
-
+  password => 'yourpass',
   on_connect => sub {
     print "Connected to Redis server\n";
   },
-
   on_disconnect => sub {
     print "Disconnected from Redis server\n";
-  },
-
-  on_error => sub {
-    my $err_msg = shift;
-    my $err_code = shift;
-    warn "$err_msg. Error code: $err_code\n";
   },
 );
 

@@ -11,20 +11,12 @@ my $cv = AE::cv();
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'localhost',
   port => '6379',
-  password => 'your_password',
-
+  password => 'yourpass',
   on_connect => sub {
     print "Connected to Redis server\n";
   },
-
   on_disconnect => sub {
     print "Disconnected from Redis server\n";
-  },
-
-  on_error => sub {
-    my $err_msg = shift;
-    my $err_code = shift;
-    warn "$err_msg. Error code: $err_code\n";
   },
 );
 
@@ -35,7 +27,6 @@ $redis->subscribe( qw( ch_foo ch_bar ), {
     my $subs_num = shift;
     print "Subscribed: $ch_name. Active: $subs_num\n";
   },
-
   on_message => sub {
     my $ch_name = shift;
     my $msg = shift;
@@ -50,7 +41,6 @@ $redis->psubscribe( qw( info_* err_* ), {
     my $subs_num = shift;
     print "Subscribed: $ch_pattern. Active: $subs_num\n";
   },
-
   on_message => sub {
     my $ch_name = shift;
     my $msg = shift;

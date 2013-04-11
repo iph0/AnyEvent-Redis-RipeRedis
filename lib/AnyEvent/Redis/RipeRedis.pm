@@ -1000,18 +1000,13 @@ feature
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'localhost',
     port => '6379',
-    password => 'your_password',
+    password => 'yourpass',
     encoding => 'utf8',
-    on_connect => sub {
-      print "Connected to Redis server\n";
-    },
-    on_disconnect => sub {
-      print "Disconnected from Redis server\n";
-    },
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      warn "$err_msg. Error code: $err_code\n";
+
+      # handle the error
     },
   );
 
@@ -1024,7 +1019,8 @@ feature
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      $cv->croak( "$err_msg. Error code: $err_code" );
+
+      # handle the error
     }
   } );
 
@@ -1047,7 +1043,7 @@ Requires Redis 1.2 or higher, and any supported event loop.
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host => 'localhost',
     port => '6379',
-    password => 'your_password',
+    password => 'yourpass',
     database => 7,
     lazy => 1,
     connection_timeout => 5,
@@ -1062,12 +1058,14 @@ Requires Redis 1.2 or higher, and any supported event loop.
     },
     on_connect_error => sub {
       my $err_msg = shift;
-      warn "$err_msg\n";
+
+      # handle the error
     },
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      warn "$err_msg. Error code: $err_code\n";
+
+      # handle the error
     },
   );
 
@@ -1083,22 +1081,23 @@ Server port (default: 6379)
 
 =item password
 
-Authentication password. If the password is specified, then the C<AUTH> command
-will be send immediately to the server after a connection and after every
-reconnection.
+If the password is specified, then the C<AUTH> command is sent immediately to
+the server after every connection.
 
 =item database
 
-Database index. If the index is specified, then client will be switched to
-the specified database immediately after a connection and after every reconnection.
+Database index. If the index is specified, then the client is switched to
+the specified database immediately after every connection.
 
 The default database index is C<0>.
 
 =item connection_timeout
 
-If after this timeout the client could not connect to the server, the callback
-C<on_error> is called with the error code C<E_CANT_CONN>. The timeout must be
-specified in seconds and can contain a fractional part.
+If this parameter specified and connection to the Redis server is fails after
+this timeout, then the C<on_error> or C<on_connect_error> callback is called.
+In case, when C<on_error> callback is called, C<E_CANT_CONN> error code is passed
+to callback as second argument. The timeout must be specified in seconds and can
+contain a fractional part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     connection_timeout => 10.5,
@@ -1108,31 +1107,31 @@ By default the client use kernel's connection timeout.
 
 =item read_timeout
 
-If after this timeout the client do not received a response from the server to
-any command, the callback C<on_error> is called with the error code
-C<E_READ_TIMEDOUT>. The timeout must be specified in seconds and can contain
-a fractional part.
+If this parameter specified and the client could not receive a response from the
+Redis server after this timeout on any command, then the client close connection
+to the server and call C<on_error> callback with the C<E_READ_TIMEDOUT> error
+code. The timeout must be specified in seconds and can contain a fractional part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
-    read_timeout => 0.5,
+    read_timeout => 3.5,
   );
 
 Not set by default.
 
 =item lazy
 
-If this parameter is set, then the connection will be established, when you will
-send the first command to the server. By default the connection establishes after
+If this parameter is set, then the connection establishes, when you will send
+the first command to the server. By default the connection establishes after
 calling of the method C<new>.
 
 =item reconnect
 
 If the connection to the Redis server was lost and the parameter 'reconnect' is
-TRUE, then the client try to restore the connection, when executing a next command.
-The client try to reconnect only once and if it fails, then is called the C<on_error>
-callback. If you need several attempts of the reconnection, just retry a command
-from the C<on_error> callback as many times, as you need. This feature made the
-client more responsive.
+TRUE, then the client try to restore the connection, on a next executuion of the
+command. The client try to reconnect only once and if it fails, then is called
+the C<on_error> callback. If you need several attempts of the reconnection, just
+retry a command from the C<on_error> callback as many times, as you need. This
+feature made the client more responsive.
 
 By default is TRUE.
 
@@ -1144,28 +1143,29 @@ Not set by default.
 
 =item on_connect => $cb->()
 
-The callback C<on_connect> is called, when the connection is successfully
+The C<on_connect> callback is called, when the connection is successfully
 established.
 
 Not set by default.
 
 =item on_disconnect => $cb->()
 
-The callback C<on_disconnect> is called, when the connection is closed by any reason.
+The C<on_disconnect> callback is called, when the connection is closed by any
+reason.
 
 Not set by default.
 
 =item on_connect_error => $cb->( $err_msg )
 
-The callback C<on_connect_error> is called, when the connection could not be
+The C<on_connect_error> callback is called, when the connection could not be
 established. If this collback isn't specified, then the C<on_error> callback is
-called with the error code C<E_CANT_CONN>.
+called with the C<E_CANT_CONN> error code.
 
 Not set by default.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, if any error occurred. If the callback is
+The C<on_error> callback is called, when any error occurred. If the callback is
 not set, the client just print an error message to C<STDERR>.
 
 =back
@@ -1198,7 +1198,8 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      $cv->croak( "$err_msg. Error code: $err_code" );
+
+      # handle the error
     },
   } );
 
@@ -1206,13 +1207,13 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
 =item on_done => $cb->( [ $data ] )
 
-The callback C<on_done> is called, when the current operation is done.
+The C<on_done> callback is called, when the current operation is done.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, if any error occurred. If the callback is
-not set, then the C<on_error> callback, that was specified in constructor, is
-called.
+The C<on_error> callback is called, if any error occurred. If the C<on_error>
+callback is not specified here, then is called the C<on_error> callback
+specified in constructor.
 
 =back
 
@@ -1274,7 +1275,8 @@ and C<PUNSUBSCRIBE> commands.
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      $cv->croak( "$err_msg. Error code: $err_code" );
+
+      # handle the error
     },
   } );
 
@@ -1282,17 +1284,18 @@ and C<PUNSUBSCRIBE> commands.
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
-The callback C<on_done> is called, when the current subscription operation is done.
+The C<on_done> callback is called on every specified channel, when the current
+subscription operation is done.
 
 =item on_message => $cb->( $ch_name, $msg )
 
-The callback C<on_message> is called, when a published message is received.
+The C<on_message> callback is called, when a published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, if the subscription operation fails. If
-the callback is not set, then the C<on_error> callback, that was specified in
-constructor, is called.
+The C<on_error> callback is called, if the subscription operation fails. If the
+C<on_error> callback is not specified here, then is called the C<on_error>
+callback specified in constructor.
 
 =back
 
@@ -1315,7 +1318,8 @@ Subscribes the client to the given patterns.
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
-      $cv->croak( "$err_msg. Error code: $err_code" );
+
+      # handle the error
     },
   } );
 
@@ -1323,17 +1327,18 @@ Subscribes the client to the given patterns.
 
 =item on_done => $cb->( $ch_pattern, $sub_num )
 
-The callback C<on_done> is called, when the current subscription operation is done.
+The C<on_done> callback is called on every specified pattern, when the
+current subscription operation is done.
 
 =item on_message => $cb->( $ch_name, $msg, $ch_pattern )
 
-The callback C<on_message> is called, when published message is received.
+The C<on_message> callback is called, when published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The callback C<on_error> is called, if the subscription operation fails. If
-the callback is not set, then the C<on_error> callback, that was specified in
-constructor, is called.
+The C<on_error> callback is called, if the subscription operation fails. If the
+C<on_error> callback is not specified here, then is called the C<on_error>
+callback specified in constructor.
 
 =back
 
@@ -1350,6 +1355,21 @@ When no channels are specified, the client is unsubscribed from all the
 previously subscribed channels. In this case, a message for every unsubscribed
 channel will be sent to the client.
 
+=over
+
+=item on_done => $cb->( $ch_name, $sub_num )
+
+The C<on_done> callback is called on every specified channel, when the
+current unsubscription operation is done.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+The C<on_error> callback is called, if the unsubscription operation fails. If
+the C<on_error> callback is not specified here, then is called the C<on_error>
+callback specified in constructor.
+
+=back
+
 =head2 punsubscribe( [ @patterns ][, \%callbacks ] )
 
 Unsubscribes the client from the given patterns, or from all of them if none
@@ -1358,6 +1378,21 @@ is given.
 When no patters are specified, the client is unsubscribed from all the
 previously subscribed patterns. In this case, a message for every unsubscribed
 pattern will be sent to the client.
+
+=over
+
+=item on_done => $cb->( $ch_name, $sub_num )
+
+The C<on_done> callback is called on every specified pattern, when the
+current unsubscription operation is done.
+
+=item on_error => $cb->( $err_msg, $err_code )
+
+The C<on_error> callback is called, if the unsubscription operation fails. If
+the C<on_error> callback is not specified here, then is called the C<on_error>
+callback specified in constructor.
+
+=back
 
 =head1 CONNECTION VIA UNIX-SOCKET
 
@@ -1383,8 +1418,9 @@ hash for a Lua script and cache it in memory. Then the client optimistically
 send the C<EVALSHA> command under the hood. If the C<NO_SCRIPT> error will be
 returned, the client send the C<EVAL> command.
 
-If you call the C<eval_cached()> method with the same Lua script, client don't
-generate a SHA1 hash for this script repeatedly, it gets a hash from the cache.
+If you call the C<eval_cached()> method with the same Lua script, client don not
+generate a SHA1 hash for this script repeatedly, it gets a hash from the cache
+instead.
 
   $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
       2, 'key1', 'key2', 'first', 'second', {
@@ -1398,9 +1434,9 @@ generate a SHA1 hash for this script repeatedly, it gets a hash from the cache.
 
 =head1 ERROR CODES
 
-Every time when the calback C<on_error> is called, the current error code passed
-to it in the second argument. Error codes can be used for programmatic handling
-of errors.
+Every time when the calback C<on_error> is called, the current error code is
+passed to it as the second argument. Error codes can be used for programmatic
+handling of errors.
 
 AnyEvent::Redis::RipeRedis provides constants of error codes, that can be
 imported and used in expressions.
@@ -1424,8 +1460,7 @@ Error codes and constants corresponding to them:
 
 =item E_CANT_CONN
 
-Can't connect to the server. If this error occurred, the client abort all
-operations.
+Can not connect to the server. All operations were aborted.
 
 =item E_LOADING_DATASET
 
@@ -1433,34 +1468,31 @@ Redis is loading the dataset in memory.
 
 =item E_IO
 
-Input/Output operation error. If this error occurred, the client abort all
-operations and close the connection.
+Input/Output operation error. The connection to the Redis server was closed and
+all operations were aborted.
 
 =item E_CONN_CLOSED_BY_REMOTE_HOST
 
-The connection closed by remote host. If this error occurred, the client abort
-all operations.
+The connection closed by remote host. All operations were aborted.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-If in the client queue are uncompleted operations, when application calling method
-C<disconnect()> or executing command C<QUIT>, the client abort them with
-this error.
+Uncompleted operations were aborted at time of calling C<disconnect()> method
+or after executing C<QUIT> command.
 
 =item E_NO_CONN
 
-No connection to the server. Error occurs, if at time of a command execution
-the connection has been closed by any reason and the parameter C<reconnect> was
-set to FALSE.
+No connection to the Redis server. Connection was lost by any reason on previous
+operation.
 
 =item E_OPRN_ERROR
 
-Operation error. Usually returned by the the Redis server.
+Operation error. For example, wrong number of arguments for a command.
 
 =item E_UNEXPECTED_DATA
 
-The client received unexpected data from the server. If this error occurred,
-the client abort all operations and close the connection.
+The client received unexpected data from the server. The connection to the Redis
+server was closed and all operations were aborted.
 
 =item E_NO_SCRIPT
 
@@ -1468,8 +1500,8 @@ No matching script. Use the C<EVAL> command.
 
 =item E_READ_TIMEDOUT
 
-Read timed out. If this error occurred, the client abort all operations and close
-the connection.
+Read timed out. The connection to the Redis server was closed and all operations
+were aborted.
 
 =back
 

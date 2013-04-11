@@ -12,22 +12,14 @@ my $redis;
 $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
   port => '/tmp/redis.sock',
-  password => 'your_password',
+  password => 'yourpass',
   connection_timeout => 5,
   read_timeout => 5,
-
   on_connect => sub {
     print "Connected to Redis server\n";
   },
-
   on_disconnect => sub {
     print "Disconnected from Redis server\n";
-  },
-
-  on_error => sub {
-    my $err_msg = shift;
-    my $err_code = shift;
-    warn "$err_msg. Error code: $err_code\n";
   },
 );
 
