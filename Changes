@@ -1,6 +1,6 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.242 ... MSK 2013
+1.242 Fri Apr 12 11:08:45 MSK 2013
   - Test 10-exceptions.t rewritten with using Test::Fatal
   - Edited POD.
   - Slight changes in examples.
