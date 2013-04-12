@@ -1433,6 +1433,9 @@ instead.
     }
   } );
 
+Be care, passing a different Lua scripts to C<eval_cached()> method every time
+cause memory leaks.
+
 =head1 ERROR CODES
 
 Every time when the calback C<on_error> is called, the current error code is
