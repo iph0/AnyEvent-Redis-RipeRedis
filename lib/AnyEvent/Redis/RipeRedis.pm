@@ -1,6 +1,6 @@
 package AnyEvent::Redis::RipeRedis;
 
-use 5.006000;
+use 5.008000;
 use strict;
 use warnings;
 use base qw( Exporter );

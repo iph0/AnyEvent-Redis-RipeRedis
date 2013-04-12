@@ -1,11 +1,12 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.242 Fri Apr 12 11:08:45 MSK 2013
+1.242 Fri Apr 12 16:54:10 MSK 2013
+  - Increased minimal required version of Perl up to v5.8.0
   - Test 10-exceptions.t rewritten with using Test::Fatal
   - Edited POD.
   - Slight changes in examples.
   - Fixed dates in Changes file
-  - Fixed year in copyright in README
+  - Fixed year in copyright in README file
 
 1.241 Wed Apr 10 07:35:25 MSK 2013
   - Removed Test::MockObject from dependencies.
@@ -186,7 +187,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
     or 'on_disconnect' callbacks, to avoid unexpected behavior.
 
 0.807000 Mon Jun 18 14:55:50 MSK 2012
-  - [FEATURE] Added callback 'on_connect_error' in constructor
+  - [FEATURE] Added 'on_connect_error' callback in constructor
 
 0.806000 Thu Jun 14 15:47:10 MSK 2012
   - [FEATURE] Added public method disconnect()
