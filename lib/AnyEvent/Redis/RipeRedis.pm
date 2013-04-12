@@ -1128,7 +1128,7 @@ calling of the method C<new>.
 =item reconnect
 
 If the connection to the Redis server was lost and the parameter 'reconnect' is
-TRUE, then the client try to restore the connection, on a next executuion of the
+TRUE, then the client try to restore the connection on a next executuion of the
 command. The client try to reconnect only once and if it fails, then is called
 the C<on_error> callback. If you need several attempts of the reconnection, just
 retry a command from the C<on_error> callback as many times, as you need. This
@@ -1138,7 +1138,7 @@ By default is TRUE.
 
 =item encoding
 
-Used for encode/decode strings during input/output operations.
+Used for encode/decode strings at time of input/output operations.
 
 Not set by default.
 
