@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.242';
+our $VERSION = '1.243';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1213,8 +1213,8 @@ The C<on_done> callback is called, when the current operation is done.
 =item on_error => $cb->( $err_msg, $err_code )
 
 The C<on_error> callback is called, if any error occurred. If the C<on_error>
-callback is not specified here, then is called the C<on_error> callback
-specified in constructor.
+callback is not specified here, then the C<on_error> callback
+specified in constructor is called.
 
 =back
 
@@ -1295,8 +1295,8 @@ The C<on_message> callback is called, when a published message is received.
 =item on_error => $cb->( $err_msg, $err_code )
 
 The C<on_error> callback is called, if the subscription operation fails. If the
-C<on_error> callback is not specified here, then is called the C<on_error>
-callback specified in constructor.
+C<on_error> callback is not specified here, then the C<on_error> callback
+specified in constructor is called.
 
 =back
 
@@ -1338,8 +1338,8 @@ The C<on_message> callback is called, when published message is received.
 =item on_error => $cb->( $err_msg, $err_code )
 
 The C<on_error> callback is called, if the subscription operation fails. If the
-C<on_error> callback is not specified here, then is called the C<on_error>
-callback specified in constructor.
+C<on_error> callback is not specified here, then the C<on_error> callback
+specified in constructor is called.
 
 =back
 
@@ -1366,8 +1366,8 @@ current unsubscription operation is done.
 =item on_error => $cb->( $err_msg, $err_code )
 
 The C<on_error> callback is called, if the unsubscription operation fails. If
-the C<on_error> callback is not specified here, then is called the C<on_error>
-callback specified in constructor.
+the C<on_error> callback is not specified here, then the C<on_error> callback
+specified in constructor is called.
 
 =back
 
@@ -1390,8 +1390,8 @@ current unsubscription operation is done.
 =item on_error => $cb->( $err_msg, $err_code )
 
 The C<on_error> callback is called, if the unsubscription operation fails. If
-the C<on_error> callback is not specified here, then is called the C<on_error>
-callback specified in constructor.
+the C<on_error> callback is not specified here, then the C<on_error> callback
+specified in constructor is called.
 
 =back
 

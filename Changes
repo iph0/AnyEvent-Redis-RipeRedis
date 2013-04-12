@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.243 Fri Apr 13 00:41:25 MSK 2013
+  - Slight fixes in POD.
+
 1.242 Fri Apr 12 16:54:10 MSK 2013
   - Increased minimal required version of Perl up to v5.8.0
   - Test 10-exceptions.t rewritten with using Test::Fatal
