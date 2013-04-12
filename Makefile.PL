@@ -13,7 +13,7 @@ WriteMakefile(
     'Digest::SHA' => 0,
     'Carp' => 0,
   },
-  BUILD_REQUIRES => {
+  TEST_REQUIRES => {
     'Test::More' => 0,
     'Test::RedisServer' => 0,
     'Test::Fatal' => 0,
