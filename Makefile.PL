@@ -13,17 +13,20 @@ WriteMakefile(
     'Digest::SHA' => 0,
     'Carp' => 0,
   },
-  TEST_REQUIRES => {
+  CONFIGURE_REQUIRES => {
+    'ExtUtils::MakeMaker' => 6.64,
+  },
+  BUILD_REQUIRES => {
     'Test::More' => 0,
     'Test::RedisServer' => 0,
     'Test::Fatal' => 0,
   },
   META_MERGE => {
     resources => {
-      license => 'http://dev.perl.org/licenses/',
       homepage => 'https://github.com/iph0/AnyEvent-Redis-RipeRedis',
       bugtracker => 'https://github.com/iph0/AnyEvent-Redis-RipeRedis/issues',
       repository => 'https://github.com/iph0/AnyEvent-Redis-RipeRedis',
+      license => 'http://dev.perl.org/licenses/',
     },
   },
   ($] >= 5.005 ? ## Add these new keywords supported since 5.005
