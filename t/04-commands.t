@@ -356,18 +356,6 @@ sub t_default_on_error {
 sub t_on_error_in_exec {
   my $redis = shift;
 
-  ev_loop(
-    sub {
-      my $cv = shift;
-
-      $redis->set( 'foo', 'Some string', {
-        on_done => sub {
-          $cv->send();
-        }
-      } );
-    }
-  );
-
   my $t_err_code;
 
   ev_loop(
@@ -375,11 +363,13 @@ sub t_on_error_in_exec {
       my $cv = shift;
 
       $redis->multi();
+      $redis->set( 'foo', 'Some string' );
       $redis->incr( 'foo' );
+      $redis->set( 'bar', 'Some string' );
+      $redis->incr( 'bar' );
       $redis->exec( {
         on_error => sub {
           $t_err_code = pop;
-
           $cv->send();
         },
       } );

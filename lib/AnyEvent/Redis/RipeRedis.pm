@@ -32,7 +32,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.244';
+our $VERSION = '1.245';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -650,7 +650,7 @@ sub _on_read {
           return 1 if $cb->( $data );
         }
         elsif ( $type eq '-' ) {
-          return 1 if $cb->( $data, 1 );
+          return 1 if $cb->( $data, E_OPRN_ERROR );
         }
         elsif ( $type eq '$' ) {
           if ( $data >= 0 ) {
@@ -719,8 +719,19 @@ sub _unshift_read {
       elsif ( $remaining == 0 ) {
         undef( $read_cb ); # Collect garbage
         if ( @errors ) {
-          my $err_msg = join( "\n", @errors );
-          $cb->( $err_msg, 1 );
+          my $err_msg = shift( @errors );
+          my $err_code;
+          if ( index( $err_msg, 'NOSCRIPT' ) == 0 ) {
+            $err_code = E_NO_SCRIPT;
+          }
+          else {
+            $err_code = E_OPRN_ERROR;
+          }
+          if ( @errors ) {
+            $err_msg .= "; Other errors:\n\t";
+            $err_msg .= join( "\n\t", @errors );
+          }
+          $cb->( $err_msg, $err_code );
         }
         else {
           $cb->( \@data_list );
@@ -741,10 +752,10 @@ sub _unshift_read {
 sub _process_response {
   my __PACKAGE__ $self = shift;
   my $data = shift;
-  my $is_err = shift;
+  my $err_code = shift;
 
-  if ( $is_err ) {
-    $self->_process_cmd_error( $data );
+  if ( $err_code ) {
+    $self->_process_cmd_error( $data, $err_code );
   }
   elsif ( %{$self->{_subs}} and $self->_is_pub_message( $data ) ) {
     $self->_process_pub_message( $data );
@@ -822,6 +833,7 @@ sub _process_pub_message {
 sub _process_cmd_error {
   my __PACKAGE__ $self = shift;
   my $err_msg = shift;
+  my $err_code = shift;
 
   my $cmd = shift( @{$self->{_processing_queue}} );
 
@@ -830,7 +842,6 @@ sub _process_cmd_error {
         . " '$err_msg'. Command queue is empty", E_UNEXPECTED_DATA );
   }
 
-  my $err_code;
   if ( index( $err_msg, 'NOSCRIPT' ) == 0 ) {
     $err_code = E_NO_SCRIPT;
     if ( exists( $cmd->{script} ) ) {
@@ -844,9 +855,7 @@ sub _process_cmd_error {
   elsif ( index( $err_msg, 'LOADING' ) == 0 ) {
     $err_code = E_LOADING_DATASET;
   }
-  else {
-    $err_code = E_OPRN_ERROR;
-  }
+
   $cmd->{on_error}->( $err_msg, $err_code );
 
   return;

@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.245 Thu Apr 18 15:27:30 MSK 2013
+  - Improved error handling for EXEC command.
+
 1.244 Fri Apr 13 00:41:25 MSK 2013
   - Added CONFIGURE_REQUIRES section in Makefile.PL.
   - TEST_REQUIRES section renamed back to BUILD_REQUIRES.
