@@ -356,7 +356,7 @@ sub t_default_on_error {
 sub t_on_error_in_exec {
   my $redis = shift;
 
-  my $t_err_code;
+  my @t_err_reply;
 
   ev_loop(
     sub {
@@ -369,14 +369,29 @@ sub t_on_error_in_exec {
       $redis->incr( 'bar' );
       $redis->exec( {
         on_error => sub {
-          $t_err_code = pop;
+          @t_err_reply = @_;
           $cv->send();
         },
       } );
     },
   );
 
-  is( $t_err_code, E_OPRN_ERROR, "'on_error' callback in EXEC" );
+  is_deeply( \@t_err_reply, [
+    "Operation 'exec' completed with errors.",
+    E_OPRN_ERROR,
+    [
+      'OK',
+      {
+        code => E_OPRN_ERROR,
+        message => 'ERR value is not an integer or out of range',
+      },
+      'OK',
+      {
+        code => E_OPRN_ERROR,
+        message => 'ERR value is not an integer or out of range',
+      },
+    ],
+  ], "'on_error' callback in EXEC" );
 
   return;
 }

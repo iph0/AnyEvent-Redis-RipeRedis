@@ -185,8 +185,8 @@ sub t_read_timeout {
     );
 
     is_deeply( \@t_errors, [
-      [ "Command 'brpop' aborted: Read timed out", E_READ_TIMEDOUT ],
-      [ 'Read timed out', E_READ_TIMEDOUT ],
+      [ "Command 'brpop' aborted: Read timed out.", E_READ_TIMEDOUT ],
+      [ 'Read timed out.', E_READ_TIMEDOUT ],
     ], 'read timeout' );
   }
 

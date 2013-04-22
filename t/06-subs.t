@@ -275,7 +275,7 @@ sub t_sub_after_multi {
   $redis->disconnect();
 
   is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'subscribe' not allowed"
-      . " after 'multi' command. First, the transaction must be completed",
+      . " after 'multi' command. First, the transaction must be completed.",
       E_OPRN_ERROR ],
       'subscription after MULTI command' );
 

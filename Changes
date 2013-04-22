@@ -1,7 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.245 Thu Apr 18 15:27:30 MSK 2013
-  - Improved error handling for EXEC command.
+1.250 MSK 2013
+  - Improved error handling for EXEC command and for Lua scripts, which returns
+    errors in multi-bulk reply.
 
 1.244 Fri Apr 13 00:41:25 MSK 2013
   - Added CONFIGURE_REQUIRES section in Makefile.PL.
@@ -138,7 +139,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.110 Fri Oct 26 18:08:20 MSK 2012
   - [FEATURE] Added constructor parameter 'database'.
   - [FEATURE] Added constructor parameter 'lazy'.
-  - [BUGFIX] Fixed reconnect error that has been occurred if password was not been required.
+  - [BUGFIX] Fixed reconnect error, which has been occurred if password was not been required.
   - Changes in POD.
 
 1.109 Fri Oct 20 01:54:40 MSK 2012
