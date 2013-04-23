@@ -630,6 +630,8 @@ sub _on_read {
   weaken( $self );
 
   return sub {
+    # Check handle object for a case of calling
+    # disconnect() method from any callback
     while ( defined( $self->{_handle} ) ) {
       my $hdl = $self->{_handle};
       if ( defined( $bulk_len ) ) {
