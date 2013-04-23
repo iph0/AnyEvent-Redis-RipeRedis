@@ -164,17 +164,16 @@ LUA
   );
 
   my $t_name = 'errors in multi-bulk reply';
+  my $err_class = 'AnyEvent::Redis::RipeRedis::Error';
   is( $t_err_msg, "Operation 'eval' completed with errors.",
       "$t_name; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
   is( $t_err_data->[0], 42, "$t_name; numeric reply" );
-  isa_ok( $t_err_data->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      "$t_name; lv0" );
+  isa_ok( $t_err_data->[1], $err_class, "$t_name; lv0" );
   is( $t_err_data->[1]->message(), 'Something wrong lv0.',
       "$t_name; lv0 error message" );
   is( $t_err_data->[1]->code(), E_OPRN_ERROR, "$t_name; lv0 error code" );
-  isa_ok( $t_err_data->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      "$t_name; lv1" );
+  isa_ok( $t_err_data->[2][0], $err_class, "$t_name; lv1" );
   is( $t_err_data->[2][0]->message(), 'Something wrong lv1.',
       "$t_name; lv1 error message" );
   is( $t_err_data->[2][0]->code(), E_OPRN_ERROR, "$t_name; lv1 error code" );

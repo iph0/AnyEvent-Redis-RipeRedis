@@ -410,11 +410,12 @@ sub t_error_after_exec {
   );
 
   my $t_name = 'error after EXEC';
+  my $err_class = 'AnyEvent::Redis::RipeRedis::Error';
   is( $t_err_msg, "Operation 'exec' completed with errors.",
       "$t_name; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
   is( $t_err_data->[0], 'OK', "$t_name; status reply" );
-  isa_ok( $t_err_data->[1], 'AnyEvent::Redis::RipeRedis::Error', "$t_name;" );
+  isa_ok( $t_err_data->[1], $err_class, "$t_name;" );
   like( $t_err_data->[1]->message(), qr/^ERR/o,
       "$t_name; nested error message" );
   is( $t_err_data->[1]->code(), E_OPRN_ERROR, "$t_name; nested error code" );
