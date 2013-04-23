@@ -2,7 +2,7 @@ use 5.008000;
 use strict;
 use warnings;
 
-use Test::More tests => 21;
+use Test::More tests => 24;
 
 my $T_CLASS;
 
@@ -39,3 +39,15 @@ is( E_OPRN_ERROR, 9, 'E_OPRN_ERROR' );
 is( E_UNEXPECTED_DATA, 10, 'E_UNEXPECTED_DATA' );
 is( E_NO_SCRIPT, 11, 'E_NO_SCRIPT' );
 is( E_READ_TIMEDOUT, 12, 'E_RESP_TIMEDOUT' );
+
+
+# Error object class
+
+my $T_ERR_CLASS = 'AnyEvent::Redis::RipeRedis::Error';
+
+# Constructor
+can_ok( $T_ERR_CLASS, 'new' );
+
+# Accessors
+can_ok( $T_ERR_CLASS, 'code' );
+can_ok( $T_ERR_CLASS, 'message' );

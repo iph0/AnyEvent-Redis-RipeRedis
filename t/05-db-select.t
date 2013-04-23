@@ -10,7 +10,7 @@ my $server_info = run_redis_instance();
 if ( !defined( $server_info ) ) {
   plan skip_all => 'redis-server is required to this test';
 }
-plan tests => 3;
+plan tests => 6;
 
 t_db_select( $server_info );
 t_invalid_db_index( $server_info );
@@ -60,7 +60,11 @@ sub t_invalid_db_index {
   my $password = shift;
 
   my $redis;
-  my @t_err_codes;
+
+  my $t_comm_err_msg;
+  my $t_comm_err_code;
+  my $t_cmd_err_msg;
+  my $t_cmd_err_code;
 
   ev_loop(
     sub {
@@ -72,25 +76,29 @@ sub t_invalid_db_index {
         password => $password,
         database => 42,
         on_error => sub {
-          my $err_code = pop;
-          push( @t_err_codes, $err_code );
+          $t_comm_err_msg = shift;
+          $t_comm_err_code = shift;
           $cv->send();
         },
       );
 
       $redis->ping( {
         on_error => sub {
-          my $err_code = pop;
-          push( @t_err_codes, $err_code );
+          $t_cmd_err_msg = shift;
+          $t_cmd_err_code = shift;
         },
       } );
-    },
+    }
   );
 
   $redis->disconnect();
 
-  is_deeply( \@t_err_codes, [ E_OPRN_ERROR, E_OPRN_ERROR ],
-      'invalid DB index' );
+  my $t_name = 'invalid DB index';
+  like( $t_cmd_err_msg, qr/^Command 'ping' aborted:/o,
+      "$t_name; command error message" );
+  is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
+  like( $t_comm_err_msg, qr/^ERR/o, "$t_name; common error message" );
+  is( $t_comm_err_code, E_OPRN_ERROR, "$t_name common error code" );
 
   return;
 }
@@ -147,7 +155,7 @@ sub t_set_get {
       $redis_db2->set( 'foo', 'bar2', {
         on_done => $on_done,
       } );
-    },
+    }
   );
 
   my %t_data;
@@ -181,7 +189,7 @@ sub t_set_get {
           $on_done->( 'db2', $val );
         },
       } );
-    },
+    }
   );
 
   return \%t_data;

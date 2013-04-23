@@ -41,7 +41,7 @@ ev_loop(
             $cv->send();
           },
         } );
-      },
+      }
     );
 
     $redis->disconnect();

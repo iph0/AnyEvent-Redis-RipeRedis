@@ -10,7 +10,7 @@ my $server_info = run_redis_instance();
 if ( !defined( $server_info ) ) {
   plan skip_all => 'redis-server is required to this test';
 }
-plan tests => 7;
+plan tests => 8;
 
 my $r_consum = AnyEvent::Redis::RipeRedis->new(
   host => $server_info->{host},
@@ -260,24 +260,24 @@ sub t_sub_after_multi {
       $redis->multi();
       $redis->subscribe( 'channel', {
         on_message => sub {
-          my $msg = shift;
+          # fake callback
         },
         on_error => sub {
           $t_err_msg = shift;
           $t_err_code = shift;
-
           $cv->send();
-        }
+        },
       } );
-    },
+    }
   );
 
   $redis->disconnect();
 
-  is_deeply( [ $t_err_msg, $t_err_code ], [ "Command 'subscribe' not allowed"
+  my $t_name = 'subscription after MULTI command';
+  is( $t_err_msg, "Command 'subscribe' not allowed"
       . " after 'multi' command. First, the transaction must be completed.",
-      E_OPRN_ERROR ],
-      'subscription after MULTI command' );
+      "$t_name; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
 
   return;
 }
