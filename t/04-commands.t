@@ -376,6 +376,8 @@ sub t_default_on_error {
     }
   );
 
+  undef( $SIG{__WARN__} );
+
   like( $t_err_msg, qr/^ERR/o, "Default 'on_error' callback" );
 
   return;

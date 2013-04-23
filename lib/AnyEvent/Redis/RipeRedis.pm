@@ -630,8 +630,8 @@ sub _on_read {
   weaken( $self );
 
   return sub {
-    my $hdl = $self->{_handle};
-    while ( defined( $hdl->{rbuf} ) ) {
+    while ( defined( $self->{_handle} ) ) {
+      my $hdl = $self->{_handle};
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
         if ( length( $hdl->{rbuf} ) < $bulk_eol_len ) {

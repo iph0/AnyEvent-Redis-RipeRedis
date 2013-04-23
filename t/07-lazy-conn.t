@@ -12,13 +12,14 @@ if ( !defined( $server_info ) ) {
 }
 plan tests => 2;
 
+my $redis;
 my $t_is_conn = 0;
 
 ev_loop(
   sub {
     my $cv = shift;
 
-    my $redis = AnyEvent::Redis::RipeRedis->new(
+    $redis = AnyEvent::Redis::RipeRedis->new(
       host => $server_info->{host},
       port => $server_info->{port},
       lazy => 1,
@@ -41,11 +42,11 @@ ev_loop(
             $cv->send();
           },
         } );
-      }
+      },
     );
-
-    $redis->disconnect();
   }
 );
+
+$redis->disconnect();
 
 ok( $t_is_conn, 'lazy connection (connected)' );
