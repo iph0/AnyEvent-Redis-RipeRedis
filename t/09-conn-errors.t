@@ -18,8 +18,8 @@ sub t_no_connection {
   my $port = get_tcp_port();
 
   my $t_comm_err_msg;
-  my $t_cmd_err_msg_0;
-  my $t_cmd_err_code_0;
+  my $t_first_cmd_err_msg;
+  my $t_first_cmd_err_code;
 
   ev_loop(
     sub {
@@ -37,8 +37,8 @@ sub t_no_connection {
 
       $redis->ping( {
         on_error => sub {
-          $t_cmd_err_msg_0 = shift;
-          $t_cmd_err_code_0 = shift;
+          $t_first_cmd_err_msg = shift;
+          $t_first_cmd_err_code = shift;
         }
       } );
     },
@@ -46,15 +46,15 @@ sub t_no_connection {
 
   my $t_name = 'no connection';
 
-  like( $t_cmd_err_msg_0,
+  like( $t_first_cmd_err_msg,
       qr/^Command 'ping' aborted: Can't connect to localhost:$port:/o,
       "$t_name; first command error message" );
-  is( $t_cmd_err_code_0, E_CANT_CONN, "$t_name; first command error code" );
+  is( $t_first_cmd_err_code, E_CANT_CONN, "$t_name; first command error code" );
   like( $t_comm_err_msg, qr/^Can't connect to localhost:$port:/o,
       "$t_name; common error message" );
 
-  my $t_cmd_err_msg_1;
-  my $t_cmd_err_code_1;
+  my $t_second_cmd_err_msg;
+  my $t_second_cmd_err_code;
 
   ev_loop(
     sub {
@@ -62,18 +62,18 @@ sub t_no_connection {
 
       $redis->ping( {
         on_error => sub {
-          $t_cmd_err_msg_1 = shift;
-          $t_cmd_err_code_1 = shift;
+          $t_second_cmd_err_msg = shift;
+          $t_second_cmd_err_code = shift;
           $cv->send();
         }
       } );
     }
   );
 
-  is( $t_cmd_err_msg_1, "Can't handle the command 'ping'."
+  is( $t_second_cmd_err_msg, "Can't handle the command 'ping'."
       . ' No connection to the server.',
       "$t_name; second command error message" );
-  is( $t_cmd_err_code_1, E_NO_CONN, "$t_name; second command error code" );
+  is( $t_second_cmd_err_code, E_NO_CONN, "$t_name; second command error code" );
 
   return;
 }
@@ -155,6 +155,8 @@ sub t_reconnection {
         "$t_name; error message" );
     is( $t_comm_err_code, E_CONN_CLOSED_BY_REMOTE_HOST, "$t_name; error code" );
     is( $t_pong, 'PONG', "$t_name; success PING" );
+
+    $redis->disconnect();
   }
 
   return;

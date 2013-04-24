@@ -1020,8 +1020,8 @@ sub DESTROY {
 package AnyEvent::Redis::RipeRedis::Error;
 
 use fields qw(
-  code
   message
+  code
 );
 
 
@@ -1032,22 +1032,22 @@ sub new {
 
   my __PACKAGE__ $self = fields::new( $proto );
 
-  $self->{code} = $params{code};
   $self->{message} = $params{message};
+  $self->{code} = $params{code};
 
   return $self;
-}
-
-####
-sub code {
-  my __PACKAGE__ $self = shift;
-  return $self->{code};
 }
 
 ####
 sub message {
   my __PACKAGE__ $self = shift;
   return $self->{message};
+}
+
+####
+sub code {
+  my __PACKAGE__ $self = shift;
+  return $self->{code};
 }
 
 1;

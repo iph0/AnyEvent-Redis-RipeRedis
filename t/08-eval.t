@@ -143,8 +143,8 @@ sub t_errors_in_mbulk_reply {
   my $script = <<LUA
 return {
   42,
-  redis.error_reply( "Something wrong lv0." ),
-  { redis.error_reply( "Something wrong lv1." ) }
+  redis.error_reply( "Something wrong." ),
+  { redis.error_reply( "NOSCRIPT No matching script." ) }
 }
 LUA
 ;
@@ -170,13 +170,13 @@ LUA
   is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
   is( $t_err_data->[0], 42, "$t_name; numeric reply" );
   isa_ok( $t_err_data->[1], $err_class, "$t_name; lv0" );
-  is( $t_err_data->[1]->message(), 'Something wrong lv0.',
+  is( $t_err_data->[1]->message(), 'Something wrong.',
       "$t_name; lv0 error message" );
   is( $t_err_data->[1]->code(), E_OPRN_ERROR, "$t_name; lv0 error code" );
   isa_ok( $t_err_data->[2][0], $err_class, "$t_name; lv1" );
-  is( $t_err_data->[2][0]->message(), 'Something wrong lv1.',
+  is( $t_err_data->[2][0]->message(), 'NOSCRIPT No matching script.',
       "$t_name; lv1 error message" );
-  is( $t_err_data->[2][0]->code(), E_OPRN_ERROR, "$t_name; lv1 error code" );
+  is( $t_err_data->[2][0]->code(), E_NO_SCRIPT, "$t_name; lv1 error code" );
 
   return;
 }
