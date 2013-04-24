@@ -630,7 +630,7 @@ sub _on_read {
   weaken( $self );
 
   return sub {
-    while ( defined( $self->{_handle} ) ) { # check for case of disconnect
+    while ( defined( $self->{_handle} ) ) { # check for a case of disconnect
       my $hdl = $self->{_handle};
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
