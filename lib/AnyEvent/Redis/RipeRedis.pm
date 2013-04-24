@@ -75,13 +75,13 @@ use constant {
   S_IN_PROGRESS => 2,
   S_IS_DONE => 3,
 
-  # String terminator
-  EOL => "\r\n",
-  EOL_LEN => 2,
-
   # Flags
   F_ERROR_REPLY => 1,
   F_SAFE_DISCONN => 1,
+
+  # String terminator
+  EOL => "\r\n",
+  EOL_LEN => 2,
 };
 
 my %SUB_CMDS = (
@@ -630,9 +630,7 @@ sub _on_read {
   weaken( $self );
 
   return sub {
-    # Check handle object for a case of calling
-    # disconnect() method from any callback
-    while ( defined( $self->{_handle} ) ) {
+    while ( defined( $self->{_handle} ) ) { # check for case of disconnect
       my $hdl = $self->{_handle};
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
@@ -1100,9 +1098,9 @@ feature
 
 =head1 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with reconnect
-feature. The client supports subscriptions, transactions and connection via
-UNIX-socket.
+AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
+reconnect feature. The client supports subscriptions, transactions and connection
+via UNIX-socket.
 
 Requires Redis 1.2 or higher, and any supported event loop.
 
@@ -1655,8 +1653,8 @@ Konstantin Uvarin
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012-2013, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>. All rights
-reserved.
+Copyright (c) 2012-2013, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
+All rights reserved.
 
 This module is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.
