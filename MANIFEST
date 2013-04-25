@@ -18,6 +18,7 @@ t/07-lazy-conn.t
 t/08-eval.t
 t/09-conn-errors.t
 t/10-exceptions.t
-t/11-pod.t
-t/12-pod-coverage.t
+t/11-leaks.t
+t/12-pod.t
+t/13-pod-coverage.t
 t/test_helper.pl
