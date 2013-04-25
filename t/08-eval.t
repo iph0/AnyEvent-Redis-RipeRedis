@@ -138,14 +138,11 @@ sub t_errors_in_mbulk_reply {
 
   my $t_err_msg;
   my $t_err_code;
-  my $t_err_data;
+  my $t_data;
 
   my $script = <<LUA
-return {
-  42,
-  redis.error_reply( "Something wrong." ),
-  { redis.error_reply( "NOSCRIPT No matching script." ) }
-}
+return { 42, redis.error_reply( "Something wrong." ),
+    { redis.error_reply( "NOSCRIPT No matching script." ) } }
 LUA
 ;
   ev_loop(
@@ -156,7 +153,7 @@ LUA
         on_error => sub {
           $t_err_msg = shift;
           $t_err_code = shift;
-          $t_err_data = shift;
+          $t_data = shift;
           $cv->send();
         },
       } );
@@ -168,15 +165,15 @@ LUA
   is( $t_err_msg, "Operation 'eval' completed with errors.",
       "$t_name; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
-  is( $t_err_data->[0], 42, "$t_name; numeric reply" );
-  isa_ok( $t_err_data->[1], $err_class, "$t_name; lv0" );
-  is( $t_err_data->[1]->message(), 'Something wrong.',
+  is( $t_data->[0], 42, "$t_name; numeric reply" );
+  isa_ok( $t_data->[1], $err_class, "$t_name; lv0" );
+  is( $t_data->[1]->message(), 'Something wrong.',
       "$t_name; lv0 error message" );
-  is( $t_err_data->[1]->code(), E_OPRN_ERROR, "$t_name; lv0 error code" );
-  isa_ok( $t_err_data->[2][0], $err_class, "$t_name; lv1" );
-  is( $t_err_data->[2][0]->message(), 'NOSCRIPT No matching script.',
+  is( $t_data->[1]->code(), E_OPRN_ERROR, "$t_name; lv0 error code" );
+  isa_ok( $t_data->[2][0], $err_class, "$t_name; lv1" );
+  is( $t_data->[2][0]->message(), 'NOSCRIPT No matching script.',
       "$t_name; lv1 error message" );
-  is( $t_err_data->[2][0]->code(), E_NO_SCRIPT, "$t_name; lv1 error code" );
+  is( $t_data->[2][0]->code(), E_NO_SCRIPT, "$t_name; lv1 error code" );
 
   return;
 }

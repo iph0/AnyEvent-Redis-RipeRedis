@@ -847,7 +847,7 @@ sub _process_pub_message {
 ####
 sub _process_cmd_error {
   my __PACKAGE__ $self = shift;
-  my $err_data = shift;
+  my $data = shift;
 
   my $cmd = shift( @{$self->{_processing_queue}} );
 
@@ -858,15 +858,15 @@ sub _process_cmd_error {
     return;
   }
 
-  if ( ref( $err_data ) eq 'ARRAY' ) {
+  if ( ref( $data ) eq 'ARRAY' ) {
     $cmd->{on_error}->( "Operation '$cmd->{name}' completed with errors.",
-        E_OPRN_ERROR, $err_data );
+        E_OPRN_ERROR, $data );
 
     return;
   }
 
   my $err_code = E_OPRN_ERROR;
-  if ( index( $err_data, 'NOSCRIPT' ) == 0 ) {
+  if ( index( $data, 'NOSCRIPT' ) == 0 ) {
     $err_code = E_NO_SCRIPT;
     if ( exists( $cmd->{script} ) ) {
       $cmd->{name} = 'eval';
@@ -876,11 +876,11 @@ sub _process_cmd_error {
       return;
     }
   }
-  elsif ( index( $err_data, 'LOADING' ) == 0 ) {
+  elsif ( index( $data, 'LOADING' ) == 0 ) {
     $err_code = E_LOADING_DATASET;
   }
 
-  $cmd->{on_error}->( $err_data, $err_code );
+  $cmd->{on_error}->( $data, $err_code );
 
   return;
 }
@@ -1079,7 +1079,7 @@ feature
   );
 
   # Set value
-  $redis->set( 'foo', 'Some string', {
+  $redis->set( 'foo', 'string', {
     on_done => sub {
       print "SET is done\n";
       $cv->send();
@@ -1164,8 +1164,8 @@ The default database index is C<0>.
 If this parameter specified and connection to the Redis server is fails after
 specified timeout, then the C<on_error> or C<on_connect_error> callback is called.
 In case, when C<on_error> callback is called, C<E_CANT_CONN> error code is passed
-to callback as second argument. The timeout must be specified in seconds and can
-contain a fractional part.
+to callback in the second argument. The timeout must be specified in seconds and
+can contain a fractional part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     connection_timeout => 10.5,
@@ -1246,7 +1246,7 @@ not set, the client just print an error message to C<STDERR>.
 The full list of the Redis commands can be found here: L<http://redis.io/commands>.
 
   # Set value
-  $redis->set( 'foo', 'Some string' );
+  $redis->set( 'foo', 'string' );
 
   # Increment
   $redis->incr( 'bar', {
@@ -1301,6 +1301,50 @@ atomic execution using C<EXEC>.
 Executes all previously queued commands in a transaction and restores the
 connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
 only if the watched keys were not modified.
+
+If after C<EXEC> command at least one operation fails, then C<on_error> callback
+is called with C<E_OPRN_ERROR> error code and with reply data. Reply data is
+passed in third argument of C<on_error> callback and will contain errors of
+failed operations and replies of successful operations. Errors will be
+represented as objects of the class C<AnyEvent::Redis::RipeRedis::Error>. Each
+error object has two methods: C<message()> to get error message and C<code()> to
+get error code.
+
+  use Scalar::Util qw( blessed );
+
+  $redis->multi();
+  $redis->set( 'foo', 'string' );
+  $redis->incr( 'foo' ); # causes an error
+  $redis->exec( {
+    on_done => sub {
+      my $data = shift;
+      foreach my $reply ( @{$data}  ) {
+        print "$reply\n";
+      }
+    },
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+      my $data = shift;
+
+      warn "$err_msg\n";
+      foreach my $reply ( @{$data}  ) {
+        if (
+          blessed( $reply )
+            and $reply->isa( 'AnyEvent::Redis::RipeRedis::Error' )
+            ) {
+          my $oprn_err_msg = $reply->message();
+          warn "$oprn_err_msg\n";
+        }
+        else {
+          print "$reply\n";
+        }
+      }
+
+      $cv->send();
+    },
+  } );
+
 
 =head2 discard( [ \%callbacks ] )
 
@@ -1480,6 +1524,38 @@ Redis 2.6 and higher support execution of Lua scripts on the server side.
 To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
 or you can use the special method C<eval_cached()>.
 
+If Lua script returns multi-bulk reply with at least one error reply, then
+C<on_error> callback is called with C<E_OPRN_ERROR> error code and with reply
+data. Reply data is passed in third argument of C<on_error> callback and will
+contain returned errors and other data. Errors will be represented as objects of
+the class C<AnyEvent::Redis::RipeRedis::Error>. Each error object has two
+methods: C<message()> to get error message and C<code()> to get error code.
+
+  use Scalar::Util qw( blessed );
+
+  $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0, {
+    on_error => sub {
+      my $err_msg = shift;
+      my $err_code = shift;
+      my $data = shift;
+
+      warn "$err_msg\n";
+      foreach my $reply ( @{$data}  ) {
+        if (
+          blessed( $reply )
+            and $reply->isa( 'AnyEvent::Redis::RipeRedis::Error' )
+            ) {
+          my $oprn_err_msg = $reply->message();
+          warn "$oprn_err_msg\n";
+        }
+        else {
+          print "$reply\n";
+        }
+      }
+      $cv->send();
+    }
+  } );
+
 =head2 eval_cached( $script, $numkeys[, [ @keys, ][ @args, ]\%callbacks ] );
 
 When you call the C<eval_cached()> method, the client first generate a SHA1
@@ -1507,7 +1583,7 @@ cause memory leaks.
 =head1 ERROR CODES
 
 Every time when the calback C<on_error> is called, the current error code is
-passed to it as the second argument. Error codes can be used for programmatic
+passed to it in the second argument. Error codes can be used for programmatic
 handling of errors.
 
 AnyEvent::Redis::RipeRedis provides constants of error codes, which can be

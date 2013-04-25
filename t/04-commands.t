@@ -389,7 +389,7 @@ sub t_error_after_exec {
 
   my $t_err_msg;
   my $t_err_code;
-  my $t_err_data;
+  my $t_data;
 
   ev_loop(
     sub {
@@ -402,7 +402,7 @@ sub t_error_after_exec {
         on_error => sub {
           $t_err_msg = shift;
           $t_err_code = shift;
-          $t_err_data = shift;
+          $t_data = shift;
           $cv->send();
         },
       } );
@@ -414,11 +414,11 @@ sub t_error_after_exec {
   is( $t_err_msg, "Operation 'exec' completed with errors.",
       "$t_name; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
-  is( $t_err_data->[0], 'OK', "$t_name; status reply" );
-  isa_ok( $t_err_data->[1], $err_class, "$t_name;" );
-  like( $t_err_data->[1]->message(), qr/^ERR/o,
+  is( $t_data->[0], 'OK', "$t_name; status reply" );
+  isa_ok( $t_data->[1], $err_class, "$t_name;" );
+  like( $t_data->[1]->message(), qr/^ERR/o,
       "$t_name; nested error message" );
-  is( $t_err_data->[1]->code(), E_OPRN_ERROR, "$t_name; nested error code" );
+  is( $t_data->[1]->code(), E_OPRN_ERROR, "$t_name; nested error code" );
 
   return;
 }
