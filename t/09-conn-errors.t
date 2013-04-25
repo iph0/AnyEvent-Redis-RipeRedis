@@ -80,13 +80,14 @@ sub t_no_connection {
 
 ####
 sub t_reconnection {
-  SKIP : {
-    my $port = get_tcp_port();
-    my $server_info = run_redis_instance(
-      port => $port,
-    );
+  my $port = get_tcp_port();
+  my $server_info = run_redis_instance(
+    port => $port,
+  );
+
+  SKIP: {
     if ( !defined( $server_info ) ) {
-      skip 'redis-server is required to this test', 5;
+      skip 'redis-server is required for this test', 5;
     }
 
     my $t_conn_cnt = 0;
@@ -164,10 +165,11 @@ sub t_reconnection {
 
 ####
 sub t_read_timeout {
+  my $server_info = run_redis_instance();
+
   SKIP: {
-    my $server_info = run_redis_instance();
     if ( !defined( $server_info ) ) {
-      skip 'redis-server is required to this test', 4;
+      skip 'redis-server is required for this test', 4;
     }
 
     my $redis;

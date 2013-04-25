@@ -9,7 +9,7 @@ require 't/test_helper.pl';
 
 my $server_info = run_redis_instance();
 if ( !defined( $server_info ) ) {
-  plan skip_all => 'redis-server is required to this test';
+  plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 22;
 
@@ -114,7 +114,7 @@ sub t_set_get {
     sub {
       my $cv = shift;
 
-      $redis->set( 'bar', "Some\r\nstring" );
+      $redis->set( 'bar', "some\r\nstring" );
       $redis->get( 'bar', {
         on_done => sub {
           $t_data = shift;
@@ -124,7 +124,7 @@ sub t_set_get {
     }
   );
 
-  is( $t_data, "Some\r\nstring", 'GET; bulk reply' );
+  is( $t_data, "some\r\nstring", 'GET; bulk reply' );
 
   return;
 }
@@ -316,7 +316,7 @@ sub t_transaction {
       element_3
     ) ],
     [],
-    "Some\r\nstring",
+    "some\r\nstring",
     [ qw(
       element_1
       element_2
@@ -396,7 +396,7 @@ sub t_error_after_exec {
       my $cv = shift;
 
       $redis->multi();
-      $redis->set( 'foo', 'Some string' );
+      $redis->set( 'foo', 'string' );
       $redis->incr( 'foo' );
       $redis->exec( {
         on_error => sub {

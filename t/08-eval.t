@@ -10,7 +10,7 @@ require 't/test_helper.pl';
 
 my $server_info = run_redis_instance();
 if ( !defined( $server_info ) ) {
-  plan skip_all => 'redis-server is required to this test';
+  plan skip_all => 'redis-server is required for this test';
 }
 my $redis = AnyEvent::Redis::RipeRedis->new(
   host => $server_info->{host},
@@ -18,7 +18,7 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 );
 my $ver = get_redis_version( $redis );
 if ( $ver < 2.00600 ) {
-  plan skip_all => 'redis-server 2.6 or higher is required to this test';
+  plan skip_all => 'redis-server 2.6 or higher is required for this test';
 }
 plan tests => 13;
 

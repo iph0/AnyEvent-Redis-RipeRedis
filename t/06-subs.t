@@ -8,7 +8,7 @@ require 't/test_helper.pl';
 
 my $server_info = run_redis_instance();
 if ( !defined( $server_info ) ) {
-  plan skip_all => 'redis-server is required to this test';
+  plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 8;
 

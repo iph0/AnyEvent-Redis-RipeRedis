@@ -10,7 +10,7 @@ my $server_info = run_redis_instance(
   requirepass => 'testpass',
 );
 if ( !defined( $server_info ) ) {
-  plan skip_all => 'redis-server is required to this test';
+  plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 5;
 
