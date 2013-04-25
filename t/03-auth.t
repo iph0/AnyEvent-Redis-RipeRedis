@@ -86,7 +86,7 @@ sub t_invalid_password {
   $redis->disconnect();
 
   my $t_name = 'invalid password;';
-  like( $t_cmd_err_msg, qr/^Command 'ping' aborted:/o,
+  like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/o,
       "$t_name; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
   like( $t_comm_err_msg, qr/^ERR/o, "$t_name; common error message" );

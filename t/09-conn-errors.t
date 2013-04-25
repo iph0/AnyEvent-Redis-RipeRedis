@@ -47,7 +47,7 @@ sub t_no_connection {
   my $t_name = 'no connection';
 
   like( $t_first_cmd_err_msg,
-      qr/^Command 'ping' aborted: Can't connect to localhost:$port:/o,
+      qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/o,
       "$t_name; first command error message" );
   is( $t_first_cmd_err_code, E_CANT_CONN, "$t_name; first command error code" );
   like( $t_comm_err_msg, qr/^Can't connect to localhost:$port:/o,
@@ -208,7 +208,7 @@ sub t_read_timeout {
     $redis->disconnect();
 
     my $t_name = 'read timeout';
-    is( $t_cmd_err_msg, "Command 'brpop' aborted: Read timed out.",
+    is( $t_cmd_err_msg, "Operation 'brpop' aborted: Read timed out.",
         "$t_name; command error message" );
     is( $t_cmd_err_code, E_READ_TIMEDOUT, "$t_name; command error code" );
     is( $t_comm_err_msg, 'Read timed out.', "$t_name; common error message" );

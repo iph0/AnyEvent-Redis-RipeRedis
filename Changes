@@ -3,7 +3,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.250 Thu Apr 25 22:00:30 MSK 2013
   - Improved error handling for EXEC command and for Lua scripts, which returns
     errors in multi-bulk reply.
-  - Added test for memory leaks
+  - Word 'command' replaced on 'operation' in error messages.
+  - Added test for memory leaks.
   - Improved other tests.
   - POD has been complemented.
 

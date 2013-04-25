@@ -959,7 +959,7 @@ sub _abort_cmds {
   $self->{_tmp_buf} = [],
   $self->{_processing_queue} = [];
   foreach my $cmd ( @cmds ) {
-    my $full_err_msg = "Command '$cmd->{name}' aborted: $err_msg";
+    my $full_err_msg = "Operation '$cmd->{name}' aborted: $err_msg";
     if ( !$safe_abort ) {
       $cmd->{on_error}->( $full_err_msg, $err_code );
     }
