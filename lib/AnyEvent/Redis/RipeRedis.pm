@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.250';
+our $VERSION = '1.251';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1310,18 +1310,10 @@ represented as objects of the class C<AnyEvent::Redis::RipeRedis::Error>. Each
 error object has two methods: C<message()> to get error message and C<code()> to
 get error code.
 
-  use Scalar::Util qw( blessed );
-
   $redis->multi();
   $redis->set( 'foo', 'string' );
   $redis->incr( 'foo' ); # causes an error
   $redis->exec( {
-    on_done => sub {
-      my $data = shift;
-      foreach my $reply ( @{$data}  ) {
-        print "$reply\n";
-      }
-    },
     on_error => sub {
       my $err_msg = shift;
       my $err_code = shift;
@@ -1329,15 +1321,11 @@ get error code.
 
       warn "$err_msg\n";
       foreach my $reply ( @{$data}  ) {
-        if (
-          blessed( $reply )
-            and $reply->isa( 'AnyEvent::Redis::RipeRedis::Error' )
-            ) {
+        if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
           my $oprn_err_msg = $reply->message();
-          warn "$oprn_err_msg\n";
-        }
-        else {
-          print "$reply\n";
+          my $oprn_err_code = $reply->code();
+
+          # handle the error
         }
       }
 
@@ -1531,8 +1519,6 @@ contain returned errors and other data. Errors will be represented as objects of
 the class C<AnyEvent::Redis::RipeRedis::Error>. Each error object has two
 methods: C<message()> to get error message and C<code()> to get error code.
 
-  use Scalar::Util qw( blessed );
-
   $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0, {
     on_error => sub {
       my $err_msg = shift;
@@ -1541,15 +1527,11 @@ methods: C<message()> to get error message and C<code()> to get error code.
 
       warn "$err_msg\n";
       foreach my $reply ( @{$data}  ) {
-        if (
-          blessed( $reply )
-            and $reply->isa( 'AnyEvent::Redis::RipeRedis::Error' )
-            ) {
+        if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
           my $oprn_err_msg = $reply->message();
-          warn "$oprn_err_msg\n";
-        }
-        else {
-          print "$reply\n";
+          my $oprn_err_code = $reply->code();
+
+          # handle the error
         }
       }
       $cv->send();

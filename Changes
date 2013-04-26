@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.251 Fri Apr 26 11:29:05 MSK 2013
+  - Slight modification of examples in POD
+
 1.250 Thu Apr 25 22:00:30 MSK 2013
   - Improved error handling for EXEC command and for Lua scripts, which returns
     errors in multi-bulk reply.
@@ -8,11 +11,11 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Improved other tests.
   - POD has been complemented.
 
-1.244 Fri Apr 13 00:41:25 MSK 2013
+1.244 Sat Apr 13 00:41:25 MSK 2013
   - Added CONFIGURE_REQUIRES section in Makefile.PL.
   - TEST_REQUIRES section renamed back to BUILD_REQUIRES.
 
-1.243 Fri Apr 13 00:41:25 MSK 2013
+1.243 Sat Apr 13 00:41:25 MSK 2013
   - Slight fixes in POD.
 
 1.242 Fri Apr 12 16:54:10 MSK 2013
