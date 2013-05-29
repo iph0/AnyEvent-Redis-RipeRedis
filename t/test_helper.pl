@@ -4,7 +4,6 @@ use warnings;
 
 use Test::More;
 use Test::RedisServer;
-use Net::EmptyPort qw( empty_port );
 use AnyEvent;
 
 ####
