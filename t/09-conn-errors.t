@@ -4,6 +4,7 @@ use warnings;
 
 use Test::More tests => 14;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
+use Net::EmptyPort qw( empty_port );
 use Scalar::Util qw( weaken );
 require 't/test_helper.pl';
 
@@ -15,12 +16,13 @@ t_read_timeout();
 ####
 sub t_no_connection {
   my $redis;
-  my $port = get_tcp_port();
+  my $port = empty_port();
 
   my $t_comm_err_msg;
   my $t_first_cmd_err_msg;
   my $t_first_cmd_err_code;
 
+  AE::now_update();
   ev_loop(
     sub {
       my $cv = shift;
@@ -42,6 +44,7 @@ sub t_no_connection {
         }
       } );
     },
+    0
   );
 
   my $t_name = 'no connection';
@@ -80,7 +83,7 @@ sub t_no_connection {
 
 ####
 sub t_reconnection {
-  my $port = get_tcp_port();
+  my $port = empty_port();
   my $server_info = run_redis_instance(
     port => $port,
   );
@@ -96,6 +99,7 @@ sub t_reconnection {
     my $t_comm_err_code;
     my $redis;
 
+    AE::now_update();
     ev_loop(
       sub {
         my $cv = shift;
@@ -119,10 +123,10 @@ sub t_reconnection {
         $redis->ping( {
           on_done => sub {
             my $timer;
-            $timer = AE::timer( 1, 0,
+            $timer = AE::postpone(
               sub {
-                $server_info->{server}->stop();
                 undef( $timer );
+                $server_info->{server}->stop();
               }
             );
           }

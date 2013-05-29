@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.251';
+our $VERSION = '1.252';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -630,13 +630,19 @@ sub _on_read {
   weaken( $self );
 
   return sub {
-    while ( defined( $self->{_handle} ) ) { # check for a case of disconnect
+    while ( 1 ) {
       my $hdl = $self->{_handle};
+      # check handle and read buffer for a case of disconnect
+      if ( !defined( $hdl ) or !defined( $hdl->{rbuf} ) ) {
+        return;
+      }
+
       if ( defined( $bulk_len ) ) {
         my $bulk_eol_len = $bulk_len + EOL_LEN;
         if ( length( $hdl->{rbuf} ) < $bulk_eol_len ) {
           return;
         }
+
         my $data = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
         substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
         if ( defined( $self->{encoding} ) ) {
@@ -651,6 +657,7 @@ sub _on_read {
         if ( $eol_pos < 0 ) {
           return;
         }
+
         my $data = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
         substr( $hdl->{rbuf}, 0, EOL_LEN, '' );

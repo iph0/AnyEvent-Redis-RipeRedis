@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.252 Wed May 29 11:00:45 MSK 2013
+  - [BUGFIX] In some cases the client tried to read from uninitialized read buffer. Fixed.
+  - Now in tests empty TCP port is taken using module Net::EmptyPort.
+
 1.251 Fri Apr 26 11:29:05 MSK 2013
   - Slight modification of examples in POD
 
