@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.252';
+our $VERSION = '1.253';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -308,7 +308,6 @@ sub _connect {
 
   $self->{_handle} = AnyEvent::Handle->new(
     connect => [ $self->{host}, $self->{port} ],
-    rtimeout => $self->{read_timeout},
     on_prepare => $self->_on_prepare(),
     on_connect => $self->_on_connect(),
     on_connect_error => $self->_on_connect_error(),
@@ -394,6 +393,9 @@ sub _on_rtimeout {
   return sub {
     if ( @{$self->{_processing_queue}} ) {
       $self->_process_crit_error( 'Read timed out.', E_READ_TIMEDOUT );
+    }
+    else {
+      $self->{_handle}->rtimeout( undef );
     }
   };
 }
@@ -614,8 +616,13 @@ sub _push_write {
   }
   $cmd_str = "*$mbulk_len" . EOL . $cmd_str;
 
+  my $hdl = $self->{_handle};
+  if ( !@{$self->{_processing_queue}} ) {
+    $hdl->rtimeout_reset();
+    $hdl->rtimeout( $self->{read_timeout} );
+  }
   push( @{$self->{_processing_queue}}, $cmd );
-  $self->{_handle}->push_write( $cmd_str );
+  $hdl->push_write( $cmd_str );
 
   return;
 }

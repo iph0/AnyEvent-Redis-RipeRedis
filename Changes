@@ -1,7 +1,10 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.253 Wed May 31 14:38:35 MSK 2013
+  - [BUGFIX] Fixed premature triggering of the 'rtimeout' timer in some cases.
+
 1.252 Wed May 29 11:00:45 MSK 2013
-  - [BUGFIX] In some cases the client tried to read from uninitialized read buffer. Fixed.
+  - [BUGFIX] Fixed reading from the uninitialized read buffer in some cases.
   - Now in tests empty TCP port is taken using module Net::EmptyPort.
 
 1.251 Fri Apr 26 11:29:05 MSK 2013
