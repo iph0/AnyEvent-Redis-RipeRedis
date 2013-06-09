@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.254 Mon Jun 9 17:44:55 MSK 2013
+  - Slight changes in POD.
+
 1.253 Wed May 31 14:38:35 MSK 2013
   - [BUGFIX] Fixed premature triggering of the 'rtimeout' timer in some cases.
 

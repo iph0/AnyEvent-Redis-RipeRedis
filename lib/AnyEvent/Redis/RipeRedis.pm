@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.253';
+our $VERSION = '1.254';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1175,11 +1175,12 @@ The default database index is C<0>.
 
 =item connection_timeout
 
-If this parameter specified and connection to the Redis server is fails after
-specified timeout, then the C<on_error> or C<on_connect_error> callback is called.
-In case, when C<on_error> callback is called, C<E_CANT_CONN> error code is passed
-to callback in the second argument. The timeout must be specified in seconds and
-can contain a fractional part.
+Timeout, within which the client will be wait the connection establishment to
+the Redis server. If the client could not connect to the server after specified
+timeout, then the C<on_error> or C<on_connect_error> callback is called. In case,
+when C<on_error> callback is called, C<E_CANT_CONN> error code is passed to
+callback in the second argument. The timeout specifies in seconds and can
+contain a fractional part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     connection_timeout => 10.5,
@@ -1189,11 +1190,11 @@ By default the client use kernel's connection timeout.
 
 =item read_timeout
 
-If this parameter specified and the client could not receive a response from the
-Redis server after specified timeout on any command, then the client close
-connection to the server and call C<on_error> callback with the C<E_READ_TIMEDOUT>
-error code. The timeout must be specified in seconds and can contain a fractional
-part.
+Timeout, within which the client will be wait a response on a command from the
+Redis server. If the client could not receive a response from the server after
+specified timeout, then the client close connection and call C<on_error> callback
+with the C<E_READ_TIMEDOUT> error code. The timeout is specifies in seconds
+and can contain a fractional part.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     read_timeout => 3.5,
@@ -1205,14 +1206,14 @@ Not set by default.
 
 If this parameter is set, then the connection establishes, when you will send
 the first command to the server. By default the connection establishes after
-calling of the method C<new>.
+calling of the C<new> method.
 
 =item reconnect
 
-If the connection to the Redis server was lost and the parameter 'reconnect' is
-TRUE, then the client try to restore the connection on a next executuion of the
-command. The client try to reconnect only once and if it fails, then is called
-the C<on_error> callback. If you need several attempts of the reconnection, just
+If the connection to the Redis server was lost and the parameter C<reconnect> is
+TRUE, then the client try to restore the connection on a next command executuion.
+The client try to reconnect only once and if it fails, then is called the
+C<on_error> callback. If you need several attempts of the reconnection, just
 retry a command from the C<on_error> callback as many times, as you need. This
 feature made the client more responsive.
 
