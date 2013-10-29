@@ -449,20 +449,22 @@ sub _prepare_cmd {
   my $cmd_name = shift;
   my $args = shift;
 
-  my $cmd = {};
-  if ( ref( $args->[-1] ) ) {
-    if ( ref( $args->[-1] ) eq 'CODE' ) {
-      my $cb = pop( @{$args} );
-      if ( exists( $SUB_CMDS{ $cmd_name } ) ) {
-        $cmd->{on_message} = $cb;
-      }
-      else {
-        $cmd->{on_reply} = $cb;
-      }
+  my $cmd;
+  if ( ref( $args->[-1] ) eq 'CODE' ) {
+    $cmd = {};
+    my $cb = pop( @{$args} );
+    if ( exists( $SUB_CMDS{ $cmd_name } ) ) {
+      $cmd->{on_message} = $cb;
     }
-    elsif ( ref( $args->[-1] ) eq 'HASH' ) {
-      $cmd = pop( @{$args} );
+    else {
+      $cmd->{on_reply} = $cb;
     }
+  }
+  elsif ( ref( $args->[-1] ) eq 'HASH' ) {
+    $cmd = pop( @{$args} );
+  }
+  else {
+    $cmd = {};
   }
 
   $cmd->{name} = $cmd_name;
@@ -615,14 +617,14 @@ sub _push_write {
     if ( !defined( $token ) ) {
       $token = '';
     }
-    if ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
+    elsif ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
       $token = $self->{encoding}->encode( $token );
     }
     my $token_len = length( $token );
-    $cmd_str .= "\$$token_len" . EOL . $token . EOL;
+    $cmd_str .= '$' . $token_len . EOL . $token . EOL;
     $mbulk_len++;
   }
-  $cmd_str = "*$mbulk_len" . EOL . $cmd_str;
+  $cmd_str = '*' . $mbulk_len . EOL . $cmd_str;
 
   my $hdl = $self->{_handle};
   if ( !@{$self->{_processing_queue}} ) {
@@ -1019,7 +1021,6 @@ sub AUTOLOAD {
   our $AUTOLOAD;
   my $cmd_name = $AUTOLOAD;
   $cmd_name =~ s/^.+:://o;
-  $cmd_name = lc( $cmd_name );
 
   my $sub = sub {
     my __PACKAGE__ $self = shift;
@@ -1031,7 +1032,7 @@ sub AUTOLOAD {
 
   do {
     no strict 'refs';
-    *{$AUTOLOAD} = $sub;
+    *{$cmd_name} = $sub;
   };
 
   goto &{$sub};
