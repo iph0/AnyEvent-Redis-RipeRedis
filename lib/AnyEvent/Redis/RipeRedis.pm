@@ -914,8 +914,8 @@ sub _process_cmd_error {
 
 ####
 sub _is_pub_message {
-  return ( ref( $_[0] ) eq 'ARRAY' and ( $_[0]->[0] eq 'message'
-      or $_[0]->[0] eq 'pmessage' ) );
+  return ( ref( $_[1] ) eq 'ARRAY' and ( $_[1]->[0] eq 'message'
+      or $_[1]->[0] eq 'pmessage' ) );
 }
 
 ####
