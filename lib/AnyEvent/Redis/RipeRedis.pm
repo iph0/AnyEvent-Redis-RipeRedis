@@ -300,13 +300,13 @@ sub _connect {
 
   $self->{_handle} = AnyEvent::Handle->new(
     connect          => [ $self->{host}, $self->{port} ],
-    on_prepare       => $self->_get_on_prepare(),
-    on_connect       => $self->_get_on_connect(),
-    on_connect_error => $self->_get_on_connect_error(),
-    on_rtimeout      => $self->_get_on_rtimeout(),
-    on_eof           => $self->_get_on_eof(),
-    on_error         => $self->_get_on_crit_error(),
-    on_read          => $self->_get_on_read(
+    on_prepare       => $self->_prepare_on_prepare(),
+    on_connect       => $self->_prepare_on_connect(),
+    on_connect_error => $self->_prepare_on_connect_error(),
+    on_rtimeout      => $self->_prepare_on_rtimeout(),
+    on_eof           => $self->_prepare_on_eof(),
+    on_error         => $self->_prepare_on_crit_error(),
+    on_read          => $self->_prepare_on_read(
       sub {
         return $self->_process_reply( @_ );
       }
@@ -317,7 +317,7 @@ sub _connect {
 }
 
 ####
-sub _get_on_prepare {
+sub _prepare_on_prepare {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -332,7 +332,7 @@ sub _get_on_prepare {
 }
 
 ####
-sub _get_on_connect {
+sub _prepare_on_connect {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -363,7 +363,7 @@ sub _get_on_connect {
 }
 
 ####
-sub _get_on_connect_error {
+sub _prepare_on_connect_error {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -377,7 +377,7 @@ sub _get_on_connect_error {
 }
 
 ####
-sub _get_on_rtimeout {
+sub _prepare_on_rtimeout {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -393,7 +393,7 @@ sub _get_on_rtimeout {
 }
 
 ####
-sub _get_on_eof {
+sub _prepare_on_eof {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -405,7 +405,7 @@ sub _get_on_eof {
 }
 
 ####
-sub _get_on_crit_error {
+sub _prepare_on_crit_error {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -417,7 +417,7 @@ sub _get_on_crit_error {
 }
 
 ####
-sub _get_on_read {
+sub _prepare_on_read {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
 
@@ -746,7 +746,7 @@ sub _unshift_read {
       }
     };
   }
-  $read_cb = $self->_get_on_read( $resp_cb );
+  $read_cb = $self->_prepare_on_read( $resp_cb );
 
   $self->{_handle}->unshift_read( $read_cb );
 
