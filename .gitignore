@@ -5,6 +5,8 @@ _build*
 Build
 Build.bat
 cover_db
+nytprof
+nytprof.out
 .DS_Store
 .git/
 .lwpcookies

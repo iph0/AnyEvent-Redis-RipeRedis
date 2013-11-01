@@ -51,7 +51,7 @@ sub t_conn_timeout {
     qr/Connection timeout must be a positive number\./o,
     'invalid connection timeout (negative number; accessor)'
   );
-
+  
   return;
 }
 

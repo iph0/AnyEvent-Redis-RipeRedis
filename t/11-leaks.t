@@ -13,23 +13,23 @@ BEGIN {
   }
 }
 
-my $server_info = run_redis_instance();
-if ( !defined( $server_info ) ) {
+my $SERVER_INFO = run_redis_instance();
+if ( !defined( $SERVER_INFO ) ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 4;
 
-my $redis = AnyEvent::Redis::RipeRedis->new(
-  host => $server_info->{host},
-  port => $server_info->{port},
+my $REDIS = AnyEvent::Redis::RipeRedis->new(
+  host => $SERVER_INFO->{host},
+  port => $SERVER_INFO->{port},
 );
 
-t_no_leaks_status_reply( $redis );
-t_no_leaks_mbulk_reply( $redis );
-t_no_leaks_transaction( $redis );
-t_no_leaks_eval_cached( $redis );
+t_no_leaks_status_reply( $REDIS );
+t_no_leaks_mbulk_reply( $REDIS );
+t_no_leaks_transaction( $REDIS );
+t_no_leaks_eval_cached( $REDIS );
 
-$redis->disconnect();
+$REDIS->disconnect();
 
 
 ####

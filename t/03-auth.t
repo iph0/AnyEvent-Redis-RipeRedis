@@ -34,12 +34,14 @@ sub t_successful_auth {
     sub {
       my $cv = shift;
 
-      $redis->ping( {
-        on_done => sub {
-          $t_data = shift;
-          $cv->send();
-        },
-      } );
+      $redis->ping(
+        {
+          on_done => sub {
+            $t_data = shift;
+            $cv->send();
+          },
+        }
+      );
     }
   );
 
@@ -74,12 +76,14 @@ sub t_invalid_password {
         },
       );
 
-      $redis->ping( {
-        on_error => sub {
-          $t_cmd_err_msg = shift;
-          $t_cmd_err_code = shift;
-        },
-      } );
+      $redis->ping(
+        {
+          on_error => sub {
+            $t_cmd_err_msg = shift;
+            $t_cmd_err_code = shift;
+          },
+        }
+      );
     }
   );
 

@@ -727,12 +727,15 @@ sub _unshift_read {
       if ( $is_err ) {
         $err_cnt++;
         if ( ref( $data_chunk ) ne 'ARRAY' ) {
-          my $err_code = E_OPRN_ERROR;
+          my $err_code;
           if ( index( $data_chunk, 'NOSCRIPT' ) == 0 ) {
             $err_code = E_NO_SCRIPT;
           }
+          else {
+            $err_code = E_OPRN_ERROR;
+          }
           $data_chunk = AnyEvent::Redis::RipeRedis::Error->new(
-            code => $err_code,
+            code    => $err_code,
             message => $data_chunk,
           );
         }
@@ -860,7 +863,7 @@ sub _process_cmd_error {
     return;
   }
 
-  my $err_code = E_OPRN_ERROR;
+  my $err_code;
   if ( index( $data, 'NOSCRIPT' ) == 0 ) {
     $err_code = E_NO_SCRIPT;
     if ( exists( $cmd->{script} ) ) {
@@ -873,6 +876,9 @@ sub _process_cmd_error {
   }
   elsif ( index( $data, 'LOADING' ) == 0 ) {
     $err_code = E_LOADING_DATASET;
+  }
+  else {
+    $err_code = E_OPRN_ERROR;
   }
 
   $self->_on_error( $cmd, $data, $err_code );
@@ -909,8 +915,8 @@ sub _process_crit_error {
 
 ####
 sub _is_pub_message {
-  return ( ref( $_[1] ) eq 'ARRAY' and ( $_[1]->[0] eq 'message'
-      or $_[1]->[0] eq 'pmessage' ) );
+  return ref( $_[1] ) eq 'ARRAY' && ( $_[1]->[0] eq 'message'
+      || $_[1]->[0] eq 'pmessage' );
 }
 
 ####

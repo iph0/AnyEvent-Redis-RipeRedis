@@ -6,7 +6,7 @@ use lib 't/tlib';
 use Test::More tests => 24;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
-my $redis = AnyEvent::Redis::RipeRedis->new(
+my $REDIS = AnyEvent::Redis::RipeRedis->new(
   password => 'test',
   connection_timeout => 10,
   read_timeout => 5,
@@ -26,14 +26,14 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
   },
 );
 
-t_conn_timeout( $redis );
-t_read_timeout( $redis );
-t_reconnect( $redis );
-t_encoding( $redis );
-t_on_connect( $redis );
-t_on_disconnect( $redis );
-t_on_connect_error( $redis );
-t_on_error( $redis );
+t_conn_timeout( $REDIS );
+t_read_timeout( $REDIS );
+t_reconnect( $REDIS );
+t_encoding( $REDIS );
+t_on_connect( $REDIS );
+t_on_disconnect( $REDIS );
+t_on_connect_error( $REDIS );
+t_on_error( $REDIS );
 
 
 ####

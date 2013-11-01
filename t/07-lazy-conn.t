@@ -6,26 +6,26 @@ use Test::More;
 use AnyEvent::Redis::RipeRedis;
 require 't/test_helper.pl';
 
-my $server_info = run_redis_instance();
-if ( !defined( $server_info ) ) {
+my $SERVER_INFO = run_redis_instance();
+if ( !defined( $SERVER_INFO ) ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 2;
 
-my $redis;
-my $t_is_conn = 0;
+my $REDIS;
+my $T_IS_CONN = 0;
 
 ev_loop(
   sub {
     my $cv = shift;
 
-    $redis = AnyEvent::Redis::RipeRedis->new(
-      host => $server_info->{host},
-      port => $server_info->{port},
+    $REDIS = AnyEvent::Redis::RipeRedis->new(
+      host => $SERVER_INFO->{host},
+      port => $SERVER_INFO->{port},
       lazy => 1,
       reconnect => 0,
       on_connect => sub {
-        $t_is_conn = 1;
+        $T_IS_CONN = 1;
       },
     );
 
@@ -35,9 +35,9 @@ ev_loop(
       cb => sub {
         undef( $timer );
 
-        ok( !$t_is_conn, 'lazy connection (no connected yet)' );
+        ok( !$T_IS_CONN, 'lazy connection (no connected yet)' );
 
-        $redis->ping( {
+        $REDIS->ping( {
           on_done => sub {
             $cv->send();
           },
@@ -47,6 +47,6 @@ ev_loop(
   }
 );
 
-$redis->disconnect();
+$REDIS->disconnect();
 
-ok( $t_is_conn, 'lazy connection (connected)' );
+ok( $T_IS_CONN, 'lazy connection (connected)' );
