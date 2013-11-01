@@ -296,8 +296,6 @@ sub on_error {
 sub _connect {
   my __PACKAGE__ $self = shift;
 
-  weaken( $self );
-
   $self->{_handle} = AnyEvent::Handle->new(
     connect          => [ $self->{host}, $self->{port} ],
     on_prepare       => $self->_prepare_on_prepare(),
@@ -306,11 +304,7 @@ sub _connect {
     on_rtimeout      => $self->_prepare_on_rtimeout(),
     on_eof           => $self->_prepare_on_eof(),
     on_error         => $self->_prepare_on_crit_error(),
-    on_read          => $self->_prepare_on_read(
-      sub {
-        return $self->_process_reply( @_ );
-      }
-    ),
+    on_read          => $self->_prepare_on_read( $self->_get_on_reply() ),
   );
 
   return;
@@ -434,8 +428,7 @@ sub _prepare_on_read {
       }
 
       if ( defined( $bulk_len ) ) {
-        my $bulk_eol_len = $bulk_len + EOL_LEN;
-        if ( length( $hdl->{rbuf} ) < $bulk_eol_len ) {
+        if ( length( $hdl->{rbuf} ) < $bulk_len + EOL_LEN ) {
           return;
         }
 
@@ -461,9 +454,6 @@ sub _prepare_on_read {
         if ( $type eq '+' or $type eq ':' ) {
           return 1 if $cb->( $data );
         }
-        elsif ( $type eq '-' ) {
-          return 1 if $cb->( $data, F_ERROR_REPLY );
-        }
         elsif ( $type eq '$' ) {
           if ( $data >= 0 ) {
             $bulk_len = $data;
@@ -485,6 +475,9 @@ sub _prepare_on_read {
             return 1 if $cb->( [] );
           }
         }
+        elsif ( $type eq '-' ) {
+          return 1 if $cb->( $data, F_ERROR_REPLY );
+        }
         else {
           $self->_process_crit_error( 'Unexpected data type received.',
               E_UNEXPECTED_DATA );
@@ -495,6 +488,28 @@ sub _prepare_on_read {
     }
 
     return;
+  };
+}
+
+####
+sub _get_on_reply {
+  my __PACKAGE__ $self = shift;
+
+  weaken( $self );
+
+  return sub {
+    my $data = shift;
+    my $is_err = shift;
+
+    if ( $is_err ) {
+      $self->_process_cmd_error( $data );
+    }
+    elsif ( %{$self->{_subs}} and $self->_is_pub_message( $data ) ) {
+      $self->_process_pub_message( $data );
+    }
+    else {
+      $self->_process_data( $data );
+    }
   };
 }
 
@@ -749,25 +764,6 @@ sub _unshift_read {
   $read_cb = $self->_prepare_on_read( $resp_cb );
 
   $self->{_handle}->unshift_read( $read_cb );
-
-  return;
-}
-
-####
-sub _process_reply {
-  my __PACKAGE__ $self = shift;
-  my $data = shift;
-  my $is_err = shift;
-
-  if ( $is_err ) {
-    $self->_process_cmd_error( $data );
-  }
-  elsif ( %{$self->{_subs}} and $self->_is_pub_message( $data ) ) {
-    $self->_process_pub_message( $data );
-  }
-  else {
-    $self->_process_data( $data );
-  }
 
   return;
 }
