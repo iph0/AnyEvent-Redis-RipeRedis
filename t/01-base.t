@@ -52,7 +52,7 @@ can_ok( $T_ERR_CLASS, 'new' );
 # Getters
 my $t_err_obj = $T_ERR_CLASS->new(
   message => 'ERR something happened',
-  code => E_OPRN_ERROR, 
+  code => E_OPRN_ERROR,
 );
 can_ok( $t_err_obj, 'code' );
 can_ok( $t_err_obj, 'message' );

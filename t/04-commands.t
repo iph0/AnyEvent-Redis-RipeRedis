@@ -67,8 +67,7 @@ sub t_ping {
       my $cv = shift;
 
       $redis->ping(
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -114,9 +113,9 @@ sub t_incr {
     sub {
       my $cv = shift;
 
-      $redis->incr( 'foo',
-        {
-          on_done => sub {
+      $redis->incr(
+        'foo',
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -133,7 +132,8 @@ sub t_incr {
     sub {
       my $cv = shift;
 
-      $redis->incr( 'foo',
+      $redis->incr(
+        'foo',
         sub {
           $t_data2 = shift;
 
@@ -161,8 +161,7 @@ sub t_set_get {
       my $cv = shift;
 
       $redis->set( 'bar', "some\r\nstring",
-        {
-          on_done => sub {
+        { on_done => sub {
             $cv->send();
           },
         }
@@ -179,8 +178,7 @@ sub t_set_get {
       my $cv = shift;
 
       $redis->get( 'bar',
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -225,8 +223,7 @@ sub t_set_get_undef {
       my $cv = shift;
 
       $redis->set( 'empty', undef,
-        {
-          on_done => sub {
+        { on_done => sub {
             $cv->send();
           },
         }
@@ -243,8 +240,7 @@ sub t_set_get_undef {
       my $cv = shift;
 
       $redis->get( 'empty',
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -289,8 +285,7 @@ sub t_set_get_utf8 {
       my $cv = shift;
 
       $redis->set( 'ключ', 'Значение',
-        {
-          on_done => sub {
+        { on_done => sub {
             $cv->send();
           },
         }
@@ -307,8 +302,7 @@ sub t_set_get_utf8 {
       my $cv = shift;
 
       $redis->get( 'ключ',
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -355,8 +349,7 @@ sub t_get_non_existent {
       my $cv = shift;
 
       $redis->get( 'non_existent',
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -407,8 +400,7 @@ sub t_lrange {
         $redis->rpush( 'list', "element_$i" );
       }
       $redis->lpush( 'list', 'element_1',
-        {
-          on_done => sub {
+        { on_done => sub {
             $cv->send();
           },
         }
@@ -423,8 +415,7 @@ sub t_lrange {
       my $cv = shift;
 
       $redis->lrange( 'list', 0, -1,
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -433,11 +424,15 @@ sub t_lrange {
     }
   );
 
-  is_deeply( $t_data1, [ qw(
-    element_1
-    element_2
-    element_3
-  ) ], 'LRANGE; multi-bulk reply; on_done' );
+  is_deeply( $t_data1,
+    [ qw(
+        element_1
+        element_2
+        element_3
+      )
+    ],
+    'LRANGE; multi-bulk reply; on_done'
+  );
 
   my $t_data2;
 
@@ -459,11 +454,15 @@ sub t_lrange {
     }
   );
 
-  is_deeply( $t_data2, [ qw(
-    element_1
-    element_2
-    element_3
-  ) ], 'LRANGE; multi-bulk reply; on_reply' );
+  is_deeply( $t_data2,
+    [ qw(
+        element_1
+        element_2
+        element_3
+      )
+    ],
+    'LRANGE; multi-bulk reply; on_reply'
+  );
 
   return;
 }
@@ -479,8 +478,7 @@ sub t_get_empty_list {
       my $cv = shift;
 
       $redis->lrange( 'non_existent', 0, -1,
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -527,8 +525,7 @@ sub t_mbulk_undef {
       my $cv = shift;
 
       $redis->brpop( 'non_existent', '1',
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -584,8 +581,7 @@ sub t_transaction {
       $redis->get( 'bar' );
       $redis->lrange( 'list', 0, -1 );
       $redis->exec(
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data1 = shift;
             $cv->send();
           },
@@ -595,20 +591,21 @@ sub t_transaction {
   );
 
   is_deeply( $t_data1,
-    [
-      3,
+    [ 3,
       [ qw(
-        element_1
-        element_2
-        element_3
-      ) ],
+          element_1
+          element_2
+          element_3
+        )
+      ],
       [],
       "some\r\nstring",
       [ qw(
-        element_1
-        element_2
-        element_3
-      ) ],
+          element_1
+          element_2
+          element_3
+        )
+      ],
     ],
     'EXEC; nested multi-bulk reply; on_done'
   );
@@ -640,20 +637,21 @@ sub t_transaction {
   );
 
   is_deeply( $t_data2,
-    [
-      4,
+    [ 4,
       [ qw(
-        element_1
-        element_2
-        element_3
-      ) ],
+          element_1
+          element_2
+          element_3
+        )
+      ],
       [],
       "some\r\nstring",
       [ qw(
-        element_1
-        element_2
-        element_3
-      ) ],
+          element_1
+          element_2
+          element_3
+        )
+      ],
     ],
     'EXEC; nested multi-bulk reply; on_reply'
   );
@@ -673,8 +671,7 @@ sub t_command_error {
       my $cv = shift;
 
       $redis->set(
-        {
-          on_error => sub {
+        { on_error => sub {
             $t_err_msg1 = shift;
             $t_err_code1 = shift;
 
@@ -760,8 +757,7 @@ sub t_error_after_exec {
       $redis->set( 'foo', 'string' );
       $redis->incr( 'foo' );
       $redis->exec(
-        {
-          on_error => sub {
+        { on_error => sub {
             $t_err_msg1 = shift;
             $t_err_code1 = shift;
             $t_data1 = shift;
@@ -835,9 +831,8 @@ sub t_quit {
     sub {
       my $cv = shift;
 
-      $redis->quit( 
-        {
-          on_done => sub {
+      $redis->quit(
+        { on_done => sub {
             $t_data = shift;
             $cv->send();
           },

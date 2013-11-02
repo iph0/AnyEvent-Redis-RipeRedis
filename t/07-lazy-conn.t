@@ -37,11 +37,12 @@ ev_loop(
 
         ok( !$T_IS_CONN, 'lazy connection (no connected yet)' );
 
-        $REDIS->ping( {
-          on_done => sub {
-            $cv->send();
-          },
-        } );
+        $REDIS->ping(
+          { on_done => sub {
+              $cv->send();
+            },
+          }
+        );
       },
     );
   }

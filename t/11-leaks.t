@@ -40,11 +40,12 @@ sub t_no_leaks_status_reply {
     sub {
       my $cv = shift;
 
-      $redis->set( 'foo', 'string', {
-        on_done => sub {
-          $cv->send();
+      $redis->set( 'foo', 'string',
+        { on_done => sub {
+            $cv->send();
+          },
         }
-      } );
+      );
     }
   );
 
@@ -53,11 +54,24 @@ sub t_no_leaks_status_reply {
       sub {
         my $cv = shift;
 
-        $redis->get( 'bar', {
-          on_done => sub {
+        $redis->get( 'bar',
+          { on_done => sub {
+              my $data = shift;
+            },
+          }
+        );
+
+        $redis->get( 'bar',
+          sub {
+            my $data = shift;
+
+            if ( defined( $_[0] ) ) {
+              diag( $_[0] );
+            }
+
             $cv->send();
           }
-        } );
+        );
       }
     );
   } 'status reply';
@@ -92,11 +106,24 @@ sub t_no_leaks_mbulk_reply {
       sub {
         my $cv = shift;
 
-        $redis->lrange( 'list', 0, -1, {
-          on_done => sub {
+        $redis->lrange( 'list', 0, -1,
+          { on_done => sub {
+              my $data = shift;
+            },
+          }
+        );
+
+        $redis->lrange( 'list', 0, -1,
+          sub {
+            my $data = shift;
+
+            if ( defined( $_[0] ) ) {
+              diag( $_[0] );
+            }
+
             $cv->send();
-          },
-        } );
+          }
+        );
       }
     );
   } 'multi-bulk reply';
@@ -118,11 +145,29 @@ sub t_no_leaks_transaction {
         $redis->lrange( 'list', 0, -1 );
         $redis->get( 'foo' );
         $redis->lrange( 'list', 0, -1 );
-        $redis->exec( {
-          on_done => sub {
+        $redis->exec(
+          { on_done => sub {
+              my $data = shift;
+            },
+          }
+        );
+
+        $redis->multi();
+        $redis->get( 'foo' );
+        $redis->lrange( 'list', 0, -1 );
+        $redis->get( 'foo' );
+        $redis->lrange( 'list', 0, -1 );
+        $redis->exec(
+          sub {
+            my $data = shift;
+
+            if ( defined( $_[0] ) ) {
+              diag( $_[0] );
+            }
+
             $cv->send();
           },
-        } );
+        );
       }
     );
   } 'transaction';
@@ -150,11 +195,24 @@ LUA
         sub {
           my $cv = shift;
 
-          $redis->eval_cached( $script, 0, 42, {
-            on_done => sub {
+          $redis->eval_cached( $script, 0, 42,
+            { on_done => sub {
+                my $data = shift;
+              },
+            }
+          );
+
+          $redis->eval_cached( $script, 0, 9,
+            sub {
+              my $data = shift;
+
+              if ( defined( $_[0] ) ) {
+                diag( $_[0] );
+              }
+
               $cv->send();
-            },
-          } );
+            }
+          );
         }
       );
     } 'eval_cached';

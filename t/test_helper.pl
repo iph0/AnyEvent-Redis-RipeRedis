@@ -34,9 +34,9 @@ sub run_redis_instance {
   }
 
   return {
-    server => $redis_server,
-    host => $host,
-    port => $port,
+    server   => $redis_server,
+    host     => $host,
+    port     => $port,
     password => $params{requirepass},
   };
 }
@@ -53,7 +53,7 @@ sub ev_loop {
     sub {
       diag( 'Emergency exit from event loop. Test failed' );
       $cv->send();
-    },
+    }
   );
 
   $cv->recv();
@@ -72,29 +72,30 @@ sub get_redis_version {
     sub {
       my $cv = shift;
 
-      $redis->info( {
-        on_done => sub {
-          my $data = shift;
+      $redis->info(
+        { on_done => sub {
+            my $data = shift;
 
-          if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/mo ) {
-            my $prod_ver = 0;
-            if ( defined( $1 ) and $1 ne '' ) {
-              $prod_ver = $1;
+            if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/mo ) {
+              my $prod_ver = 0;
+              if ( defined( $1 ) and $1 ne '' ) {
+                $prod_ver = $1;
+              }
+              my $major_ver = 0;
+              if ( defined( $2 ) and $2 ne '' ) {
+                $major_ver = $2;
+              }
+              my $minor_ver = 0;
+              if ( defined( $3 ) and $3 ne '' ) {
+                $minor_ver = $3;
+              }
+              $ver = $prod_ver + ( $major_ver * 10 ** -3 )
+                  + ( $minor_ver * 10 ** -6 );
             }
-            my $major_ver = 0;
-            if ( defined( $2 ) and $2 ne '' ) {
-              $major_ver = $2;
-            }
-            my $minor_ver = 0;
-            if ( defined( $3 ) and $3 ne '' ) {
-              $minor_ver = $3;
-            }
-            $ver = $prod_ver + ( $major_ver * 10 ** -3 )
-                + ( $minor_ver * 10 ** -6 );
-          }
-          $cv->send();
+            $cv->send();
+          },
         }
-      } );
+      );
     }
   );
 

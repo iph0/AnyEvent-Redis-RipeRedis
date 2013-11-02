@@ -45,12 +45,13 @@ LUA
     sub {
       my $cv = shift;
 
-      $redis->evalsha( $script_sha1, 0, {
-        on_error => sub {
-          $t_err_code = pop;
-          $cv->send();
+      $redis->evalsha( $script_sha1, 0,
+        { on_error => sub {
+            $t_err_code = pop;
+            $cv->send();
+          },
         }
-      } );
+      );
     }
   );
 
@@ -78,8 +79,7 @@ LUA
       weaken( $redis );
 
       $redis->eval_cached( $script, 0, 42,
-        {
-          on_done => sub {
+        { on_done => sub {
             my $data = shift;
             push( @t_data1, $data );
 
@@ -153,8 +153,7 @@ LUA
       my $cv = shift;
 
       $redis->eval_cached( $script, 0,
-        {
-          on_error => sub {
+        { on_error => sub {
             $t_err_msg1 = shift;
             $t_err_code1 = shift;
 
@@ -219,8 +218,7 @@ LUA
       my $cv = shift;
 
       $redis->eval( $script, 0, 42,
-        {
-          on_error => sub {
+        { on_error => sub {
             $t_err_msg1 = shift;
             $t_err_code1 = shift;
             $t_data1 = shift;

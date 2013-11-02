@@ -6,16 +6,16 @@ use Test::More;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 require 't/test_helper.pl';
 
-my $server_info = run_redis_instance(
+my $SERVER_INFO = run_redis_instance(
   requirepass => 'testpass',
 );
-if ( !defined( $server_info ) ) {
+if ( !defined( $SERVER_INFO ) ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 5;
 
-t_successful_auth( $server_info );
-t_invalid_password( $server_info );
+t_successful_auth( $SERVER_INFO );
+t_invalid_password( $SERVER_INFO );
 
 
 ####
@@ -35,8 +35,7 @@ sub t_successful_auth {
       my $cv = shift;
 
       $redis->ping(
-        {
-          on_done => sub {
+        { on_done => sub {
             $t_data = shift;
             $cv->send();
           },
@@ -77,9 +76,8 @@ sub t_invalid_password {
       );
 
       $redis->ping(
-        {
-          on_error => sub {
-            $t_cmd_err_msg = shift;
+        { on_error => sub {
+            $t_cmd_err_msg  = shift;
             $t_cmd_err_code = shift;
           },
         }

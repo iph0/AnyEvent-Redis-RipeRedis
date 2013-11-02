@@ -37,12 +37,13 @@ sub t_no_connection {
         },
       );
 
-      $redis->ping( {
-        on_error => sub {
-          $t_first_cmd_err_msg = shift;
-          $t_first_cmd_err_code = shift;
+      $redis->ping(
+        { on_error => sub {
+            $t_first_cmd_err_msg = shift;
+            $t_first_cmd_err_code = shift;
+          },
         }
-      } );
+      );
     },
     0
   );
@@ -63,13 +64,15 @@ sub t_no_connection {
     sub {
       my $cv = shift;
 
-      $redis->ping( {
-        on_error => sub {
-          $t_second_cmd_err_msg = shift;
-          $t_second_cmd_err_code = shift;
-          $cv->send();
+      $redis->ping(
+        { on_error => sub {
+            $t_second_cmd_err_msg = shift;
+            $t_second_cmd_err_code = shift;
+
+            $cv->send();
+          },
         }
-      } );
+      );
     }
   );
 
@@ -120,17 +123,18 @@ sub t_reconnection {
           },
         );
 
-        $redis->ping( {
-          on_done => sub {
-            my $timer;
-            $timer = AE::postpone(
-              sub {
-                undef( $timer );
-                $server_info->{server}->stop();
-              }
-            );
+        $redis->ping(
+          { on_done => sub {
+              my $timer;
+              $timer = AE::postpone(
+                sub {
+                  undef( $timer );
+                  $server_info->{server}->stop();
+                }
+              );
+            },
           }
-        } );
+        );
       }
     );
 
@@ -144,12 +148,14 @@ sub t_reconnection {
       sub {
         my $cv = shift;
 
-        $redis->ping( {
-          on_done => sub {
-            $t_pong = shift;
-            $cv->send();
+        $redis->ping(
+          {
+            on_done => sub {
+              $t_pong = shift;
+              $cv->send();
+            },
           }
-        } );
+        );
       }
     );
 
@@ -199,13 +205,15 @@ sub t_read_timeout {
           },
         );
 
-        $redis->brpop( 'non_existent', '3', {
-          on_error => sub {
-            $t_cmd_err_msg = shift;
-            $t_cmd_err_code = shift;
-            $cv->send();
-          },
-        } );
+        $redis->brpop( 'non_existent', '3',
+          { on_error => sub {
+              $t_cmd_err_msg = shift;
+              $t_cmd_err_code = shift;
+
+              $cv->send();
+            },
+          }
+        );
       }
     );
 
