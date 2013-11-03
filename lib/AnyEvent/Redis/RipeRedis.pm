@@ -970,9 +970,6 @@ sub _disconnect {
 ####
 sub _reset_state {
   my __PACKAGE__ $self = shift;
-  my $err_msg = shift;
-  my $err_code = shift;
-  my $safe_abort = shift;
 
   if ( defined( $self->{_handle} ) ) {
     $self->{_handle}->destroy();
