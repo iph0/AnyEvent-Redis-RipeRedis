@@ -11,7 +11,7 @@ my $cv = AE::cv();
 my $redis;
 $redis = AnyEvent::Redis::RipeRedis->new(
   host => 'unix/',
-  port => '/tmp/redis.sock',
+  port => '/var/run/redis/redis.sock',
   password => 'yourpass',
   connection_timeout => 5,
   read_timeout => 5,
@@ -26,12 +26,18 @@ $redis = AnyEvent::Redis::RipeRedis->new(
 my $timer;
 $timer = AE::timer( 0, 1,
   sub {
-    $redis->incr( 'foo', {
-      on_done => sub {
+    $redis->incr( 'foo',
+      sub {
         my $data = shift;
+
+        if ( defined( $_[0] ) ) {
+          warn "$_[0]\n";
+          return;
+        };
+
         print "$data\n";
       },
-    } );
+    );
   },
 );
 
