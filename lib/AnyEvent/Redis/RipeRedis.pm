@@ -108,7 +108,7 @@ sub new {
   my $proto = shift;
   my $params = { @_ };
 
-  my __PACKAGE__ $self = fields::new( $proto );
+  my __PACKAGE__ $self = ref( $proto ) ? $proto : fields::new( $proto );
 
   $self->{host}     = $params->{host} || D_HOST;
   $self->{port}     = $params->{port} || D_PORT;
@@ -150,16 +150,72 @@ sub new {
 ####
 sub execute_cmd {
   my __PACKAGE__ $self = shift;
-  my $cmd = { @_ };
+  my $cmd = shift;
 
-  if ( !defined( $cmd->{keyword} ) ) {
-    confess '\'keyword\' must be specified';
-  }
-  elsif ( defined( $cmd->{args} ) and ref( $cmd->{args} ) ne 'ARRAY' ) {
-    confess '\'args\' must be an ARRAY reference';
+  if ( exists( $SPEC_CMDS{ $cmd->{keyword} } ) ) {
+    if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
+      if ( exists( $SUB_CMDS{ $cmd->{keyword} } ) ) {
+        if ( !defined( $cmd->{on_message} ) ) {
+          confess '\'on_message\' callback must be specified';
+        }
+      }
+      if ( $self->{_sub_lock} ) {
+        AE::postpone(
+          sub {
+            $self->_on_error( $cmd, "Command '$cmd->{keyword}' not allowed after"
+                . ' \'multi\' command. First, the transaction must be completed.',
+                E_OPRN_ERROR );
+          }
+        );
+
+        return;
+      }
+      $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
+    }
+    elsif ( $cmd->{keyword} eq 'multi' ) {
+      $self->{_sub_lock} = 1;
+    }
+    else { # exec
+      $self->{_sub_lock} = 0;
+    }
   }
 
-  $self->_execute_cmd( $cmd );
+
+  if ( $self->{_ready_to_write} ) {
+    $self->_push_write( $cmd );
+  }
+  else {
+    if ( defined( $self->{_handle} ) ) {
+      if ( $self->{_connected} ) {
+        if ( $self->{_auth_st} == S_IS_DONE ) {
+          if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
+            $self->_select_db();
+          }
+        }
+        elsif ( $self->{_auth_st} == S_NEED_PERFORM ) {
+          $self->_auth();
+        }
+      }
+    }
+    elsif ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
+      if ( $self->{_lazy_conn_st} ) {
+        $self->{_lazy_conn_st} = 0;
+      }
+      $self->_connect();
+    }
+    else {
+      AE::postpone(
+        sub {
+          $self->_on_error( $cmd, "Can't handle the command '$cmd->{keyword}'."
+              . ' No connection to the server.', E_NO_CONN );
+        }
+      );
+
+      return;
+    }
+
+    push( @{$self->{_input_buf}}, $cmd );
+  }
 
   return;
 }
@@ -169,14 +225,23 @@ sub eval_cached {
   my __PACKAGE__ $self = shift;
   my @args = @_;
 
-  my $cmd = $self->_prepare_cmd( 'evalsha', \@args );
+  my $cmd = {};
+  if ( ref( $args[-1] ) eq 'CODE' ) {
+    $cmd->{on_reply} = pop( @args );
+  }
+  elsif ( ref( $args[-1] ) eq 'HASH' ) {
+    $cmd = pop( @args );
+  }
+  $cmd->{keyword} = 'evalsha';
+  $cmd->{args} = \@args;
+
   $cmd->{script} = $args[0];
   if ( !exists( $EVAL_CACHE{$cmd->{script}} ) ) {
     $EVAL_CACHE{$cmd->{script}} = sha1_hex( $cmd->{script} );
   }
   $args[0] = $EVAL_CACHE{$cmd->{script}};
 
-  $self->_execute_cmd( $cmd );
+  $self->execute_cmd( $cmd );
 
   return;
 }
@@ -200,7 +265,7 @@ sub encoding {
     if ( defined( $enc ) ) {
       $self->{encoding} = find_encoding( $enc );
       if ( !defined( $self->{encoding} ) ) {
-        confess "Encoding '$enc' not found.";
+        confess "Encoding '$enc' not found";
       }
     }
     else {
@@ -229,7 +294,7 @@ sub on_error {
   return $self->{on_error};
 }
 
-# generation of additional accessors
+# generation of accessors
 {
   no strict 'refs';
 
@@ -245,7 +310,7 @@ sub on_error {
           defined( $timeout )
             and ( !looks_like_number( $timeout ) or $timeout < 0 )
             ) {
-          confess ucfirst( $field_pref ) . ' timeout must be a positive number.';
+          confess ucfirst( $field_pref ) . ' timeout must be a positive number';
         }
         $self->{ $field_name } = $timeout;
       }
@@ -500,109 +565,6 @@ sub _prepare_on_reply {
 }
 
 ####
-sub _prepare_cmd {
-  my __PACKAGE__ $self = shift;
-  my $cmd_keyword = shift;
-  my $args = shift;
-
-  my $cmd;
-  if ( ref( $args->[-1] ) eq 'CODE' ) {
-    $cmd = {};
-    my $cb = pop( @{$args} );
-    if ( exists( $SUB_CMDS{ $cmd_keyword } ) ) {
-      $cmd->{on_message} = $cb;
-    }
-    else {
-      $cmd->{on_reply} = $cb;
-    }
-  }
-  elsif ( ref( $args->[-1] ) eq 'HASH' ) {
-    $cmd = pop( @{$args} );
-  }
-  else {
-    $cmd = {};
-  }
-
-  $cmd->{keyword} = $cmd_keyword;
-  $cmd->{args} = $args;
-
-  return $cmd;
-}
-
-####
-sub _execute_cmd {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
-
-  if ( exists( $SPEC_CMDS{ $cmd->{keyword} } ) ) {
-    if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
-      if ( exists( $SUB_CMDS{ $cmd->{keyword} } ) ) {
-        if ( !defined( $cmd->{on_message} ) ) {
-          confess '\'on_message\' callback must be specified.';
-        }
-      }
-      if ( $self->{_sub_lock} ) {
-        AE::postpone(
-          sub {
-            $self->_on_error( $cmd, "Command '$cmd->{keyword}' not allowed after"
-                . ' \'multi\' command. First, the transaction must be completed.',
-                E_OPRN_ERROR );
-          }
-        );
-
-        return;
-      }
-      $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
-    }
-    elsif ( $cmd->{keyword} eq 'multi' ) {
-      $self->{_sub_lock} = 1;
-    }
-    else { # exec
-      $self->{_sub_lock} = 0;
-    }
-  }
-
-
-  if ( $self->{_ready_to_write} ) {
-    $self->_push_write( $cmd );
-  }
-  else {
-    if ( defined( $self->{_handle} ) ) {
-      if ( $self->{_connected} ) {
-        if ( $self->{_auth_st} == S_IS_DONE ) {
-          if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
-            $self->_select_db();
-          }
-        }
-        elsif ( $self->{_auth_st} == S_NEED_PERFORM ) {
-          $self->_auth();
-        }
-      }
-    }
-    elsif ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
-      if ( $self->{_lazy_conn_st} ) {
-        $self->{_lazy_conn_st} = 0;
-      }
-      $self->_connect();
-    }
-    else {
-      AE::postpone(
-        sub {
-          $self->_on_error( $cmd, "Can't handle the command '$cmd->{keyword}'."
-              . ' No connection to the server.', E_NO_CONN );
-        }
-      );
-
-      return;
-    }
-
-    push( @{$self->{_input_buf}}, $cmd );
-  }
-
-  return;
-}
-
-####
 sub _auth {
   my __PACKAGE__ $self = shift;
 
@@ -612,7 +574,7 @@ sub _auth {
 
   $self->_push_write(
     { keyword => 'auth',
-      args => [ $self->{password} ],
+      args    => [ $self->{password} ],
       on_done => sub {
         $self->{_auth_st} = S_IS_DONE;
         if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
@@ -643,7 +605,7 @@ sub _select_db {
   $self->{_db_select_st} = S_IN_PROGRESS;
   $self->_push_write(
     { keyword => 'select',
-      args => [ $self->{database} ],
+      args    => [ $self->{database} ],
       on_done => sub {
         $self->{_db_select_st} = S_IS_DONE;
         $self->{_ready_to_write} = 1;
@@ -975,12 +937,13 @@ sub _reset_state {
     $self->{_handle}->destroy();
     undef( $self->{_handle} );
   }
-  $self->{_connected} = 0;
-  $self->{_auth_st} = S_NEED_PERFORM;
-  $self->{_db_select_st} = S_NEED_PERFORM;
+
+  $self->{_connected}      = 0;
+  $self->{_auth_st}        = S_NEED_PERFORM;
+  $self->{_db_select_st}   = S_NEED_PERFORM;
   $self->{_ready_to_write} = 0;
-  $self->{_sub_lock} = 0;
-  $self->{_subs} = {};
+  $self->{_sub_lock}       = 0;
+  $self->{_subs}           = {};
 
   return;
 }
@@ -1019,14 +982,28 @@ sub _abort_cmds {
 sub AUTOLOAD {
   our $AUTOLOAD;
   my $cmd_keyword = $AUTOLOAD;
-  $cmd_keyword =~ s/^.+:://o;
+  $cmd_keyword =~ s/^.+:://;
 
   my $sub = sub {
     my __PACKAGE__ $self = shift;
     my @args = @_;
 
-    my $cmd = $self->_prepare_cmd( $cmd_keyword, \@args );
-    $self->_execute_cmd( $cmd );
+    my $cmd = {};
+    if ( ref( $args[-1] ) eq 'CODE' ) {
+      if ( exists( $SUB_CMDS{ $cmd_keyword } ) ) {
+        $cmd->{on_message} = pop( @args );
+      }
+      else {
+        $cmd->{on_reply} = pop( @args );
+      }
+    }
+    elsif ( ref( $args[-1] ) eq 'HASH' ) {
+      $cmd = pop( @args );
+    }
+    $cmd->{keyword} = $cmd_keyword;
+    $cmd->{args} = \@args;
+
+    $self->execute_cmd( $cmd );
   };
 
   do {

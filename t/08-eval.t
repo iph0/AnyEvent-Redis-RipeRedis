@@ -20,12 +20,20 @@ my $ver = get_redis_version( $REDIS );
 if ( $ver < 2.00600 ) {
   plan skip_all => 'redis-server 2.6 or higher is required for this test';
 }
-plan tests => 25;
+plan tests => 27;
+
+can_ok( $REDIS, 'eval_cached' );
 
 t_no_script( $REDIS );
-t_eval_cached( $REDIS );
-t_on_error_in_eval_cached( $REDIS );
-t_errors_in_mbulk_reply( $REDIS );
+
+t_eval_cached_mth1( $REDIS );
+t_eval_cached_mth2( $REDIS );
+
+t_error_reply_mth1( $REDIS );
+t_error_reply_mth2( $REDIS );
+
+t_errors_in_mbulk_reply_mth1( $REDIS );
+t_errors_in_mbulk_reply_mth2( $REDIS );
 
 $REDIS->disconnect();
 
@@ -34,7 +42,9 @@ $REDIS->disconnect();
 sub t_no_script {
   my $redis = shift;
 
+  my $t_err_msg;
   my $t_err_code;
+
   my $script = <<LUA
 return redis.status_reply( 'OK' )
 LUA
@@ -47,7 +57,9 @@ LUA
 
       $redis->evalsha( $script_sha1, 0,
         { on_error => sub {
-            $t_err_code = pop;
+            $t_err_msg  = shift;
+            $t_err_code = shift;
+
             $cv->send();
           },
         }
@@ -55,21 +67,21 @@ LUA
     }
   );
 
-  is( $t_err_code, E_NO_SCRIPT, 'no script' );
+  like( $t_err_msg, qr/^NOSCRIPT/, 'no script; \'on_error\' used; error message' );
+  is( $t_err_code, E_NO_SCRIPT, 'no script; \'on_error\' used; error code' );
 
   return;
 }
 
 ####
-sub t_eval_cached {
+sub t_eval_cached_mth1 {
   my $redis = shift;
 
   my $script = <<LUA
 return ARGV[1]
 LUA
 ;
-
-  my @t_data1;
+  my @t_data;
 
   ev_loop(
     sub {
@@ -81,7 +93,7 @@ LUA
       $redis->eval_cached( $script, 0, 42,
         { on_done => sub {
             my $data = shift;
-            push( @t_data1, $data );
+            push( @t_data, $data );
 
             $redis->eval_cached( $script, 0, 15 );
 
@@ -89,7 +101,7 @@ LUA
               {
                 on_done => sub {
                   my $data = shift;
-                  push( @t_data1, $data );
+                  push( @t_data, $data );
                   $cv->send();
                 },
               }
@@ -100,9 +112,20 @@ LUA
     }
   );
 
-  is_deeply( \@t_data1, [ qw( 42 57 ) ], 'eval_cached; on_done' );
+  is_deeply( \@t_data, [ qw( 42 57 ) ], 'eval_cached; \'on_done\' used' );
 
-  my @t_data2;
+  return;
+}
+
+####
+sub t_eval_cached_mth2 {
+  my $redis = shift;
+
+  my $script = <<LUA
+return ARGV[1]
+LUA
+;
+  my @t_data;
 
   ev_loop(
     sub {
@@ -111,17 +134,17 @@ LUA
       my $redis = $redis;
       weaken( $redis );
 
-      $redis->eval_cached( $script, 0, 9,
+      $redis->eval_cached( $script, 0, 42,
         sub {
           my $data = shift;
-          push( @t_data2, $data );
+          push( @t_data, $data );
 
-          $redis->eval_cached( $script, 0, 5 );
+          $redis->eval_cached( $script, 0, 15 );
 
-          $redis->eval_cached( $script, 0, 17,
+          $redis->eval_cached( $script, 0, 57,
             sub {
               my $data = shift;
-              push( @t_data2, $data );
+              push( @t_data, $data );
               $cv->send();
             }
           );
@@ -130,23 +153,21 @@ LUA
     }
   );
 
-  is_deeply( \@t_data2, [ qw( 9 17 ) ], 'eval_cached; on_reply' );
+  is_deeply( \@t_data, [ qw( 42 57 ) ], 'eval_cached; \'on_reply\' used' );
 
   return;
 }
 
 ####
-sub t_on_error_in_eval_cached {
+sub t_error_reply_mth1 {
   my $redis = shift;
-
 
   my $script = <<LUA
 return redis.error_reply( "ERR Something wrong." )
 LUA
 ;
-
-  my $t_err_msg1;
-  my $t_err_code1;
+  my $t_err_msg;
+  my $t_err_code;
 
   ev_loop(
     sub {
@@ -154,8 +175,8 @@ LUA
 
       $redis->eval_cached( $script, 0,
         { on_error => sub {
-            $t_err_msg1 = shift;
-            $t_err_code1 = shift;
+            $t_err_msg  = shift;
+            $t_err_code = shift;
 
             $cv->send();
           },
@@ -164,13 +185,24 @@ LUA
     }
   );
 
-  is( $t_err_msg1, 'ERR Something wrong.',
-      "'on_error' in eval_cached; on_error; error message" );
-  is( $t_err_code1, E_OPRN_ERROR,
-      "'on_error' in eval_cached; on_error; error code" );
+  is( $t_err_msg, 'ERR Something wrong.',
+      'eval_cached; \'on_error\' used; error reply; error message' );
+  is( $t_err_code, E_OPRN_ERROR,
+      'eval_cached; \'on_error\' used; error reply; error code' );
 
-  my $t_err_msg2;
-  my $t_err_code2;
+  return;
+}
+
+####
+sub t_error_reply_mth2 {
+  my $redis = shift;
+
+  my $script = <<LUA
+return redis.error_reply( "ERR Something wrong." )
+LUA
+;
+  my $t_err_msg;
+  my $t_err_code;
 
   ev_loop(
     sub {
@@ -181,8 +213,8 @@ LUA
           my $data = shift;
 
           if ( defined( $_[0] ) ) {
-            $t_err_msg2 = shift;
-            $t_err_code2 = shift;
+            $t_err_msg  = shift;
+            $t_err_code = shift;
           }
 
           $cv->send();
@@ -191,16 +223,16 @@ LUA
     }
   );
 
-  is( $t_err_msg2, 'ERR Something wrong.',
-      "'on_error' in eval_cached; on_reply; error message" );
-  is( $t_err_code2, E_OPRN_ERROR,
-      "'on_error' in eval_cached; on_reply; error code" );
+  is( $t_err_msg, 'ERR Something wrong.',
+      'eval_cached; \'on_reply\' used; error reply; error message' );
+  is( $t_err_code, E_OPRN_ERROR,
+      'eval_cached; \'on_reply\' used; error reply; error code' );
 
   return;
 }
 
 ####
-sub t_errors_in_mbulk_reply {
+sub t_errors_in_mbulk_reply_mth1 {
   my $redis = shift;
 
   my $script = <<LUA
@@ -208,10 +240,9 @@ return { ARGV[1], redis.error_reply( "Something wrong." ),
     { redis.error_reply( "NOSCRIPT No matching script." ) } }
 LUA
 ;
-
-  my $t_err_msg1;
-  my $t_err_code1;
-  my $t_data1;
+  my $t_err_msg;
+  my $t_err_code;
+  my $t_data;
 
   ev_loop(
     sub {
@@ -219,9 +250,9 @@ LUA
 
       $redis->eval( $script, 0, 42,
         { on_error => sub {
-            $t_err_msg1 = shift;
-            $t_err_code1 = shift;
-            $t_data1 = shift;
+            $t_err_msg  = shift;
+            $t_err_code = shift;
+            $t_data     = shift;
 
             $cv->send();
           },
@@ -230,39 +261,52 @@ LUA
     }
   );
 
-  is( $t_err_msg1, "Operation 'eval' completed with errors.",
-      "errors in multi-bulk reply; on_error; error message" );
-  is( $t_err_code1, E_OPRN_ERROR,
-      "errors in multi-bulk reply; on_error; error code" );
-  is( $t_data1->[0], 42, "errors in multi-bulk reply; on_error; numeric reply" );
-  isa_ok( $t_data1->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      "errors in multi-bulk reply; level_0; on_error;" );
-  is( $t_data1->[1]->message(), 'Something wrong.',
-      "errors in multi-bulk reply; level_0; on_error; error message" );
-  is( $t_data1->[1]->code(), E_OPRN_ERROR,
-      "errors in multi-bulk reply; level_0; on_error; error code" );
-  isa_ok( $t_data1->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      "errors in multi-bulk reply; level_1; on_error;" );
-  is( $t_data1->[2][0]->message(), 'NOSCRIPT No matching script.',
-      "errors in multi-bulk reply; level_1; on_error; error message" );
-  is( $t_data1->[2][0]->code(), E_NO_SCRIPT,
-      "errors in multi-bulk reply; level_1; on_error; error code" );
+  is( $t_err_msg, 'Operation \'eval\' completed with errors.',
+      'errors in multi-bulk reply; \'on_error\' used; error message' );
+  is( $t_err_code, E_OPRN_ERROR,
+      'errors in multi-bulk reply; \'on_error\' used; error code' );
+  is( $t_data->[0], 42,
+      'errors in multi-bulk reply; \'on_error\' used; numeric reply' );
+  isa_ok( $t_data->[1], 'AnyEvent::Redis::RipeRedis::Error',
+      'errors in multi-bulk reply; \'on_error\' used; level_0;' );
+  is( $t_data->[1]->message(), 'Something wrong.',
+      'errors in multi-bulk reply; \'on_error\' used; level_0; error message' );
+  is( $t_data->[1]->code(), E_OPRN_ERROR,
+      'errors in multi-bulk reply; \'on_error\' used; level_0; error code' );
+  isa_ok( $t_data->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
+      'errors in multi-bulk reply; \'on_error\' used; level_1;' );
+  is( $t_data->[2][0]->message(), 'NOSCRIPT No matching script.',
+      'errors in multi-bulk reply; \'on_error\' used; level_1; error message' );
+  is( $t_data->[2][0]->code(), E_NO_SCRIPT,
+      'errors in multi-bulk reply; \'on_error\' used; level_1; error code' );
 
-  my $t_err_msg2;
-  my $t_err_code2;
-  my $t_data2;
+  return;
+}
+
+####
+sub t_errors_in_mbulk_reply_mth2 {
+  my $redis = shift;
+
+  my $script = <<LUA
+return { ARGV[1], redis.error_reply( "Something wrong." ),
+    { redis.error_reply( "NOSCRIPT No matching script." ) } }
+LUA
+;
+  my $t_err_msg;
+  my $t_err_code;
+  my $t_data;
 
   ev_loop(
     sub {
       my $cv = shift;
 
-      $redis->eval( $script, 0, 9,
+      $redis->eval( $script, 0, 42,
         sub {
-          $t_data2 = shift;
+          $t_data = shift;
 
           if ( defined( $_[0] ) ) {
-            $t_err_msg2 = shift;
-            $t_err_code2 = shift;
+            $t_err_msg  = shift;
+            $t_err_code = shift;
           }
 
           $cv->send();
@@ -271,23 +315,24 @@ LUA
     }
   );
 
-  is( $t_err_msg2, "Operation 'eval' completed with errors.",
-      "errors in multi-bulk reply; on_reply; error message" );
-  is( $t_err_code2, E_OPRN_ERROR,
-      "errors in multi-bulk reply; on_reply; error code" );
-  is( $t_data2->[0], 9, "errors in multi-bulk reply; on_reply; numeric reply" );
-  isa_ok( $t_data2->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      "errors in multi-bulk reply; level_0; on_reply;" );
-  is( $t_data2->[1]->message(), 'Something wrong.',
-      "errors in multi-bulk reply; level_0; on_reply; error message" );
-  is( $t_data2->[1]->code(), E_OPRN_ERROR,
-      "errors in multi-bulk reply; level_0; on_reply; error code" );
-  isa_ok( $t_data2->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      "errors in multi-bulk reply; level_1; on_reply;" );
-  is( $t_data2->[2][0]->message(), 'NOSCRIPT No matching script.',
-      "errors in multi-bulk reply; level_1; on_reply; error message" );
-  is( $t_data2->[2][0]->code(), E_NO_SCRIPT,
-      "errors in multi-bulk reply; level_1; on_reply; error code" );
+  is( $t_err_msg, 'Operation \'eval\' completed with errors.',
+      'errors in multi-bulk reply; \'on_reply\' used; error message' );
+  is( $t_err_code, E_OPRN_ERROR,
+      'errors in multi-bulk reply; \'on_reply\' used; error code' );
+  is( $t_data->[0], 42,
+      'errors in multi-bulk reply; \'on_reply\' used; numeric reply' );
+  isa_ok( $t_data->[1], 'AnyEvent::Redis::RipeRedis::Error',
+      'errors in multi-bulk reply; \'on_reply\' used; level_0;' );
+  is( $t_data->[1]->message(), 'Something wrong.',
+      'errors in multi-bulk reply; \'on_reply\' used; level_0; error message' );
+  is( $t_data->[1]->code(), E_OPRN_ERROR,
+      'errors in multi-bulk reply; \'on_reply\' used; level_0; error code' );
+  isa_ok( $t_data->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
+      'errors in multi-bulk reply; \'on_reply\' used; level_1;' );
+  is( $t_data->[2][0]->message(), 'NOSCRIPT No matching script.',
+      'errors in multi-bulk reply; \'on_reply\' used; level_1; error message' );
+  is( $t_data->[2][0]->code(), E_NO_SCRIPT,
+      'errors in multi-bulk reply; \'on_reply\' used; level_1; error code' );
 
   return;
 }

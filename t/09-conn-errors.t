@@ -28,9 +28,10 @@ sub t_no_connection {
       my $cv = shift;
 
       $redis = AnyEvent::Redis::RipeRedis->new(
-        port => $port,
+        port               => $port,
         connection_timeout => 1,
-        reconnect => 0,
+        reconnect          => 0,
+
         on_connect_error => sub {
           $t_comm_err_msg = shift;
           $cv->send();
@@ -51,10 +52,10 @@ sub t_no_connection {
   my $t_name = 'no connection';
 
   like( $t_first_cmd_err_msg,
-      qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/o,
+      qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
       "$t_name; first command error message" );
   is( $t_first_cmd_err_code, E_CANT_CONN, "$t_name; first command error code" );
-  like( $t_comm_err_msg, qr/^Can't connect to localhost:$port:/o,
+  like( $t_comm_err_msg, qr/^Can't connect to localhost:$port:/,
       "$t_name; common error message" );
 
   my $t_second_cmd_err_msg;
@@ -110,6 +111,7 @@ sub t_reconnection {
         $redis = AnyEvent::Redis::RipeRedis->new(
           host => $server_info->{host},
           port => $server_info->{port},
+
           on_connect => sub {
             $t_conn_cnt++;
           },
@@ -194,12 +196,13 @@ sub t_read_timeout {
         my $cv = shift;
 
         $redis = AnyEvent::Redis::RipeRedis->new(
-          host => $server_info->{host},
-          port => $server_info->{port},
-          reconnect => 0,
+          host         => $server_info->{host},
+          port         => $server_info->{port},
+          reconnect    => 0,
           read_timeout => 1,
+
           on_error => sub {
-            $t_comm_err_msg = shift;
+            $t_comm_err_msg  = shift;
             $t_comm_err_code = shift;
             $cv->send();
           },

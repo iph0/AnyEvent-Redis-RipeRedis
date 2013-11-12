@@ -5,11 +5,11 @@ examples/subs.pl
 examples/unix_socket.pl
 lib/AnyEvent/Redis/RipeRedis.pm
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 README
-t/00-compile.t
-t/01-base.t
-t/02-accessors.t
+t/00-base.t
+t/01-accessors.t
+t/02-error-codes.t
 t/03-auth.t
 t/04-commands.t
 t/05-db-select.t

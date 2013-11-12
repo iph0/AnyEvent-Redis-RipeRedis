@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 24;
+use Test::More tests => 32;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
@@ -25,6 +25,15 @@ my $REDIS = AnyEvent::Redis::RipeRedis->new(
     return 4;
   },
 );
+
+can_ok( $REDIS, 'connection_timeout' );
+can_ok( $REDIS, 'read_timeout' );
+can_ok( $REDIS, 'reconnect' );
+can_ok( $REDIS, 'encoding' );
+can_ok( $REDIS, 'on_connect' );
+can_ok( $REDIS, 'on_disconnect' );
+can_ok( $REDIS, 'on_connect_error' );
+can_ok( $REDIS, 'on_error' );
 
 t_conn_timeout( $REDIS );
 t_read_timeout( $REDIS );

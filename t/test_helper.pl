@@ -76,7 +76,7 @@ sub get_redis_version {
         { on_done => sub {
             my $data = shift;
 
-            if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/mo ) {
+            if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/m ) {
               my $prod_ver = 0;
               if ( defined( $1 ) and $1 ne '' ) {
                 $prod_ver = $1;

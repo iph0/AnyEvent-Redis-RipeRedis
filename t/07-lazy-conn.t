@@ -20,10 +20,11 @@ ev_loop(
     my $cv = shift;
 
     $REDIS = AnyEvent::Redis::RipeRedis->new(
-      host => $SERVER_INFO->{host},
-      port => $SERVER_INFO->{port},
-      lazy => 1,
-      reconnect => 0,
+      host       => $SERVER_INFO->{host},
+      port       => $SERVER_INFO->{port},
+      lazy       => 1,
+      reconnect  => 0,
+
       on_connect => sub {
         $T_IS_CONN = 1;
       },

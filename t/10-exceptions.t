@@ -20,7 +20,7 @@ sub t_conn_timeout {
         connection_timeout => 'invalid',
       );
     },
-    qr/Connection timeout must be a positive number\./o,
+    qr/Connection timeout must be a positive number/,
     'invalid connection timeout (character string; constructor)'
   );
 
@@ -30,7 +30,7 @@ sub t_conn_timeout {
         connection_timeout => -5,
       );
     },
-    qr/Connection timeout must be a positive number\./o,
+    qr/Connection timeout must be a positive number/,
     'invalid connection timeout (negative number; constructor)'
   );
 
@@ -40,7 +40,7 @@ sub t_conn_timeout {
     exception {
       $redis->connection_timeout( 'invalid' );
     },
-    qr/Connection timeout must be a positive number\./o,
+    qr/Connection timeout must be a positive number/,
     'invalid connection timeout (character string; accessor)'
   );
 
@@ -48,7 +48,7 @@ sub t_conn_timeout {
     exception {
       $redis->connection_timeout( -5 );
     },
-    qr/Connection timeout must be a positive number\./o,
+    qr/Connection timeout must be a positive number/,
     'invalid connection timeout (negative number; accessor)'
   );
 
@@ -63,7 +63,7 @@ sub t_read_timeout {
         read_timeout => 'invalid',
       );
     },
-    qr/Read timeout must be a positive number\./o,
+    qr/Read timeout must be a positive number/,
     'invalid read timeout (character string; constructor)',
   );
 
@@ -73,7 +73,7 @@ sub t_read_timeout {
         read_timeout => -5,
       );
     },
-    qr/Read timeout must be a positive number\./o,
+    qr/Read timeout must be a positive number/,
     'invalid read timeout (negative number; constructor)',
   );
 
@@ -83,7 +83,7 @@ sub t_read_timeout {
     exception {
       $redis->read_timeout( 'invalid' );
     },
-    qr/Read timeout must be a positive number\./o,
+    qr/Read timeout must be a positive number/,
     'invalid read timeout (character string; accessor)',
   );
 
@@ -91,7 +91,7 @@ sub t_read_timeout {
     exception {
       $redis->read_timeout( -5 );
     },
-    qr/Read timeout must be a positive number\./o,
+    qr/Read timeout must be a positive number/,
     'invalid read timeout (negative number; accessor)',
   );
 
@@ -100,15 +100,13 @@ sub t_read_timeout {
 
 ####
 sub t_encoding {
-  my $t_except;
-
   like(
     exception {
       my $redis = AnyEvent::Redis::RipeRedis->new(
         encoding => 'utf88',
       );
     },
-    qr/Encoding 'utf88' not found\./o,
+    qr/Encoding 'utf88' not found/,
     'invalid encoding (constructor)',
   );
 
@@ -118,7 +116,7 @@ sub t_encoding {
     exception {
       $redis->encoding( 'utf88' );
     },
-    qr/Encoding 'utf88' not found\./o,
+    qr/Encoding 'utf88' not found/,
     'invalid encoding (accessor)',
   );
 
@@ -133,8 +131,8 @@ sub t_on_message {
     exception {
       $redis->subscribe( 'channel' );
     },
-    qr/'on_message' callback must be specified\./o,
-    "'on_message' callback not specified",
+    qr/'on_message' callback must be specified/,
+    '\'on_message\' callback not specified',
   );
 
   return;
