@@ -148,79 +148,6 @@ sub new {
 }
 
 ####
-sub execute_cmd {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
-
-  if ( exists( $SPEC_CMDS{ $cmd->{keyword} } ) ) {
-    if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
-      if ( exists( $SUB_CMDS{ $cmd->{keyword} } ) ) {
-        if ( !defined( $cmd->{on_message} ) ) {
-          confess '\'on_message\' callback must be specified';
-        }
-      }
-      if ( $self->{_sub_lock} ) {
-        AE::postpone(
-          sub {
-            $self->_on_error( $cmd, "Command '$cmd->{keyword}' not allowed after"
-                . ' \'multi\' command. First, the transaction must be completed.',
-                E_OPRN_ERROR );
-          }
-        );
-
-        return;
-      }
-      $cmd->{resp_remaining} = scalar( @{$cmd->{args}} );
-    }
-    elsif ( $cmd->{keyword} eq 'multi' ) {
-      $self->{_sub_lock} = 1;
-    }
-    else { # exec
-      $self->{_sub_lock} = 0;
-    }
-  }
-
-
-  if ( $self->{_ready_to_write} ) {
-    $self->_push_write( $cmd );
-  }
-  else {
-    if ( defined( $self->{_handle} ) ) {
-      if ( $self->{_connected} ) {
-        if ( $self->{_auth_st} == S_IS_DONE ) {
-          if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
-            $self->_select_db();
-          }
-        }
-        elsif ( $self->{_auth_st} == S_NEED_PERFORM ) {
-          $self->_auth();
-        }
-      }
-    }
-    elsif ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
-      if ( $self->{_lazy_conn_st} ) {
-        $self->{_lazy_conn_st} = 0;
-      }
-      $self->_connect();
-    }
-    else {
-      AE::postpone(
-        sub {
-          $self->_on_error( $cmd, "Can't handle the command '$cmd->{keyword}'."
-              . ' No connection to the server.', E_NO_CONN );
-        }
-      );
-
-      return;
-    }
-
-    push( @{$self->{_input_buf}}, $cmd );
-  }
-
-  return;
-}
-
-####
 sub eval_cached {
   my __PACKAGE__ $self = shift;
   my @args = @_;
@@ -241,7 +168,7 @@ sub eval_cached {
   }
   $args[0] = $EVAL_CACHE{$cmd->{script}};
 
-  $self->execute_cmd( $cmd );
+  $self->_execute_cmd( $cmd );
 
   return;
 }
@@ -543,6 +470,77 @@ sub _prepare_on_read {
 }
 
 ####
+sub _execute_cmd {
+  my __PACKAGE__ $self = shift;
+  my $cmd = shift;
+
+  if ( exists( $SPEC_CMDS{ $cmd->{keyword} } ) ) {
+    if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
+      if ( exists( $SUB_CMDS{ $cmd->{keyword} } ) ) {
+        if ( !defined( $cmd->{on_message} ) ) {
+          confess '\'on_message\' callback must be specified';
+        }
+      }
+      if ( $self->{_sub_lock} ) {
+        AE::postpone(
+          sub {
+            $self->_on_error( $cmd, "Command '$cmd->{keyword}' not allowed after"
+                . ' \'multi\' command. First, the transaction must be completed.',
+                E_OPRN_ERROR );
+          }
+        );
+
+        return;
+      }
+    }
+    elsif ( $cmd->{keyword} eq 'multi' ) {
+      $self->{_sub_lock} = 1;
+    }
+    else { # exec
+      $self->{_sub_lock} = 0;
+    }
+  }
+
+  if ( $self->{_ready_to_write} ) {
+    $self->_push_write( $cmd );
+  }
+  else {
+    if ( defined( $self->{_handle} ) ) {
+      if ( $self->{_connected} ) {
+        if ( $self->{_auth_st} == S_IS_DONE ) {
+          if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
+            $self->_select_db();
+          }
+        }
+        elsif ( $self->{_auth_st} == S_NEED_PERFORM ) {
+          $self->_auth();
+        }
+      }
+    }
+    elsif ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
+      if ( $self->{_lazy_conn_st} ) {
+        $self->{_lazy_conn_st} = 0;
+      }
+      $self->_connect();
+    }
+    else {
+      AE::postpone(
+        sub {
+          $self->_on_error( $cmd, "Can't handle the command '$cmd->{keyword}'."
+              . ' No connection to the server.', E_NO_CONN );
+        }
+      );
+
+      return;
+    }
+
+    push( @{$self->{_input_buf}}, $cmd );
+  }
+
+  return;
+}
+
+####
 sub _prepare_on_reply {
   my __PACKAGE__ $self = shift;
 
@@ -733,7 +731,10 @@ sub _process_data {
   }
 
   if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
-    if ( --$cmd->{resp_remaining} == 0 ) {
+    if ( !exists( $cmd->{remaining_replies} ) ) {
+      $cmd->{remaining_replies} = scalar( @{$cmd->{args}} );
+    }
+    if ( --$cmd->{remaining_replies} == 0 ) {
       shift( @{$self->{_processing_queue}} );
     }
 
@@ -1003,7 +1004,7 @@ sub AUTOLOAD {
     $cmd->{keyword} = $cmd_keyword;
     $cmd->{args} = \@args;
 
-    $self->execute_cmd( $cmd );
+    $self->_execute_cmd( $cmd );
   };
 
   do {

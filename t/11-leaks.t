@@ -18,7 +18,7 @@ my $SERVER_INFO = run_redis_instance();
 if ( !defined( $SERVER_INFO ) ) {
   plan skip_all => 'redis-server is required for this test';
 }
-plan tests => 18;
+plan tests => 10;
 
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
   host => $SERVER_INFO->{host},
@@ -27,23 +27,15 @@ my $REDIS = AnyEvent::Redis::RipeRedis->new(
 
 t_leaks_status_reply_mth1( $REDIS );
 t_leaks_status_reply_mth2( $REDIS );
-t_leaks_status_reply_mth3( $REDIS );
-t_leaks_status_reply_mth4( $REDIS );
 
 t_leaks_bulk_reply_mth1( $REDIS );
 t_leaks_bulk_reply_mth2( $REDIS );
-t_leaks_bulk_reply_mth3( $REDIS );
-t_leaks_bulk_reply_mth4( $REDIS );
 
 t_leaks_mbulk_reply_mth1( $REDIS );
 t_leaks_mbulk_reply_mth2( $REDIS );
-t_leaks_mbulk_reply_mth3( $REDIS );
-t_leaks_mbulk_reply_mth4( $REDIS );
 
 t_leaks_nested_mbulk_reply_mth1( $REDIS );
 t_leaks_nested_mbulk_reply_mth2( $REDIS );
-t_leaks_nested_mbulk_reply_mth3( $REDIS );
-t_leaks_nested_mbulk_reply_mth4( $REDIS );
 
 my $ver = get_redis_version( $REDIS );
 
@@ -125,80 +117,6 @@ sub t_leaks_status_reply_mth2 {
 }
 
 ####
-sub t_leaks_status_reply_mth3 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        $redis->execute_cmd(
-          { keyword => 'set',
-            args    => [ 'bar', "some\r\nstring" ],
-            on_done => sub {
-              my $t_data = shift;
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword => 'del',
-            args    => [ 'foo' ],
-            on_done => sub {
-              $cv->send();
-            }
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_done\' used; status reply';
-
-  return;
-}
-
-####
-sub t_leaks_status_reply_mth4 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        $redis->execute_cmd(
-          { keyword  => 'set',
-            args     => [ 'bar', "some\r\nstring" ],
-            on_reply => sub {
-              my $t_data = shift;
-
-              if ( defined( $_[0] ) ) {
-                diag( $_[0] );
-              }
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword  => 'del',
-            args     => [ 'bar' ],
-            on_reply => sub {
-              if ( defined( $_[1] ) ) {
-                diag( $_[1] );
-              }
-
-              $cv->send();
-            },
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_reply\' used; status reply';
-
-  return;
-}
-#
-####
 sub t_leaks_bulk_reply_mth1 {
   my $redis = shift;
 
@@ -262,92 +180,6 @@ sub t_leaks_bulk_reply_mth2 {
       }
     );
   } 'leaks; \'on_reply\' used; bulk reply';
-
-  return;
-}
-
-####
-sub t_leaks_bulk_reply_mth3 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        $redis->execute_cmd(
-          { keyword => 'set',
-            args    => [ 'foo', "some\r\nstring" ],
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword => 'get',
-            args    => [ 'foo' ],
-            on_done => sub {
-              my $t_data = shift;
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword => 'del',
-            args    => [ 'foo' ],
-            on_done => sub {
-              $cv->send();
-            }
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_done\' used; bulk reply';
-
-  return;
-}
-
-####
-sub t_leaks_bulk_reply_mth4 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        $redis->execute_cmd(
-          { keyword => 'set',
-            args    => [ 'foo', "some\r\nstring" ],
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword  => 'get',
-            args     => [ 'foo' ],
-            on_reply => sub {
-              my $t_data = shift;
-
-              if ( defined( $_[0] ) ) {
-                diag( $_[0] );
-              }
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword  => 'del',
-            args     => [ 'foo' ],
-            on_reply => sub {
-              if ( defined( $_[1] ) ) {
-                diag( $_[1] );
-              }
-
-              $cv->send();
-            },
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_reply\' used; bulk reply';
 
   return;
 }
@@ -420,96 +252,6 @@ sub t_leaks_mbulk_reply_mth2 {
       }
     );
   } 'leaks; \'on_reply\' used; multi-bulk reply';
-
-  return;
-}
-
-####
-sub t_leaks_mbulk_reply_mth3 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        for ( my $i = 1; $i <= 3; $i++ ) {
-          $redis->execute_cmd(
-            { keyword => 'rpush',
-              args    => [ 'list', "element_$i" ],
-            }
-          );
-        }
-
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'list', 0, -1 ],
-            on_done => sub {
-              my $t_data = shift;
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword => 'del',
-            args    => [ 'list' ],
-            on_done => sub {
-              $cv->send();
-            }
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_done\' used; multi-bulk reply';
-
-  return;
-}
-
-####
-sub t_leaks_mbulk_reply_mth4 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        for ( my $i = 1; $i <= 3; $i++ ) {
-          $redis->execute_cmd(
-            { keyword => 'rpush',
-              args    => [ 'list', "element_$i" ],
-            }
-          );
-        }
-
-        $redis->execute_cmd(
-          { keyword  => 'lrange',
-            args     => [ 'list', 0, -1 ],
-            on_reply => sub {
-              my $t_data = shift;
-
-              if ( defined( $_[0] ) ) {
-                diag( $_[0] );
-              }
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword  => 'del',
-            args     => [ 'list' ],
-            on_reply => sub {
-              if ( defined( $_[1] ) ) {
-                diag( $_[1] );
-              }
-
-              $cv->send();
-            },
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_reply\' used; multi-bulk reply';
 
   return;
 }
@@ -598,158 +340,6 @@ sub t_leaks_nested_mbulk_reply_mth2 {
       }
     );
   } 'leaks; \'on_reply\' used; nested multi-bulk reply';
-
-  return;
-}
-
-####
-sub t_leaks_nested_mbulk_reply_mth3 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        for ( my $i = 1; $i <= 3; $i++ ) {
-          $redis->execute_cmd(
-            { keyword => 'rpush',
-              args    => [ 'list', "element_$i" ],
-            }
-          );
-        }
-
-        $redis->execute_cmd(
-          { keyword => 'set',
-            args    => [ 'foo', "some\r\nstring" ],
-          }
-        );
-
-        $redis->execute_cmd( { keyword => 'multi' } );
-        $redis->execute_cmd(
-          { keyword => 'incr',
-            args    => [ 'bar' ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'list', 0, -1 ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'non_existent', 0, -1 ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'get',
-            args    => [ 'foo' ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'list', 0, -1 ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'exec',
-            on_done => sub {
-              my $t_data = shift;
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword => 'del',
-            args    => [ qw( foo list bar ) ],
-            on_done => sub {
-              $cv->send();
-            }
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_done\' used; nested multi-bulk reply';
-
-  return;
-}
-
-####
-sub t_leaks_nested_mbulk_reply_mth4 {
-  my $redis = shift;
-
-  no_leaks_ok {
-    ev_loop(
-      sub {
-        my $cv = shift;
-
-        for ( my $i = 1; $i <= 3; $i++ ) {
-          $redis->execute_cmd(
-            { keyword => 'rpush',
-              args    => [ 'list', "element_$i" ],
-            }
-          );
-        }
-
-        $redis->execute_cmd(
-          { keyword => 'set',
-            args    => [ 'foo', "some\r\nstring" ],
-          }
-        );
-
-        $redis->execute_cmd( { keyword => 'multi' } );
-        $redis->execute_cmd(
-          { keyword => 'incr',
-            args    => [ 'bar' ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'list', 0, -1 ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'non_existent', 0, -1 ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'get',
-            args    => [ 'foo' ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword => 'lrange',
-            args    => [ 'list', 0, -1 ],
-          }
-        );
-        $redis->execute_cmd(
-          { keyword  => 'exec',
-            on_reply => sub {
-              my $t_data = shift;
-
-              if ( defined( $_[0] ) ) {
-                diag( $_[0] );
-              }
-            },
-          }
-        );
-
-        $redis->execute_cmd(
-          { keyword  => 'del',
-            args     => [ qw( foo list bar ) ],
-            on_reply => sub {
-              if ( defined( $_[1] ) ) {
-                diag( $_[1] );
-              }
-
-              $cv->send();
-            },
-          }
-        );
-      }
-    );
-  } 'leaks (execute_cmd); \'on_reply\' used; nested multi-bulk reply';
 
   return;
 }
