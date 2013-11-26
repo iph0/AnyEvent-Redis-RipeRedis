@@ -14,9 +14,9 @@ WriteMakefile(
     'Carp'         => 0,
   },
   CONFIGURE_REQUIRES => {
-    'ExtUtils::MakeMaker' => 6.64,
+    'ExtUtils::MakeMaker' => 6.82,
   },
-  BUILD_REQUIRES => {
+  TEST_REQUIRES => {
     'Test::More'        => 0,
     'Test::RedisServer' => 0,
     'Test::TCP'         => 0,
