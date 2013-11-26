@@ -131,18 +131,21 @@ sub t_status_reply_mth2 {
 
       $redis->set( 'foo', "some\r\nstring",
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         }
       );
 
       $redis->del( 'foo',
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -199,18 +202,21 @@ sub t_numeric_reply_mth2 {
 
       $redis->incr( 'bar',
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = $_[1];
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         }
       );
 
       $redis->del( 'bar',
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -271,18 +277,21 @@ sub t_bulk_reply_mth2 {
 
       $redis->get( 'foo',
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         }
       );
 
       $redis->del( 'foo',
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -333,10 +342,11 @@ sub t_set_undef_mth2 {
 
       $redis->set( 'empty', undef,
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -363,6 +373,7 @@ sub t_get_undef_mth1 {
       $redis->get( 'empty',
         { on_done => sub {
             $t_reply = shift;
+
             $cv->send();
           },
         }
@@ -387,10 +398,11 @@ sub t_get_undef_mth2 {
 
       $redis->get( 'empty',
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -447,18 +459,21 @@ sub t_set_utf8_string_mth2 {
 
       $redis->set( 'ключ', 'Значение',
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         },
       );
 
       $redis->del( 'ключ',
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -519,18 +534,21 @@ sub t_get_utf8_string_mth2 {
 
       $redis->get( 'ключ',
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         }
       );
 
       $redis->del( 'ключ',
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -573,7 +591,7 @@ sub t_get_non_existent_mth1 {
 sub t_get_non_existent_mth2 {
   my $redis = shift;
 
-  my $t_reply    = 'not_undef';
+  my $t_reply   = 'not_undef';
   my $t_err_msg = 'not_undef';
 
   ev_loop(
@@ -582,7 +600,7 @@ sub t_get_non_existent_mth2 {
 
       $redis->get( 'non_existent',
         sub {
-          $t_reply    = shift;
+          $t_reply   = shift;
           $t_err_msg = shift;
 
           if ( defined( $t_err_msg ) ) {
@@ -660,18 +678,21 @@ sub t_mbulk_reply_mth2 {
 
       $redis->lrange( 'list', 0, -1,
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         }
       );
 
       $redis->del( 'list',
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -730,10 +751,11 @@ sub t_mbulk_reply_empty_list_mth2 {
 
       $redis->lrange( 'non_existent', 0, -1,
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -776,7 +798,7 @@ sub t_mbulk_reply_undef_mth1 {
 sub t_mbulk_reply_undef_mth2 {
   my $redis = shift;
 
-  my $t_reply    = 'not_undef';
+  my $t_reply   = 'not_undef';
   my $t_err_msg = 'not_undef';
 
   ev_loop(
@@ -785,7 +807,7 @@ sub t_mbulk_reply_undef_mth2 {
 
       $redis->brpop( 'non_existent', '1',
         sub {
-          $t_reply    = shift;
+          $t_reply   = shift;
           $t_err_msg = shift;
 
           if ( defined( $t_err_msg ) ) {
@@ -889,18 +911,21 @@ sub t_nested_mbulk_reply_mth2 {
       $redis->lrange( 'list', 0, -1 );
       $redis->exec(
         sub {
-          $t_reply = shift;
+          $t_reply    = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
         },
       );
 
       $redis->del( qw( foo list bar ),
         sub {
-          if ( defined( $_[1] ) ) {
-            diag( $_[1] );
+          my $err_msg = $_[1];
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
           }
 
           $cv->send();
@@ -976,10 +1001,10 @@ sub t_oprn_error_mth2 {
       # missing argument
       $redis->set( 'foo',
         sub {
-          my $data = shift;
+          my $reply  = shift;
+          $t_err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            $t_err_msg  = shift;
+          if ( defined( $t_err_msg ) ) {
             $t_err_code = shift;
           }
 
@@ -1086,10 +1111,10 @@ sub t_error_after_exec_mth2 {
       $redis->incr( 'foo' );
       $redis->exec(
         sub {
-          $t_reply = shift;
+          $t_reply   = shift;
+          $t_err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            $t_err_msg  = shift;
+          if ( defined( $t_err_msg ) ) {
             $t_err_code = shift;
           }
 

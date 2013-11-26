@@ -92,16 +92,17 @@ LUA
 
       $redis->eval_cached( $script, 0, 42,
         { on_done => sub {
-            my $data = shift;
-            push( @t_data, $data );
+            my $reply = shift;
+
+            push( @t_data, $reply );
 
             $redis->eval_cached( $script, 0, 15 );
 
             $redis->eval_cached( $script, 0, 57,
               {
                 on_done => sub {
-                  my $data = shift;
-                  push( @t_data, $data );
+                  my $reply = shift;
+                  push( @t_data, $reply );
                   $cv->send();
                 },
               }
@@ -136,15 +137,30 @@ LUA
 
       $redis->eval_cached( $script, 0, 42,
         sub {
-          my $data = shift;
-          push( @t_data, $data );
+          my $reply   = shift;
+          my $err_msg = shift;
+
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
+            return;
+          }
+
+          push( @t_data, $reply );
 
           $redis->eval_cached( $script, 0, 15 );
 
           $redis->eval_cached( $script, 0, 57,
             sub {
-              my $data = shift;
-              push( @t_data, $data );
+              my $reply   = shift;
+              my $err_msg = shift;
+
+              if ( defined( $err_msg ) ) {
+                diag( $err_msg );
+                return;
+              }
+
+              push( @t_data, $reply );
+
               $cv->send();
             }
           );
@@ -210,10 +226,10 @@ LUA
 
       $redis->eval_cached( $script, 0,
         sub {
-          my $data = shift;
+          my $reply  = shift;
+          $t_err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            $t_err_msg  = shift;
+          if ( defined( $t_err_msg ) ) {
             $t_err_code = shift;
           }
 

@@ -173,21 +173,22 @@ sub t_sub_unsub_mth2 {
 
       $r_consum->subscribe( 'ch_bar',
         { on_reply => sub {
-            my $data = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
 
-            if ( defined( $_[0] ) ) {
-              diag( $_[0] );
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
               return;
             }
 
             push( @t_sub_data,
-              { ch_name  => $data->[0],
-                subs_num => $data->[1],
+              { ch_name  => $reply->[0],
+                subs_num => $reply->[1],
               }
             );
 
             $r_transm->publish( 'ch_foo', 'test1' );
-            $r_transm->publish( $data->[0], "test$data->[1]" );
+            $r_transm->publish( $reply->[0], "test$reply->[1]" );
           },
 
           on_message => sub {
@@ -236,20 +237,21 @@ sub t_sub_unsub_mth2 {
 
       $r_consum->unsubscribe( qw( ch_foo ch_bar ),
         sub {
-          my $data = shift;
+          my $reply   = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
             return;
           }
 
           push( @t_unsub_data,
-            { ch_name  => $data->[0],
-              subs_num => $data->[1],
+            { ch_name  => $reply->[0],
+              subs_num => $reply->[1],
             }
           );
 
-          if ( $data->[1] == 0 ) {
+          if ( $reply->[1] == 0 ) {
             $cv->send();
           }
         }
@@ -291,8 +293,8 @@ sub t_psub_punsub_mth1 {
             my $subs_num   = shift;
 
             push( @t_sub_data,
-              { ch_pattern  => $ch_pattern,
-                subs_num    => $subs_num,
+              { ch_pattern => $ch_pattern,
+                subs_num   => $subs_num,
               }
             );
 
@@ -419,24 +421,25 @@ sub t_psub_punsub_mth2 {
 
       $r_consum->psubscribe( 'err_*',
         { on_reply => sub {
-            my $data = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
 
-            if ( defined( $_[0] ) ) {
-              diag( $_[0] );
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
               return;
             }
 
             push( @t_sub_data,
-              { ch_pattern => $data->[0],
-                subs_num   => $data->[1],
+              { ch_pattern => $reply->[0],
+                subs_num   => $reply->[1],
               }
             );
 
             $r_transm->publish( 'info_some', 'test1' );
 
-            my $ch_name = $data->[0];
+            my $ch_name = $reply->[0];
             $ch_name =~ s/\*/some/;
-            $r_transm->publish( $ch_name, "test$data->[1]" );
+            $r_transm->publish( $ch_name, "test$reply->[1]" );
           },
 
           on_message => sub {
@@ -489,20 +492,21 @@ sub t_psub_punsub_mth2 {
 
       $r_consum->punsubscribe( qw( info_* err_* ),
         sub {
-          my $data = shift;
+          my $reply   = shift;
+          my $err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            diag( $_[0] );
+          if ( defined( $err_msg ) ) {
+            diag( $err_msg );
             return;
           }
 
           push( @t_unsub_data,
-            { ch_pattern => $data->[0],
-              subs_num   => $data->[1],
+            { ch_pattern => $reply->[0],
+              subs_num   => $reply->[1],
             }
           );
 
-          if ( $data->[1] == 0 ) {
+          if ( $reply->[1] == 0 ) {
             $cv->send();
           }
         }
@@ -550,7 +554,7 @@ sub t_sub_after_multi {
           },
 
           on_error => sub {
-            $t_err_msg = shift;
+            $t_err_msg  = shift;
             $t_err_code = shift;
 
             $cv->send();

@@ -92,18 +92,21 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->set( 'foo', "some\r\nstring",
           sub {
-            my $reply = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
 
-            if ( defined( $_[0] ) ) {
-              diag( $_[0] );
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
           }
         );
 
         $redis->del( 'foo',
           sub {
-            if ( defined( $_[1] ) ) {
-              diag( $_[1] );
+            my $err_msg = $_[1];
+
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
 
             $cv->send();
@@ -160,18 +163,21 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->get( 'foo',
           sub {
-            my $reply = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
 
-            if ( defined( $_[0] ) ) {
-              diag( $_[0] );
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
           }
         );
 
         $redis->del( 'foo',
           sub {
-            if ( defined( $_[1] ) ) {
-              diag( $_[1] );
+            my $err_msg = $_[1];
+
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
 
             $cv->send();
@@ -232,18 +238,21 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->lrange( 'list', 0, -1,
           sub {
-            my $reply = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
 
-            if ( defined( $_[0] ) ) {
-              diag( $_[0] );
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
           }
         );
 
         $redis->del( 'list',
           sub {
-            if ( defined( $_[1] ) ) {
-              diag( $_[1] );
+            my $err_msg = $_[1];
+
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
 
             $cv->send();
@@ -320,18 +329,21 @@ sub t_leaks_nested_mbulk_reply_mth2 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           sub {
-            my $reply = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
 
-            if ( defined( $_[0] ) ) {
-              diag( $_[0] );
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
           },
         );
 
         $redis->del( qw( foo list bar ),
           sub {
-            if ( defined( $_[1] ) ) {
-              diag( $_[1] );
+            my $err_msg = $_[1];
+
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
             }
 
             $cv->send();
@@ -400,11 +412,23 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           sub {
-            my $reply = shift;
+            my $reply   = shift;
+            my $err_msg = shift;
+
+            if ( defined( $err_msg ) ) {
+              diag( $err_msg );
+              return;
+            }
 
             $redis->eval_cached( $script, 0, 57,
               sub {
-                my $reply = shift;
+                my $reply   = shift;
+                my $err_msg = shift;
+
+                if ( defined( $err_msg ) ) {
+                  diag( $err_msg );
+                }
+
                 $cv->send();
               }
             );
