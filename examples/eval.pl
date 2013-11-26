@@ -24,8 +24,8 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
     2, 'key1', 'key2', 'first', 'second', {
   on_done => sub {
-    my $data = shift;
-    foreach my $val ( @{$data}  ) {
+    my $reply = shift;
+    foreach my $val ( @{$reply}  ) {
       print "$val\n";
     }
     $cv->send();

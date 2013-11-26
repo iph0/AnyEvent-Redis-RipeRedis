@@ -41,9 +41,9 @@ sub t_db_select {
     database => 2,
   );
 
-  my $t_data = t_set_get( $redis_db1, $redis_db2 );
+  my $t_reply = t_set_get( $redis_db1, $redis_db2 );
 
-  is_deeply( $t_data,
+  is_deeply( $t_reply,
     {
       db1 => 'bar1',
       db2 => 'bar2',
@@ -102,7 +102,7 @@ sub t_invalid_db_index {
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
       "$t_name; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
-  like( $t_comm_err_msg, qr/^ERR/, "$t_name; common error message" );
+  ok( defined( $t_comm_err_msg ), "$t_name; common error message" );
   is( $t_comm_err_code, E_OPRN_ERROR, "$t_name common error code" );
 
   return;

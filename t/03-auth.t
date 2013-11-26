@@ -30,7 +30,7 @@ sub t_successful_auth {
 
   can_ok( $redis, 'disconnect' );
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -38,7 +38,7 @@ sub t_successful_auth {
 
       $redis->ping(
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
             $cv->send();
           },
         }
@@ -48,7 +48,7 @@ sub t_successful_auth {
 
   $redis->disconnect();
 
-  is( $t_data, 'PONG', 'successful AUTH' );
+  is( $t_reply, 'PONG', 'successful AUTH' );
 }
 
 ####
@@ -94,7 +94,7 @@ sub t_invalid_password {
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
       "$t_name; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
-  like( $t_comm_err_msg, qr/^ERR/, "$t_name; common error message" );
+  ok( defined( $t_comm_err_msg ), "$t_name; common error message" );
   is( $t_comm_err_code, E_OPRN_ERROR, "$t_name; common error code" );
 
   return;

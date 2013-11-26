@@ -28,14 +28,14 @@ $timer = AE::timer( 0, 1,
   sub {
     $redis->incr( 'foo',
       sub {
-        my $data = shift;
+        my $reply = shift;
 
         if ( defined( $_[0] ) ) {
           warn "$_[0]\n";
           return;
         };
 
-        print "$data\n";
+        print "$reply\n";
       },
     );
   },

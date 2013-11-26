@@ -62,7 +62,7 @@ sub t_leaks_status_reply_mth1 {
 
         $redis->set( 'foo', "some\r\nstring",
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
               $cv->send();
             },
           }
@@ -92,7 +92,7 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->set( 'foo', "some\r\nstring",
           sub {
-            my $t_data = shift;
+            my $reply = shift;
 
             if ( defined( $_[0] ) ) {
               diag( $_[0] );
@@ -129,7 +129,7 @@ sub t_leaks_bulk_reply_mth1 {
 
         $redis->get( 'foo',
           { on_done => sub {
-              my $t_data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -160,7 +160,7 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->get( 'foo',
           sub {
-            my $t_data = shift;
+            my $reply = shift;
 
             if ( defined( $_[0] ) ) {
               diag( $_[0] );
@@ -199,7 +199,7 @@ sub t_leaks_mbulk_reply_mth1 {
 
         $redis->lrange( 'list', 0, -1,
           { on_done => sub {
-              my $t_data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -232,7 +232,7 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->lrange( 'list', 0, -1,
           sub {
-            my $t_data = shift;
+            my $reply = shift;
 
             if ( defined( $_[0] ) ) {
               diag( $_[0] );
@@ -279,7 +279,7 @@ sub t_leaks_nested_mbulk_reply_mth1 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           { on_done => sub {
-              my $t_data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -320,7 +320,7 @@ sub t_leaks_nested_mbulk_reply_mth2 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           sub {
-            my $t_data = shift;
+            my $reply = shift;
 
             if ( defined( $_[0] ) ) {
               diag( $_[0] );
@@ -362,12 +362,12 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
 
               $redis->eval_cached( $script, 0, 57,
                 {
                   on_done => sub {
-                    my $data = shift;
+                    my $reply = shift;
                     $cv->send();
                   },
                 }
@@ -400,11 +400,11 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             $redis->eval_cached( $script, 0, 57,
               sub {
-                my $data = shift;
+                my $reply = shift;
                 $cv->send();
               }
             );
