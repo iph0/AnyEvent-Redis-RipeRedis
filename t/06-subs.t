@@ -156,7 +156,7 @@ sub t_sub_unsub_mth2 {
 
       my $msg_cnt = 0;
 
-      $r_consum->subscribe( 'ch_foo',
+      $r_consum->subscribe( qw( ch_foo ch_bar ),
         sub {
           my $ch_name = shift;
           my $msg     = shift;
@@ -171,7 +171,7 @@ sub t_sub_unsub_mth2 {
         }
       );
 
-      $r_consum->subscribe( 'ch_bar',
+      $r_consum->subscribe( qw( ch_events ch_signals ),
         { on_reply => sub {
             my $reply   = shift;
             my $err_msg = shift;
@@ -187,7 +187,10 @@ sub t_sub_unsub_mth2 {
               }
             );
 
-            $r_transm->publish( 'ch_foo', 'test1' );
+            if ( $reply->[0] eq 'ch_events' ) {
+              $r_transm->publish( 'ch_foo', 'test1' );
+              $r_transm->publish( 'ch_bar', 'test2' );
+            }
             $r_transm->publish( $reply->[0], "test$reply->[1]" );
           },
 
@@ -201,7 +204,7 @@ sub t_sub_unsub_mth2 {
               }
             );
 
-            if ( ++$msg_cnt == 2 ) {
+            if ( ++$msg_cnt == 4 ) {
               $cv->send();
             }
           },
@@ -211,8 +214,11 @@ sub t_sub_unsub_mth2 {
   );
 
   is_deeply( \@t_sub_data,
-    [ { ch_name  => 'ch_bar',
-        subs_num => 2,
+    [ { ch_name  => 'ch_events',
+        subs_num => 3,
+      },
+      { ch_name  => 'ch_signals',
+        subs_num => 4,
       },
     ],
     'SUBSCRIBE; on_reply used'
@@ -225,6 +231,13 @@ sub t_sub_unsub_mth2 {
       { ch_name => 'ch_bar',
         message => 'test2',
       },
+      { ch_name => 'ch_events',
+        message => 'test3',
+      },
+
+      { ch_name => 'ch_signals',
+        message => 'test4',
+      },
     ],
     'publish message from on_reply'
   );
@@ -235,7 +248,7 @@ sub t_sub_unsub_mth2 {
     sub {
       my $cv = shift;
 
-      $r_consum->unsubscribe( qw( ch_foo ch_bar ),
+      $r_consum->unsubscribe( qw( ch_foo ch_bar ch_events ch_signals ),
         sub {
           my $reply   = shift;
           my $err_msg = shift;
@@ -261,9 +274,15 @@ sub t_sub_unsub_mth2 {
 
   is_deeply( \@t_unsub_data,
     [ { ch_name  => 'ch_foo',
-        subs_num => 1,
+        subs_num => 3,
       },
       { ch_name  => 'ch_bar',
+        subs_num => 2,
+      },
+      { ch_name  => 'ch_events',
+        subs_num => 1,
+      },
+      { ch_name  => 'ch_signals',
         subs_num => 0,
       },
     ],
@@ -287,7 +306,7 @@ sub t_psub_punsub_mth1 {
 
       my $msg_cnt = 0;
 
-      $r_consum->psubscribe( qw( info_* err_* ),
+      $r_consum->psubscribe( qw( foo_* bar_* ),
         { on_done => sub {
             my $ch_pattern = shift;
             my $subs_num   = shift;
@@ -299,7 +318,7 @@ sub t_psub_punsub_mth1 {
             );
 
             my $ch_name = $ch_pattern;
-            $ch_name =~ s/\*/some/;
+            $ch_name =~ s/\*/test/;
             $r_transm->publish( $ch_name, "test$subs_num" );
           },
 
@@ -325,10 +344,10 @@ sub t_psub_punsub_mth1 {
   );
 
   is_deeply( \@t_sub_data,
-    [ { ch_pattern => 'info_*',
+    [ { ch_pattern => 'foo_*',
         subs_num   => 1,
       },
-      { ch_pattern => 'err_*',
+      { ch_pattern => 'bar_*',
         subs_num   => 2,
       },
     ],
@@ -336,13 +355,13 @@ sub t_psub_punsub_mth1 {
   );
 
   is_deeply( \@t_sub_msgs,
-    [ { ch_name    => 'info_some',
+    [ { ch_name    => 'foo_test',
         message    => 'test1',
-        ch_pattern => 'info_*',
+        ch_pattern => 'foo_*',
       },
-      { ch_name    => 'err_some',
+      { ch_name    => 'bar_test',
         message    => 'test2',
-        ch_pattern => 'err_*',
+        ch_pattern => 'bar_*',
       },
     ],
     'publish message from on_done'
@@ -354,7 +373,7 @@ sub t_psub_punsub_mth1 {
     sub {
       my $cv = shift;
 
-      $r_consum->punsubscribe( qw( info_* err_* ),
+      $r_consum->punsubscribe( qw( foo_* bar_* ),
         { on_done => sub {
             my $ch_pattern = shift;
             my $subs_num   = shift;
@@ -375,10 +394,10 @@ sub t_psub_punsub_mth1 {
   );
 
   is_deeply( \@t_unsub_data,
-    [ { ch_pattern => 'info_*',
+    [ { ch_pattern => 'foo_*',
         subs_num   => 1,
       },
-      { ch_pattern => 'err_*',
+      { ch_pattern => 'bar_*',
         subs_num   => 0,
       },
     ],
@@ -402,7 +421,7 @@ sub t_psub_punsub_mth2 {
 
       my $msg_cnt = 0;
 
-      $r_consum->psubscribe( 'info_*',
+      $r_consum->psubscribe( qw( foo_* bar_* ),
         sub {
           my $ch_name    = shift;
           my $msg        = shift;
@@ -419,7 +438,7 @@ sub t_psub_punsub_mth2 {
         }
       );
 
-      $r_consum->psubscribe( 'err_*',
+      $r_consum->psubscribe( qw( events_* signals_* ),
         { on_reply => sub {
             my $reply   = shift;
             my $err_msg = shift;
@@ -435,10 +454,12 @@ sub t_psub_punsub_mth2 {
               }
             );
 
-            $r_transm->publish( 'info_some', 'test1' );
-
+            if ( $reply->[0] eq 'events_*' ) {
+              $r_transm->publish( 'foo_test', 'test1' );
+              $r_transm->publish( 'bar_test', 'test2' );
+            }
             my $ch_name = $reply->[0];
-            $ch_name =~ s/\*/some/;
+            $ch_name =~ s/\*/test/;
             $r_transm->publish( $ch_name, "test$reply->[1]" );
           },
 
@@ -454,7 +475,7 @@ sub t_psub_punsub_mth2 {
               }
             );
 
-            if ( ++$msg_cnt == 2 ) {
+            if ( ++$msg_cnt == 4 ) {
               $cv->send();
             }
           },
@@ -464,21 +485,32 @@ sub t_psub_punsub_mth2 {
   );
 
   is_deeply( \@t_sub_data,
-    [ { ch_pattern => 'err_*',
-        subs_num   => 2,
+    [ { ch_pattern => 'events_*',
+        subs_num   => 3,
+      },
+      { ch_pattern => 'signals_*',
+        subs_num   => 4,
       },
     ],
     'PSUBSCRIBE; on_reply used'
   );
 
   is_deeply( \@t_sub_msgs,
-    [ { ch_name    => 'info_some',
+    [ { ch_name    => 'foo_test',
         message    => 'test1',
-        ch_pattern => 'info_*',
+        ch_pattern => 'foo_*',
       },
-      { ch_name    => 'err_some',
+      { ch_name    => 'bar_test',
         message    => 'test2',
-        ch_pattern => 'err_*',
+        ch_pattern => 'bar_*',
+      },
+      { ch_name    => 'events_test',
+        message    => 'test3',
+        ch_pattern => 'events_*',
+      },
+      { ch_name    => 'signals_test',
+        message    => 'test4',
+        ch_pattern => 'signals_*',
       },
     ],
     'publish message from on_reply'
@@ -490,7 +522,7 @@ sub t_psub_punsub_mth2 {
     sub {
       my $cv = shift;
 
-      $r_consum->punsubscribe( qw( info_* err_* ),
+      $r_consum->punsubscribe( qw( foo_* bar_* events_* signals_* ),
         sub {
           my $reply   = shift;
           my $err_msg = shift;
@@ -515,10 +547,16 @@ sub t_psub_punsub_mth2 {
   );
 
   is_deeply( \@t_unsub_data,
-    [ { ch_pattern => 'info_*',
+    [ { ch_pattern => 'foo_*',
+        subs_num   => 3,
+      },
+      { ch_pattern => 'bar_*',
+        subs_num   => 2,
+      },
+      { ch_pattern => 'events_*',
         subs_num   => 1,
       },
-      { ch_pattern => 'err_*',
+      { ch_pattern => 'signals_*',
         subs_num   => 0,
       },
     ],

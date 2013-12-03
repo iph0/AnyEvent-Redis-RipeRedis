@@ -498,7 +498,7 @@ sub _get_reply_cb {
       $self->_handle_pub_message( $reply );
     }
     else {
-      $self->_handle_regular_reply( $reply );
+      $self->_handle_success_reply( $reply );
     }
 
     return;
@@ -725,7 +725,7 @@ sub _unshift_read {
 }
 
 ####
-sub _handle_regular_reply {
+sub _handle_success_reply {
   my __PACKAGE__ $self = shift;
   my $reply = shift;
 
@@ -1070,36 +1070,77 @@ feature
   my $cv = AE::cv();
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
-    host => 'localhost',
-    port => '6379',
+    host     => 'localhost',
+    port     => '6379',
     password => 'yourpass',
-    encoding => 'utf8',
+
     on_error => sub {
-      my $err_msg = shift;
+      my $err_msg  = shift;
       my $err_code = shift;
 
-      # handle the error
+      # error handling ...
+
+      $cv->croak( $err_msg );
     },
   );
 
-  # Set value
   $redis->set( 'foo', 'string',
-    { on_done => sub {
-        print "SET is done\n";
-        $cv->send();
-      },
-      on_error => sub {
-        my $err_msg = shift;
+    { on_error => sub {
+        my $err_msg  = shift;
         my $err_code = shift;
 
-        # handle the error
+        # error handling ...
+
+        $cv->croak( $err_msg );
+      },
+    }
+  );
+
+  $redis->get( 'foo',
+    { on_done => sub {
+        my $reply = shift;
+
+        print "$reply\n";
+      },
+
+      on_error => sub {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        # error handling ...
+
+        $cv->croak( $err_msg );
       }
     }
   );
 
-  $cv->recv();
+  $redis->incr( 'bar',
+    sub {
+      my $reply   = shift;
+      my $err_msg = shift;
 
-  $redis->disconnect();
+      if ( $err_msg ) {
+        my $err_code = shift;
+
+        # error handling ...
+
+        $cv->croak( $err_msg );
+
+        return;
+      }
+
+      print "$reply\n";
+    },
+  );
+
+  $redis->quit(
+    { on_done => sub {
+        $cv->send();
+      },
+    }
+  );
+
+  $cv->recv();
 
 =head1 DESCRIPTION
 
@@ -1114,31 +1155,35 @@ Requires Redis 1.2 or higher, and any supported event loop.
 =head2 new()
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
-    host => 'localhost',
-    port => '6379',
-    password => 'yourpass',
-    database => 7,
-    lazy => 1,
+    host               => 'localhost',
+    port               => '6379',
+    password           => 'yourpass',
+    database           => 7,
+    lazy               => 1,
     connection_timeout => 5,
-    read_timeout => 5,
-    reconnect => 1,
-    encoding => 'utf8',
+    read_timeout       => 5,
+    reconnect          => 1,
+    encoding           => 'utf8',
+
     on_connect => sub {
       print "Connected to Redis server\n";
     },
+
     on_disconnect => sub {
       print "Disconnected from Redis server\n";
     },
+
     on_connect_error => sub {
       my $err_msg = shift;
 
-      # handle the error
+      # error handling ...
     },
+
     on_error => sub {
-      my $err_msg = shift;
+      my $err_msg  = shift;
       my $err_code = shift;
 
-      # handle the error
+      # error handling ...
     },
   );
 
@@ -1240,42 +1285,87 @@ Not set by default.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, when any error occurred. If the callback is
-not set, the client just print an error message to C<STDERR>.
+The common C<on_error> callback is called when ocurred some error affected on
+entire client (e. g. connection error). Also this callback is called
+on other errors if neither C<on_error> callback nor C<on_reply> callback is
+specified in the command method. If common C<on_error> callback is not specified,
+the client just print an error messages to C<STDERR>.
 
 =back
 
 =head1 COMMAND EXECUTION
 
-=head2 <command>( [ @args[, \%callbacks ] ] )
+=head2 <command>( [ @args ][, ( $cb | \%callbacks ) ] )
 
 The full list of the Redis commands can be found here: L<http://redis.io/commands>.
 
-  # Set value
   $redis->set( 'foo', 'string' );
 
-  # Increment
-  $redis->incr( 'bar',
+  $redis->get( 'foo',
     { on_done => sub {
         my $reply = shift;
+
         print "$reply\n";
       },
+
+      on_error => sub {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        # error handling ...
+      }
     }
   );
 
-  # Get list of values
   $redis->lrange( 'list', 0, -1,
     { on_done => sub {
         my $reply = shift;
+
         foreach my $val ( @{$reply}  ) {
           print "$val\n";
         }
       },
+
       on_error => sub {
-        my $err_msg = shift;
+        my $err_msg  = shift;
         my $err_code = shift;
 
-        # handle the error
+        # error handling ...
+      },
+    }
+  );
+
+  $redis->incr( 'bar',
+    sub {
+      my $reply   = shift;
+      my $err_msg = shift;
+
+      if ( $err_msg ) {
+        my $err_code = shift;
+
+        # error handling ...
+
+        return;
+      }
+
+      print "$reply\n";
+    },
+  );
+
+  $redis->incr( 'bar',
+    { on_reply => sub {
+        my $reply   = shift;
+        my $err_msg = shift;
+
+        if ( $err_msg ) {
+          my $err_code = shift;
+
+          # error handling ...
+
+          return;
+        }
+
+        print "$reply\n";
       },
     }
   );
@@ -1288,75 +1378,101 @@ The C<on_done> callback is called, when the current operation is done.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if any error occurred. If the C<on_error>
-callback is not specified here, then the C<on_error> callback
-specified in constructor is called.
+The C<on_error> callback is called, when some error occurred.
+
+=item on_reply => $cb->( [ $reply ][, $err_msg, $err_code ] )
+
+Since version 1.300 of the client you can specify single, C<on_reply> callback,
+instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
+is called in both cases: when operation was completed successfully and when some
+errors occurred. In first case to callback is passed only reply data. In second
+case to callback is passed three arguments: undef value, error mesage and error
+code. Also in second case first argument can contain reply data with error
+objects (see below).
 
 =back
-
-=head2 execute_cmd( \%params )
 
 =head1 TRANSACTIONS
 
 The detailed information abount the Redis transactions can be found here:
 L<http://redis.io/topics/transactions>.
 
-=head2 multi( [ \%callbacks ] )
+=head2 multi( [ ( $cb | \%callbacks ) ] )
 
 Marks the start of a transaction block. Subsequent commands will be queued for
 atomic execution using C<EXEC>.
 
-=head2 exec( [ \%callbacks ] )
+=head2 exec( [ ( $cb | \%callbacks ) ] )
 
 Executes all previously queued commands in a transaction and restores the
 connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
 only if the watched keys were not modified.
 
-If after C<EXEC> command at least one operation fails, then C<on_error> callback
-is called with C<E_OPRN_ERROR> error code and with reply data. Reply data is
-passed in third argument of C<on_error> callback and will contain errors of
-failed operations and replies of successful operations. Errors will be
-represented as objects of the class C<AnyEvent::Redis::RipeRedis::Error>. Each
-error object has two methods: C<message()> to get error message and C<code()> to
-get error code.
+If after execution of C<EXEC> command at least one operation fails, then
+either C<on_error> or C<on_reply> callback is called with C<E_OPRN_ERROR> error
+code. Additionally, to callbacks is passed reply data, which contain both usual
+data and error objects for each failed operation. To C<on_error> callback reply
+data is passed in third argument and to C<on_reply> callback in first argument.
+Error object is an instance of class C<AnyEvent::Redis::RipeRedis::Error> and
+has two methods: C<message()> to get error message and C<code()> to get error
+code.
 
   $redis->multi();
   $redis->set( 'foo', 'string' );
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
     { on_error => sub {
-        my $err_msg = shift;
+        my $err_msg  = shift;
         my $err_code = shift;
-        my $reply = shift;
+        my $reply    = shift;
 
-        warn "$err_msg\n";
         foreach my $reply ( @{$reply}  ) {
           if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg = $reply->message();
+            my $oprn_err_msg  = $reply->message();
             my $oprn_err_code = $reply->code();
 
-            # handle the error
+            # error handling ...
           }
         }
-
-        $cv->send();
       },
     }
   );
 
+  $redis->multi();
+  $redis->set( 'foo', 'string' );
+  $redis->incr( 'foo' ); # causes an error
+  $redis->exec(
+    sub {
+      my $reply   = shift;
+      my $err_msg = shift;
 
-=head2 discard( [ \%callbacks ] )
+      if ( defined( $err_msg ) ) {
+        my $err_code = shift;
+
+        foreach my $reply ( @{$reply}  ) {
+          if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $oprn_err_msg  = $reply->message();
+            my $oprn_err_code = $reply->code();
+
+            # error handling ...
+          }
+        }
+      }
+    },
+  );
+
+=head2 discard( [ ( $cb | \%callbacks ) ] )
 
 Flushes all previously queued commands in a transaction and restores the
 connection state to normal.
 
 If C<WATCH> was used, C<DISCARD> unwatches all keys.
 
-=head2 watch( @keys[, \%callbacks ] )
+=head2 watch( @keys[, ( $cb | \%callbacks ) ] )
 
 Marks the given keys to be watched for conditional execution of a transaction.
 
-=head2 unwatch( [ \%callbacks ] )
+=head2 unwatch( [ ( $cb | \%callbacks ) ] )
 
 Forget about all watched keys.
 
@@ -1365,7 +1481,7 @@ Forget about all watched keys.
 The detailed information about Redis Pub/Sub can be found here:
 L<http://redis.io/topics/pubsub>
 
-=head2 subscribe( @channels[, \%callbacks ] )
+=head2 subscribe( @channels, ( $cb | \%callbacks ) )
 
 Subscribes the client to the specified channels.
 
@@ -1375,20 +1491,61 @@ and C<PUNSUBSCRIBE> commands.
 
   $redis->subscribe( qw( ch_foo ch_bar ),
     { on_done =>  sub {
-        my $ch_name = shift;
+        my $ch_name  = shift;
         my $subs_num = shift;
-        print "Subscribed: $ch_name. Active: $subs_num\n";
+
+        # subscription handling ...
       },
+
       on_message => sub {
         my $ch_name = shift;
-        my $msg = shift;
-        print "$ch_name: $msg\n";
+        my $msg     = shift;
+
+        # message handling ...
       },
+
       on_error => sub {
-        my $err_msg = shift;
+        my $err_msg  = shift;
         my $err_code = shift;
 
-        # handle the error
+        # error handling ...
+      },
+    }
+  );
+
+  $redis->subscribe( qw( ch_foo ch_bar ),
+    sub {
+      my $ch_name = shift;
+      my $msg     = shift;
+
+      # message handling ...
+    }
+  );
+
+  $redis->subscribe( qw( ch_foo ch_bar ),
+    { on_reply => sub {
+        my $reply   = shift;
+        my $err_msg = shift;
+
+        if ( defined( $err_msg ) ) {
+          my $err_code = shift;
+
+          # error handling ...
+
+          return;
+        }
+
+        my $ch_name  = $reply->[0];
+        my $subs_num = $reply->[1];
+
+        # subscription handling ...
+      },
+
+      on_message => sub {
+        my $ch_name = shift;
+        my $msg     = shift;
+
+        # message handling ...
       },
     }
   );
@@ -1397,8 +1554,8 @@ and C<PUNSUBSCRIBE> commands.
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
-The C<on_done> callback is called on every specified channel, when the current
-subscription operation is done.
+The C<on_done> callback is called on every specified channel, when the
+subscription operation was completed successfully.
 
 =item on_message => $cb->( $ch_name, $msg )
 
@@ -1406,33 +1563,82 @@ The C<on_message> callback is called, when a published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the subscription operation fails. If the
-C<on_error> callback is not specified here, then the C<on_error> callback
-specified in constructor is called.
+The C<on_error> callback is called, if the subscription operation fails.
+
+=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+
+The C<on_reply> callback is called in both cases: when the subscription operation
+was completed successfully and when subscription operation fails. In first case
+C<on_reply> callback is called on every specified channel. Information about
+channel name and subscription number is passed to callback in first argument as
+an array reference.
 
 =back
 
-=head2 psubscribe( @patterns[, \%callbacks ] )
+=head2 psubscribe( @patterns, ( $cb | \%callbacks ) )
 
 Subscribes the client to the given patterns.
 
-  $redis->psubscribe( qw( info_* err_* ),
+  $redis->psubscribe( qw( foo_* bar_* ),
     { on_done =>  sub {
         my $ch_pattern = shift;
-        my $subs_num = shift;
-        print "Subscribed: $ch_pattern. Active: $subs_num\n";
+        my $subs_num   = shift;
+
+        # subscription handling ...
       },
+
       on_message => sub {
-        my $ch_name = shift;
-        my $msg = shift;
+        my $ch_name    = shift;
+        my $msg        = shift;
         my $ch_pattern = shift;
-        print "$ch_name ($ch_pattern): $msg\n";
+
+        # message handling ...
       },
+
       on_error => sub {
-        my $err_msg = shift;
+        my $err_msg  = shift;
         my $err_code = shift;
 
-        # handle the error
+        # error handling ...
+      },
+    }
+  );
+
+  $redis->psubscribe( qw( foo_* bar_* ),
+    sub {
+      my $ch_name    = shift;
+      my $msg        = shift;
+      my $ch_pattern = shift;
+
+      # message handling ...
+    }
+  );
+
+  $redis->psubscribe( qw( foo_* bar_* ),
+    { on_reply => sub {
+        my $reply   = shift;
+        my $err_msg = shift;
+
+        if ( defined( $err_msg ) ) {
+          my $err_code = shift;
+
+          # error handling ...
+
+          return;
+        }
+
+        my $ch_pattern = $reply->[0];
+        my $subs_num   = $reply->[1];
+
+        # subscription handling ...
+      },
+
+      on_message => sub {
+        my $ch_name    = shift;
+        my $msg        = shift;
+        my $ch_pattern = shift;
+
+        # message handling ...
       },
     }
   );
@@ -1442,7 +1648,7 @@ Subscribes the client to the given patterns.
 =item on_done => $cb->( $ch_pattern, $sub_num )
 
 The C<on_done> callback is called on every specified pattern, when the
-current subscription operation is done.
+subscription operation was completed successfully.
 
 =item on_message => $cb->( $ch_name, $msg, $ch_pattern )
 
@@ -1450,17 +1656,23 @@ The C<on_message> callback is called, when published message is received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the subscription operation fails. If the
-C<on_error> callback is not specified here, then the C<on_error> callback
-specified in constructor is called.
+The C<on_error> callback is called, if the subscription operation fails.
+
+=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+
+The C<on_reply> callback is called in both cases: when the subscription
+operation was completed successfully and when subscription operation fails.
+In first case C<on_reply> callback is called on every specified pattern.
+Information about channel pattern and subscription number is passed to callback
+in first argument as an array reference.
 
 =back
 
-=head2 publish( $channel, $message[, \%callbacks ] )
+=head2 publish( $channel, $message[, ( $cb | \%callbacks ) ] )
 
 Posts a message to the given channel.
 
-=head2 unsubscribe( [ @channels ][, \%callbacks ] )
+=head2 unsubscribe( [ @channels ][, ( $cb | \%callbacks ) ] )
 
 Unsubscribes the client from the given channels, or from all of them if none
 is given.
@@ -1469,22 +1681,58 @@ When no channels are specified, the client is unsubscribed from all the
 previously subscribed channels. In this case, a message for every unsubscribed
 channel will be sent to the client.
 
+  $redis->unsubscribe( qw( ch_foo ch_bar ),
+    { on_done => sub {
+        my $ch_name  = shift;
+        my $subs_num = shift;
+
+        # unsubscription handling ...
+      },
+    }
+  );
+
+  $redis->unsubscribe( qw( ch_foo ch_bar ),
+    sub {
+      my $reply   = shift;
+      my $err_msg = shift;
+
+      if ( defined( $err_msg ) ) {
+        my $err_code = shift;
+
+        # error handling ...
+
+        return;
+      }
+
+      my $ch_name  = $reply->[0];
+      my $subs_num = $reply->[1];
+
+      # unsubscription handling ...
+    }
+  );
+
 =over
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
 The C<on_done> callback is called on every specified channel, when the
-current unsubscription operation is done.
+unsubscription operation was completed successfully.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the unsubscription operation fails. If
-the C<on_error> callback is not specified here, then the C<on_error> callback
-specified in constructor is called.
+The C<on_error> callback is called, if the unsubscription operation fails.
+
+=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+
+The C<on_reply> callback is called in both cases: when the unsubscription
+operation was completed successfully and when usubscription operation fails.
+In first case C<on_reply> callback is called on every specified channel.
+Information about channel name and number of remaining subscriptions is passed
+to callback in first argument as an array reference.
 
 =back
 
-=head2 punsubscribe( [ @patterns ][, \%callbacks ] )
+=head2 punsubscribe( [ @patterns ][, ( $cb | \%callbacks ) ] )
 
 Unsubscribes the client from the given patterns, or from all of them if none
 is given.
@@ -1493,18 +1741,54 @@ When no patters are specified, the client is unsubscribed from all the
 previously subscribed patterns. In this case, a message for every unsubscribed
 pattern will be sent to the client.
 
+  $redis->punsubscribe( qw( foo_* bar_* ),
+    { on_done => sub {
+        my $ch_pattern = shift;
+        my $subs_num   = shift;
+
+        # unsubscription handling ...
+      },
+    }
+  );
+
+  $redis->punsubscribe( qw( foo_* bar_* ),
+    sub {
+      my $reply   = shift;
+      my $err_msg = shift;
+
+      if ( defined( $err_msg ) ) {
+        my $err_code = shift;
+
+        # error handling ...
+
+        return;
+      }
+
+      my $ch_pattern = $reply->[0];
+      my $subs_num   = $reply->[1];
+
+      # unsubscription handling ...
+    }
+  );
+
 =over
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
 The C<on_done> callback is called on every specified pattern, when the
-current unsubscription operation is done.
+unsubscription operation was completed successfully.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the unsubscription operation fails. If
-the C<on_error> callback is not specified here, then the C<on_error> callback
-specified in constructor is called.
+The C<on_error> callback is called, if the unsubscription operation fails.
+
+=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+
+The C<on_reply> callback is called in both cases: when the unsubscription
+operation was completed successfully and when usubscription operation fails.
+In first case C<on_reply> callback is called on every specified pattern.
+Information about channel pattern and number of remaining subscriptions is
+passed to callback in first argument as an array reference.
 
 =back
 
@@ -1526,33 +1810,50 @@ To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
 or you can use the special method C<eval_cached()>.
 
 If Lua script returns multi-bulk reply with at least one error reply, then
-C<on_error> callback is called with C<E_OPRN_ERROR> error code and with reply
-data. Reply data is passed in third argument of C<on_error> callback and will
-contain returned errors and other data. Errors will be represented as objects of
-the class C<AnyEvent::Redis::RipeRedis::Error>. Each error object has two
-methods: C<message()> to get error message and C<code()> to get error code.
+either C<on_error> or C<on_reply> callback is called with C<E_OPRN_ERROR> error
+code. Additionally, to callbacks is passed reply data, which contain both usual
+data and error objects for each error reply, as well as described for C<EXEC>
+command.
 
   $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     { on_error => sub {
-        my $err_msg = shift;
+        my $err_msg  = shift;
         my $err_code = shift;
-        my $reply = shift;
+        my $reply    = shift;
 
-        warn "$err_msg\n";
         foreach my $reply ( @{$reply}  ) {
           if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg = $reply->message();
-            my $oprn_err_code = $reply->code();
+            my $nested_err_msg  = $reply->message();
+            my $nested_err_code = $reply->code();
 
-            # handle the error
+            # error handling ...
           }
         }
-        $cv->send();
       }
     }
   );
 
-=head2 eval_cached( $script, $numkeys[, [ @keys, ][ @args, ]\%callbacks ] );
+  $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
+    sub {
+      my $reply    = shift;
+      my $err_msg  = shift;
+
+      if ( defined( $err_msg ) ) {
+        my $err_code = shift;
+
+        foreach my $reply ( @{$reply}  ) {
+          if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $nested_err_msg  = $reply->message();
+            my $nested_err_code = $reply->code();
+
+            # error handling ...
+          }
+        }
+      }
+    }
+  );
+
+=head2 eval_cached( $script, $numkeys[, @keys ][, @args ][, ( $cb | \%callbacks ) ] );
 
 When you call the C<eval_cached()> method, the client first generate a SHA1
 hash for a Lua script and cache it in memory. Then the client optimistically
@@ -1567,6 +1868,7 @@ instead.
       2, 'key1', 'key2', 'first', 'second',
     { on_done => sub {
         my $reply = shift;
+
         foreach my $val ( @{$reply}  ) {
           print "$val\n";
         }
@@ -1660,9 +1962,29 @@ the C<on_disconnect> callback to avoid an unexpected behavior.
 
 =head2 disconnect()
 
-The method for synchronous disconnection.
+The method for synchronous disconnection. Not completed operations will be aborted.
 
   $redis->disconnect();
+
+=head2 quit()
+
+The method for asynchronous disconnection. Guarantees, that all commands executed
+before this method will be completed correctly.
+
+  my $cv = AE::cv();
+
+  $redis->set( 'foo', 'string' );
+
+  $redis->incr( 'bar' );
+
+  $redis->quit(
+    { on_done => sub {
+        $cv->send();
+      },
+    }
+  );
+
+  $cv->recv();
 
 =head1 OTHER METHODS
 
