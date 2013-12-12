@@ -1278,15 +1278,15 @@ Not set by default.
 =item on_connect_error => $cb->( $err_msg )
 
 The C<on_connect_error> callback is called, when the connection could not be
-established. If this collback isn't specified, then the C<on_error> callback is
-called with the C<E_CANT_CONN> error code.
+established. If this collback isn't specified, then the common C<on_error>
+callback is called with the C<E_CANT_CONN> error code.
 
 Not set by default.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The common C<on_error> callback is called when ocurred some error affected on
-entire client (e. g. connection error). Also this callback is called
+The common C<on_error> callback is called when ocurred some error, which was
+affected on entire client (e. g. connection error). Also this callback is called
 on other errors if neither C<on_error> callback nor C<on_reply> callback is
 specified in the command method. If common C<on_error> callback is not specified,
 the client just print an error messages to C<STDERR>.
@@ -1410,9 +1410,9 @@ only if the watched keys were not modified.
 
 If after execution of C<EXEC> command at least one operation fails, then
 either C<on_error> or C<on_reply> callback is called with C<E_OPRN_ERROR> error
-code. Additionally, to callbacks is passed reply data, which contain both usual
-data and error objects for each failed operation. To C<on_error> callback reply
-data is passed in third argument and to C<on_reply> callback in first argument.
+code. Additionally, to callbacks is passed reply data, which contain usual data
+and error objects for each failed operation. To C<on_error> callback reply data
+is passed in third argument and to C<on_reply> callback in first argument.
 Error object is an instance of class C<AnyEvent::Redis::RipeRedis::Error> and
 has two methods: C<message()> to get error message and C<code()> to get error
 code.
@@ -1559,7 +1559,7 @@ subscription operation was completed successfully.
 
 =item on_message => $cb->( $ch_name, $msg )
 
-The C<on_message> callback is called, when a published message is received.
+The C<on_message> callback is called, when a published message was received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
@@ -1652,7 +1652,7 @@ subscription operation was completed successfully.
 
 =item on_message => $cb->( $ch_name, $msg, $ch_pattern )
 
-The C<on_message> callback is called, when published message is received.
+The C<on_message> callback is called, when published message was received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
@@ -1811,9 +1811,8 @@ or you can use the special method C<eval_cached()>.
 
 If Lua script returns multi-bulk reply with at least one error reply, then
 either C<on_error> or C<on_reply> callback is called with C<E_OPRN_ERROR> error
-code. Additionally, to callbacks is passed reply data, which contain both usual
-data and error objects for each error reply, as well as described for C<EXEC>
-command.
+code. Additionally, to callbacks is passed reply data, which contain usual data
+and error objects for each error reply, as well as described for C<EXEC> command.
 
   $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     { on_error => sub {

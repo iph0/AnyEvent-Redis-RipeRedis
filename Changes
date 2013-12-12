@@ -1,5 +1,13 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.300 Sat Dec 14 00:00:00 MSK 2013
+  - [FEATURE] Now, in command methods can be specified single callback, which
+    is called in both cases: when operation was completed successfully and when
+    some errors occurred.
+  - Improved POD.
+  - Improved unit-tests.
+  - Another wave of refactoring.
+
 1.254 Mon Jun 9 17:44:55 MSK 2013
   - Slight changes in POD.
 
