@@ -29,6 +29,10 @@ $redis->incr( 'foo', {
   on_done => sub {
     my $reply = shift;
     print "$reply\n";
+
+    for ( 1 .. 100 ) {
+      $redis->set( 'bar', 'Some string' );
+    }
   },
 } );
 

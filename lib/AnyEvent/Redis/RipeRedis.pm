@@ -400,10 +400,10 @@ sub _get_read_cb {
   weaken( $self );
 
   return sub {
+    my $hdl = shift;
+
     while ( 1 ) {
-      # get and check handle and read buffer for a case of disconnect
-      my $hdl = $self->{_handle};
-      if ( !defined( $hdl ) or !defined( $hdl->{rbuf} ) ) {
+      if ( $hdl->destroyed() ) {
         return;
       }
 
