@@ -752,11 +752,11 @@ sub _handle_success_reply {
     }
 
     shift( @{$reply} );
-    if ( defined( $cmd->{on_reply} ) ) {
-      $cmd->{on_reply}->( $reply );
-    }
-    elsif ( defined( $cmd->{on_done} ) ) {
+    if ( defined( $cmd->{on_done} ) ) {
       $cmd->{on_done}->( @{$reply} );
+    }
+    elsif ( defined( $cmd->{on_reply} ) ) {
+      $cmd->{on_reply}->( $reply );
     }
 
     return;
@@ -768,11 +768,11 @@ sub _handle_success_reply {
     $self->_disconnect();
   }
 
-  if ( defined( $cmd->{on_reply} ) ) {
-    $cmd->{on_reply}->( $reply );
-  }
-  elsif ( defined( $cmd->{on_done} ) ) {
+  if ( defined( $cmd->{on_done} ) ) {
     $cmd->{on_done}->( $reply );
+  }
+  elsif ( defined( $cmd->{on_reply} ) ) {
+    $cmd->{on_reply}->( $reply );
   }
 
   return;
@@ -847,11 +847,11 @@ sub _handle_cmd_error {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  if ( defined( $cmd->{on_reply} ) ) {
-    $cmd->{on_reply}->( @_[ 2, 0, 1 ] );
-  }
-  elsif ( defined( $cmd->{on_error} ) ) {
+  if ( defined( $cmd->{on_error} ) ) {
     $cmd->{on_error}->( @_ );
+  }
+  elsif ( defined( $cmd->{on_reply} ) ) {
+    $cmd->{on_reply}->( @_[ 2, 0, 1 ] );
   }
   else {
     $self->{on_error}->( @_ );
