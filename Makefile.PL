@@ -16,7 +16,7 @@ WriteMakefile(
   CONFIGURE_REQUIRES => {
     'ExtUtils::MakeMaker' => 6.82,
   },
-  TEST_REQUIRES => {
+  BUILD_REQUIRES => {
     'Test::More'        => 0,
     'Test::RedisServer' => 0,
     'Test::TCP'         => 0,
