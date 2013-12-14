@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.300';
+our $VERSION = '1.301';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1119,7 +1119,7 @@ feature
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( $err_msg ) {
+      if ( defined( $err_msg ) ) {
         my $err_code = shift;
 
         # error handling ...
@@ -1340,7 +1340,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( $err_msg ) {
+      if ( defined( $err_msg ) ) {
         my $err_code = shift;
 
         # error handling ...
@@ -1357,7 +1357,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         my $reply   = shift;
         my $err_msg = shift;
 
-        if ( $err_msg ) {
+        if ( defined( $err_msg ) ) {
           my $err_code = shift;
 
           # error handling ...
@@ -1725,7 +1725,7 @@ The C<on_error> callback is called, if the unsubscription operation fails.
 =item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
-operation was completed successfully and when usubscription operation fails.
+operation was completed successfully and when unsubscription operation fails.
 In first case C<on_reply> callback is called on every specified channel.
 Information about channel name and number of remaining subscriptions is passed
 to callback in first argument as an array reference.
@@ -1785,7 +1785,7 @@ The C<on_error> callback is called, if the unsubscription operation fails.
 =item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
-operation was completed successfully and when usubscription operation fails.
+operation was completed successfully and when unsubscription operation fails.
 In first case C<on_reply> callback is called on every specified pattern.
 Information about channel pattern and number of remaining subscriptions is
 passed to callback in first argument as an array reference.
@@ -1880,9 +1880,8 @@ cause memory leaks.
 
 =head1 ERROR CODES
 
-Every time when the calback C<on_error> is called, the current error code is
-passed to it in the second argument. Error codes can be used for programmatic
-handling of errors.
+Every time when error occurred the error code is passed to C<on_error> or to
+C<on_repky> callback. Error codes can be used for programmatic handling of errors.
 
 AnyEvent::Redis::RipeRedis provides constants of error codes, which can be
 imported and used in expressions.
@@ -1967,8 +1966,8 @@ The method for synchronous disconnection. Not completed operations will be abort
 
 =head2 quit()
 
-The method for asynchronous disconnection. Guarantees, that all commands executed
-before this method will be completed correctly.
+The method for asynchronous disconnection. All commands, executed before this
+method, will be completed correctly.
 
   my $cv = AE::cv();
 
@@ -1977,9 +1976,8 @@ before this method will be completed correctly.
   $redis->incr( 'bar' );
 
   $redis->quit(
-    { on_done => sub {
-        $cv->send();
-      },
+    sub {
+      $cv->send();
     }
   );
 
@@ -1989,11 +1987,12 @@ before this method will be completed correctly.
 
 =head2 connection_timeout( $seconds )
 
-Get, set or reset to default the C<connection_timeout> of the client.
+Get or set the C<connection_timeout> of the client. Undef value resets the
+C<connection_timeout> to default value.
 
 =head2 read_timeout( $seconds )
 
-Get, set or disable the C<read_timeout> of the client.
+Get or set the C<read_timeout> of the client.
 
 =head2 reconnect( $boolean )
 
@@ -2001,23 +2000,23 @@ Enable or disable reconnection mode of the client.
 
 =head2 encoding( $enc_name )
 
-Get, set or disable the C<encoding>.
+Get or set the current C<encoding> of the client.
 
 =head2 on_connect( $callback )
 
-Get, set or disable the C<on_connect> callback.
+Get or set the C<on_connect> callback.
 
 =head2 on_disconnect( $callback )
 
-Get, set or disable the C<on_disconnect> callback.
+Get or set the C<on_disconnect> callback.
 
 =head2 on_connect_error( $callback )
 
-Get, set or disable the C<on_connect_error> callback.
+Get or set the C<on_connect_error> callback.
 
 =head2 on_error( $callback )
 
-Get, set or disable the C<on_error> callback.
+Get or set the C<on_error> callback.
 
 =head1 SEE ALSO
 
