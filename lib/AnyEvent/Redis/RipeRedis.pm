@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.301';
+our $VERSION = '1.302';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1881,7 +1881,7 @@ cause memory leaks.
 =head1 ERROR CODES
 
 Every time when error occurred the error code is passed to C<on_error> or to
-C<on_repky> callback. Error codes can be used for programmatic handling of errors.
+C<on_reply> callback. Error codes can be used for programmatic handling of errors.
 
 AnyEvent::Redis::RipeRedis provides constants of error codes, which can be
 imported and used in expressions.
