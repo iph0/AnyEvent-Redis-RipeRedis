@@ -15,9 +15,11 @@ $redis = AnyEvent::Redis::RipeRedis->new(
   password => 'yourpass',
   connection_timeout => 5,
   read_timeout => 5,
+
   on_connect => sub {
     print "Connected to Redis server\n";
   },
+
   on_disconnect => sub {
     print "Disconnected from Redis server\n";
   },
@@ -28,12 +30,14 @@ $timer = AE::timer( 0, 1,
   sub {
     $redis->incr( 'foo',
       sub {
-        my $reply = shift;
+        my $reply   = shift;
+        my $err_msg = shift;
 
-        if ( defined( $_[0] ) ) {
-          warn "$_[0]\n";
+        if ( defined( $err_msg ) ) {
+          warn $err_msg;
+
           return;
-        };
+        }
 
         print "$reply\n";
       },
