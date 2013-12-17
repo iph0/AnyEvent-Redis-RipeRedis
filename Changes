@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.303 Tue Dec 17 23:00:00 MSK 2013
+  - Added version numbers to dependencies in BUILD_REQUIRES section in Makefile.PL.
+
 1.302 Tue Dec 17 01:20:00 MSK 2013
   - Fixed typo in POD.
 

@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.302';
+our $VERSION = '1.303';
 
 use AnyEvent;
 use AnyEvent::Handle;
