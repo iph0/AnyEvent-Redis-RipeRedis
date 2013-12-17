@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.302';
+our $VERSION = '1.310';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -44,9 +44,27 @@ use Digest::SHA qw( sha1_hex );
 use Carp qw( confess );
 
 BEGIN {
-  our @EXPORT_OK = qw( E_CANT_CONN E_LOADING_DATASET E_IO
-      E_CONN_CLOSED_BY_REMOTE_HOST E_CONN_CLOSED_BY_CLIENT E_NO_CONN
-      E_OPRN_ERROR E_UNEXPECTED_DATA E_NO_SCRIPT E_READ_TIMEDOUT );
+  our @EXPORT_OK = qw(
+    E_CANT_CONN
+    E_LOADING_DATASET
+    E_IO
+    E_CONN_CLOSED_BY_REMOTE_HOST
+    E_CONN_CLOSED_BY_CLIENT
+    E_NO_CONN
+    E_NO_AUTH
+    E_OPRN_ERROR
+    E_UNEXPECTED_DATA
+    E_NO_SCRIPT
+    E_READ_TIMEDOUT
+    E_BUSY
+    E_MASTER_DOWN
+    E_MISCONF
+    E_READONLY
+    E_OOM
+    E_EXEC_ABORT
+    E_WRONG_TYPE
+    E_NO_REPLICAS
+  );
 
   our %EXPORT_TAGS = (
     err_codes => \@EXPORT_OK,
@@ -65,10 +83,19 @@ use constant {
   E_CONN_CLOSED_BY_REMOTE_HOST => 4,
   E_CONN_CLOSED_BY_CLIENT      => 5,
   E_NO_CONN                    => 6,
+  E_NO_AUTH                    => 7,
   E_OPRN_ERROR                 => 9,
   E_UNEXPECTED_DATA            => 10,
   E_NO_SCRIPT                  => 11,
   E_READ_TIMEDOUT              => 12,
+  E_BUSY                       => 13,
+  E_MASTER_DOWN                => 14,
+  E_MISCONF                    => 15,
+  E_READONLY                   => 16,
+  E_OOM                        => 17,
+  E_EXEC_ABORT                 => 18,
+  E_WRONG_TYPE                 => 19,
+  E_NO_REPLICAS                => 20,
 
   # Command status
   S_NEED_PERFORM => 1,
@@ -103,9 +130,18 @@ my %SPECIAL_CMDS = (
   multi => 1,
 );
 
-my %SPECIAL_ERR_PREFS = (
-  LOADING  => E_LOADING_DATASET,
-  NOSCRIPT => E_NO_SCRIPT,
+my %ERR_PREFIXES_MAP = (
+  LOADING    => E_LOADING_DATASET,
+  NOSCRIPT   => E_NO_SCRIPT,
+  BUSY       => E_BUSY,
+  MASTERDOWN => E_MASTER_DOWN,
+  MISCONF    => E_MISCONF,
+  READONLY   => E_READONLY,
+  OOM        => E_OOM,
+  EXECABORT  => E_EXEC_ABORT,
+  WRONGTYPE  => E_WRONG_TYPE,
+  NOAUTH     => E_NO_AUTH,
+  NOREPLICAS => E_NO_REPLICAS,
 );
 
 my %EVAL_CACHE;
@@ -458,8 +494,8 @@ sub _get_read_cb {
         elsif ( $type eq '-' ) {
           my $err_code = E_OPRN_ERROR;
           if ( $reply =~ m/^([A-Z]{3,})/ ) {
-            if ( exists( $SPECIAL_ERR_PREFS{ $1 } ) ) {
-              $err_code = $SPECIAL_ERR_PREFS{ $1 };
+            if ( exists( $ERR_PREFIXES_MAP{ $1 } ) ) {
+              $err_code = $ERR_PREFIXES_MAP{ $1 };
             }
           }
 

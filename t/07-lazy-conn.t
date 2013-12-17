@@ -32,7 +32,7 @@ ev_loop(
 
     my $timer;
     $timer = AnyEvent->timer(
-      after => 1,
+      after => 3,
       cb => sub {
         undef( $timer );
 

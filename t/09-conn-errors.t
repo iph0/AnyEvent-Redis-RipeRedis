@@ -32,7 +32,7 @@ sub t_cant_connect_mth1 {
 
       $redis = AnyEvent::Redis::RipeRedis->new(
         port               => $port,
-        connection_timeout => 1,
+        connection_timeout => 3,
         reconnect          => 0,
 
         on_connect_error => sub {
@@ -81,7 +81,7 @@ sub t_cant_connect_mth2 {
 
       $redis = AnyEvent::Redis::RipeRedis->new(
         port               => $port,
-        connection_timeout => 1,
+        connection_timeout => 3,
         reconnect          => 0,
 
         on_error => sub {
@@ -132,7 +132,7 @@ sub t_no_connection {
 
       $redis = AnyEvent::Redis::RipeRedis->new(
         port               => $port,
-        connection_timeout => 1,
+        connection_timeout => 3,
         reconnect          => 0,
 
         on_connect_error => sub {
