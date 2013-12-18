@@ -1422,7 +1422,7 @@ Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
 is called in both cases: when operation was completed successfully and when some
 error occurred. In first case to callback is passed only reply data. In second
-case to callback is passed three arguments: undef value or reply data with error
+case to callback is passed three arguments: C<undef> value or reply data with error
 objects (see below), error mesage and error code.
 
 =back
@@ -2060,7 +2060,7 @@ method, will be completed correctly.
 
 =head2 connection_timeout( $seconds )
 
-Get or set the C<connection_timeout> of the client. Undef value resets the
+Get or set the C<connection_timeout> of the client. C<undef> value resets the
 C<connection_timeout> to default value.
 
 =head2 read_timeout( $seconds )
