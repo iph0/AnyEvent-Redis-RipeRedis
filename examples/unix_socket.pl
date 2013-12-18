@@ -10,11 +10,11 @@ my $cv = AE::cv();
 
 my $redis;
 $redis = AnyEvent::Redis::RipeRedis->new(
-  host => 'unix/',
-  port => '/var/run/redis/redis.sock',
-  password => 'yourpass',
+  host               => 'unix/',
+  port               => '/var/run/redis/redis.sock',
+  password           => 'yourpass',
   connection_timeout => 5,
-  read_timeout => 5,
+  read_timeout       => 5,
 
   on_connect => sub {
     print "Connected to Redis server\n";

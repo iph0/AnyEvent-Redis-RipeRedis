@@ -51,7 +51,6 @@ BEGIN {
     E_CONN_CLOSED_BY_REMOTE_HOST
     E_CONN_CLOSED_BY_CLIENT
     E_NO_CONN
-    E_NO_AUTH
     E_OPRN_ERROR
     E_UNEXPECTED_DATA
     E_NO_SCRIPT
@@ -62,6 +61,7 @@ BEGIN {
     E_READONLY
     E_OOM
     E_EXEC_ABORT
+    E_NO_AUTH
     E_WRONG_TYPE
     E_NO_REPLICAS
   );
@@ -83,7 +83,6 @@ use constant {
   E_CONN_CLOSED_BY_REMOTE_HOST => 4,
   E_CONN_CLOSED_BY_CLIENT      => 5,
   E_NO_CONN                    => 6,
-  E_NO_AUTH                    => 7,
   E_OPRN_ERROR                 => 9,
   E_UNEXPECTED_DATA            => 10,
   E_NO_SCRIPT                  => 11,
@@ -94,8 +93,9 @@ use constant {
   E_READONLY                   => 16,
   E_OOM                        => 17,
   E_EXEC_ABORT                 => 18,
-  E_WRONG_TYPE                 => 19,
-  E_NO_REPLICAS                => 20,
+  E_NO_AUTH                    => 19,
+  E_WRONG_TYPE                 => 20,
+  E_NO_REPLICAS                => 21,
 
   # Command status
   S_NEED_PERFORM => 1,
@@ -139,8 +139,8 @@ my %ERR_PREFIXES_MAP = (
   READONLY   => E_READONLY,
   OOM        => E_OOM,
   EXECABORT  => E_EXEC_ABORT,
-  WRONGTYPE  => E_WRONG_TYPE,
   NOAUTH     => E_NO_AUTH,
+  WRONGTYPE  => E_WRONG_TYPE,
   NOREPLICAS => E_NO_REPLICAS,
 );
 
@@ -493,7 +493,7 @@ sub _get_read_cb {
         }
         elsif ( $type eq '-' ) {
           my $err_code = E_OPRN_ERROR;
-          if ( $reply =~ m/^([A-Z]{3,})/ ) {
+          if ( $reply =~ m/^([A-Z]{3,}) / ) {
             if ( exists( $ERR_PREFIXES_MAP{ $1 } ) ) {
               $err_code = $ERR_PREFIXES_MAP{ $1 };
             }
@@ -1421,10 +1421,9 @@ The C<on_error> callback is called, when some error occurred.
 Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
 is called in both cases: when operation was completed successfully and when some
-errors occurred. In first case to callback is passed only reply data. In second
-case to callback is passed three arguments: undef value, error mesage and error
-code. Also in second case first argument can contain reply data with error
-objects (see below).
+error occurred. In first case to callback is passed only reply data. In second
+case to callback is passed three arguments: undef value or reply data with error
+objects (see below), error mesage and error code.
 
 =back
 
@@ -1924,24 +1923,11 @@ imported and used in expressions.
 
   use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
-Error codes and constants corresponding to them:
-
-  1  - E_CANT_CONN
-  2  - E_LOADING_DATASET
-  3  - E_IO
-  4  - E_CONN_CLOSED_BY_REMOTE_HOST
-  5  - E_CONN_CLOSED_BY_CLIENT
-  6  - E_NO_CONN
-  9  - E_OPRN_ERROR
-  10 - E_UNEXPECTED_DATA
-  11 - E_NO_SCRIPT
-  12 - E_READ_TIMEDOUT
-
 =over
 
 =item E_CANT_CONN
 
-Can not connect to the server. All operations were aborted.
+Can't connect to the server. All operations were aborted.
 
 =item E_LOADING_DATASET
 
@@ -1975,14 +1961,65 @@ Operation error. For example, wrong number of arguments for a command.
 The client received unexpected data from the server. The connection to the Redis
 server was closed and all operations were aborted.
 
-=item E_NO_SCRIPT
-
-No matching script. Use the C<EVAL> command.
-
 =item E_READ_TIMEDOUT
 
 Read timed out. The connection to the Redis server was closed and all operations
 were aborted.
+
+=back
+
+Error codes available since Redis 2.6.
+
+=over
+
+=item E_NO_SCRIPT
+
+No matching script. Use the C<EVAL> command.
+
+=item E_BUSY
+
+Redis is busy running a script. You can only call C<SCRIPT KILL>
+or C<SHUTDOWN NOSAVE>.
+
+=item E_MASTER_DOWN
+
+Link with MASTER is down and slave-serve-stale-data is set to 'no'.
+
+=item E_MISCONF
+
+Redis is configured to save RDB snapshots, but is currently not able to persist
+on disk. Commands that may modify the data set are disabled. Please check Redis
+logs for details about the error.
+
+=item E_READONLY
+
+You can't write against a read only slave.
+
+=item E_OOM
+
+Command not allowed when used memory > 'maxmemory'.
+
+=item E_EXEC_ABORT
+
+Transaction discarded because of previous errors.
+
+=back
+
+Error codes available since Redis 2.8.
+
+=over
+
+=item E_NO_AUTH
+
+Authentication required.
+
+=item E_WRONG_TYPE
+
+Operation against a key holding the wrong kind of value.
+
+=item E_NO_REPLICAS
+
+Not enough good slaves to write.
 
 =back
 

@@ -9,8 +9,8 @@ use AnyEvent::Redis::RipeRedis;
 my $cv = AE::cv();
 
 my $redis = AnyEvent::Redis::RipeRedis->new(
-  host => 'localhost',
-  port => '6379',
+  host     => 'localhost',
+  port     => '6379',
   password => 'yourpass',
 
   on_connect => sub {
