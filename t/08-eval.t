@@ -9,7 +9,7 @@ use Scalar::Util qw( weaken );
 require 't/test_helper.pl';
 
 my $SERVER_INFO = run_redis_instance();
-if ( !defined( $SERVER_INFO ) ) {
+if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
@@ -140,7 +140,7 @@ LUA
           my $reply   = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
             return;
           }
@@ -154,7 +154,7 @@ LUA
               my $reply   = shift;
               my $err_msg = shift;
 
-              if ( defined( $err_msg ) ) {
+              if ( defined $err_msg ) {
                 diag( $err_msg );
                 return;
               }
@@ -229,7 +229,7 @@ LUA
           my $reply  = shift;
           $t_err_msg = shift;
 
-          if ( defined( $t_err_msg ) ) {
+          if ( defined $t_err_msg ) {
             $t_err_code = shift;
           }
 
@@ -318,10 +318,10 @@ LUA
 
       $redis->eval( $script, 0, 42,
         sub {
-          $t_reply = shift;
+          $t_reply   = shift;
+          $t_err_msg = shift;
 
-          if ( defined( $_[0] ) ) {
-            $t_err_msg  = shift;
+          if ( defined $t_err_msg ) {
             $t_err_code = shift;
           }
 

@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.311 Fri Dec 20 00:30:00 MSK 2013
+  - Several fixes in POD.
+  - Cosmetic changes.
+
 1.310 Wed Dec 18 19:10:00 MSK 2013
   - [FEATURE] Added error codes based on error prefixes.
   - Improved parsing of error prefixes.

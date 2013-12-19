@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.310';
+our $VERSION = '1.311';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -160,7 +160,7 @@ sub new {
   $self->{database} = $params->{database};
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
-  if ( !exists( $params->{reconnect} ) ) {
+  if ( !exists $params->{reconnect} ) {
     $params->{reconnect} = 1;
   }
   $self->{reconnect} = $params->{reconnect};
@@ -207,10 +207,10 @@ sub eval_cached {
   $cmd->{args} = \@args;
 
   $cmd->{script} = $args[0];
-  if ( !exists( $EVAL_CACHE{$cmd->{script}} ) ) {
-    $EVAL_CACHE{$cmd->{script}} = sha1_hex( $cmd->{script} );
+  if ( !exists $EVAL_CACHE{ $cmd->{script} } ) {
+    $EVAL_CACHE{ $cmd->{script} } = sha1_hex( $cmd->{script} );
   }
-  $args[0] = $EVAL_CACHE{$cmd->{script}};
+  $args[0] = $EVAL_CACHE{ $cmd->{script} };
 
   $self->_execute_cmd( $cmd );
 
@@ -233,14 +233,14 @@ sub encoding {
   if ( @_ ) {
     my $enc = shift;
 
-    if ( defined( $enc ) ) {
+    if ( defined $enc ) {
       $self->{encoding} = find_encoding( $enc );
-      if ( !defined( $self->{encoding} ) ) {
+      if ( !defined $self->{encoding} ) {
         confess "Encoding '$enc' not found";
       }
     }
     else {
-      undef( $self->{encoding} );
+      undef $self->{encoding};
     }
   }
 
@@ -253,7 +253,7 @@ sub on_error {
 
   if ( @_ ) {
     my $on_error = shift;
-    if ( !defined( $on_error ) ) {
+    if ( !defined $on_error ) {
       $on_error = sub {
         my $err_msg = shift;
         warn "$err_msg\n";
@@ -278,7 +278,7 @@ sub on_error {
       if ( @_ ) {
         my $timeout = shift;
         if (
-          defined( $timeout )
+          defined $timeout
             and ( !looks_like_number( $timeout ) or $timeout < 0 )
             ) {
           confess ucfirst( $field_pref ) . ' timeout must be a positive number';
@@ -330,7 +330,7 @@ sub _get_prepare_cb {
   weaken( $self );
 
   return sub {
-    if ( defined( $self->{connection_timeout} ) ) {
+    if ( defined $self->{connection_timeout} ) {
       return $self->{connection_timeout};
     }
 
@@ -346,10 +346,10 @@ sub _get_connect_cb {
 
   return sub {
     $self->{_connected} = 1;
-    if ( !defined( $self->{password} ) ) {
+    if ( !defined $self->{password} ) {
       $self->{_auth_st} = S_IS_DONE;
     }
-    if ( !defined( $self->{database} ) ) {
+    if ( !defined $self->{database} ) {
       $self->{_db_select_st} = S_IS_DONE;
     }
 
@@ -364,7 +364,7 @@ sub _get_connect_cb {
       $self->_flush_input_buf();
     }
 
-    if ( defined( $self->{on_connect} ) ) {
+    if ( defined $self->{on_connect} ) {
       $self->{on_connect}->();
     }
   };
@@ -443,17 +443,17 @@ sub _get_read_cb {
         return;
       }
 
-      if ( defined( $bulk_len ) ) {
+      if ( defined $bulk_len ) {
         if ( length( $hdl->{rbuf} ) < $bulk_len + EOL_LEN ) {
           return;
         }
 
         my $reply = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
         substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
-        if ( defined( $self->{encoding} ) ) {
+        if ( defined $self->{encoding} ) {
           $reply = $self->{encoding}->decode( $reply );
         }
-        undef( $bulk_len );
+        undef $bulk_len;
 
         return 1 if $cb->( $reply );
       }
@@ -494,7 +494,7 @@ sub _get_read_cb {
         elsif ( $type eq '-' ) {
           my $err_code = E_OPRN_ERROR;
           if ( $reply =~ m/^([A-Z]{3,}) / ) {
-            if ( exists( $ERR_PREFIXES_MAP{ $1 } ) ) {
+            if ( exists $ERR_PREFIXES_MAP{ $1 } ) {
               $err_code = $ERR_PREFIXES_MAP{ $1 };
             }
           }
@@ -529,7 +529,7 @@ sub _get_reply_cb {
     }
     elsif (
       %{$self->{_subs}} and ref( $reply ) eq 'ARRAY'
-        and exists( $SUB_MSG_TYPES{ $reply->[0] } )
+        and exists $SUB_MSG_TYPES{ $reply->[0] }
         ) {
       $self->_handle_pub_message( $reply );
     }
@@ -546,10 +546,10 @@ sub _execute_cmd {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  if ( exists( $SPECIAL_CMDS{ $cmd->{keyword} } ) ) {
-    if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
-      if ( exists( $SUB_CMDS{ $cmd->{keyword} } ) ) {
-        if ( !defined( $cmd->{on_message} ) ) {
+  if ( exists $SPECIAL_CMDS{ $cmd->{keyword} } ) {
+    if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
+      if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
+        if ( !defined $cmd->{on_message} ) {
           confess '\'on_message\' callback must be specified';
         }
       }
@@ -579,7 +579,7 @@ sub _execute_cmd {
     $self->_push_write( $cmd );
   }
   else {
-    if ( defined( $self->{_handle} ) ) {
+    if ( defined $self->{_handle} ) {
       if ( $self->{_connected} ) {
         if ( $self->{_auth_st} == S_IS_DONE ) {
           if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
@@ -623,10 +623,10 @@ sub _push_write {
 
   my $cmd_str = '';
   foreach my $token ( $cmd->{keyword}, @{$cmd->{args}} ) {
-    if ( !defined( $token ) ) {
+    if ( !defined $token ) {
       $token = '';
     }
-    elsif ( defined( $self->{encoding} ) and is_utf8( $token ) ) {
+    elsif ( defined $self->{encoding} and is_utf8( $token ) ) {
       $token = $self->{encoding}->encode( $token );
     }
     $cmd_str .= '$' . length( $token ) . EOL . $token . EOL;
@@ -720,7 +720,7 @@ sub _unshift_read {
       my $reply      = shift;
       my $err_code   = shift;
 
-      if ( defined( $err_code ) ) {
+      if ( defined $err_code ) {
         $has_err = 1;
 
         if ( ref( $reply ) ne 'ARRAY' ) {
@@ -738,7 +738,7 @@ sub _unshift_read {
         $self->{_handle}->unshift_read( $read_cb );
       }
       elsif ( $replies_left == 0 ) {
-        undef( $read_cb ); # Collect garbage
+        undef $read_cb; # Collect garbage
 
         if ( $has_err ) {
           $cb->( \@mbulk_reply, E_OPRN_ERROR );
@@ -767,7 +767,7 @@ sub _handle_success_reply {
 
   my $cmd = $self->{_processing_queue}[0];
 
-  if ( !defined( $cmd ) ) {
+  if ( !defined $cmd ) {
     $self->_handle_crit_error(
         'Don\'t known how process reply. Command queue is empty.',
         E_UNEXPECTED_DATA );
@@ -775,12 +775,12 @@ sub _handle_success_reply {
     return;
   }
 
-  if ( exists( $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) ) {
+  if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
     if ( --$cmd->{replies_left} == 0 ) {
       shift( @{$self->{_processing_queue}} );
     }
 
-    if ( exists( $SUB_CMDS{ $cmd->{keyword} } ) ) {
+    if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
       $self->{_subs}{ $reply->[1] } = $cmd->{on_message};
     }
     else {
@@ -788,10 +788,10 @@ sub _handle_success_reply {
     }
 
     shift( @{$reply} );
-    if ( defined( $cmd->{on_done} ) ) {
+    if ( defined $cmd->{on_done} ) {
       $cmd->{on_done}->( @{$reply} );
     }
-    elsif ( defined( $cmd->{on_reply} ) ) {
+    elsif ( defined $cmd->{on_reply} ) {
       $cmd->{on_reply}->( $reply );
     }
 
@@ -804,10 +804,10 @@ sub _handle_success_reply {
     $self->_disconnect();
   }
 
-  if ( defined( $cmd->{on_done} ) ) {
+  if ( defined $cmd->{on_done} ) {
     $cmd->{on_done}->( $reply );
   }
-  elsif ( defined( $cmd->{on_reply} ) ) {
+  elsif ( defined $cmd->{on_reply} ) {
     $cmd->{on_reply}->( $reply );
   }
 
@@ -822,7 +822,7 @@ sub _handle_error_reply {
 
   my $cmd = shift( @{$self->{_processing_queue}} );
 
-  if ( !defined( $cmd ) ) {
+  if ( !defined $cmd ) {
     $self->_handle_crit_error(
         'Don\'t known how process error. Command queue is empty.',
         E_UNEXPECTED_DATA );
@@ -830,7 +830,7 @@ sub _handle_error_reply {
     return;
   }
 
-  if ( $err_code == E_NO_SCRIPT and exists( $cmd->{script} ) ) {
+  if ( $err_code == E_NO_SCRIPT and exists $cmd->{script} ) {
     $cmd->{keyword} = 'eval';
     $cmd->{args}[0] = $cmd->{script};
 
@@ -859,7 +859,7 @@ sub _handle_pub_message {
 
   my $msg_cb = $self->{_subs}{ $reply->[1] };
 
-  if ( !defined( $msg_cb ) ) {
+  if ( !defined $msg_cb ) {
     $self->_handle_crit_error(
         'Don\'t known how process published message.'
             . " Unknown channel or pattern '$reply->[1]'.",
@@ -883,10 +883,10 @@ sub _handle_cmd_error {
   my __PACKAGE__ $self = shift;
   my $cmd = shift;
 
-  if ( defined( $cmd->{on_error} ) ) {
+  if ( defined $cmd->{on_error} ) {
     $cmd->{on_error}->( @_ );
   }
-  elsif ( defined( $cmd->{on_reply} ) ) {
+  elsif ( defined $cmd->{on_reply} ) {
     $cmd->{on_reply}->( @_[ 2, 0, 1 ] );
   }
   else {
@@ -905,7 +905,7 @@ sub _handle_crit_error {
   $self->_abort_cmds( @_ );
 
   if ( $_[1] == E_CANT_CONN ) {
-    if ( defined( $self->{on_connect_error} ) ) {
+    if ( defined $self->{on_connect_error} ) {
       $self->{on_connect_error}->( $_[0] );
     }
     else {
@@ -914,7 +914,7 @@ sub _handle_crit_error {
   }
   else {
     $self->{on_error}->( @_ );
-    if ( defined( $self->{on_disconnect} ) ) {
+    if ( defined $self->{on_disconnect} ) {
       $self->{on_disconnect}->();
     }
   }
@@ -949,7 +949,7 @@ sub _disconnect {
 
   if (
     $was_connected and !$safe_disconn
-      and defined( $self->{on_disconnect} )
+      and defined $self->{on_disconnect}
       ) {
     $self->{on_disconnect}->();
   }
@@ -961,9 +961,9 @@ sub _disconnect {
 sub _reset_state {
   my __PACKAGE__ $self = shift;
 
-  if ( defined( $self->{_handle} ) ) {
+  if ( defined $self->{_handle} ) {
     $self->{_handle}->destroy();
-    undef( $self->{_handle} );
+    undef $self->{_handle};
   }
 
   $self->{_connected}      = 0;
@@ -1018,7 +1018,7 @@ sub AUTOLOAD {
 
     my $cmd = {};
     if ( ref( $args[-1] ) eq 'CODE' ) {
-      if ( exists( $SUB_CMDS{ $cmd_keyword } ) ) {
+      if ( exists $SUB_CMDS{ $cmd_keyword } ) {
         $cmd->{on_message} = pop( @args );
       }
       else {
@@ -1047,7 +1047,7 @@ sub DESTROY {
   my __PACKAGE__ $self = shift;
 
   # Check whether the object was created entirely
-  if ( defined( $self->{_subs} ) ) {
+  if ( defined $self->{_subs} ) {
     # Disconnect without calling any callbacks
     $self->_disconnect( F_SAFE_DISCONN );
   }
@@ -1155,7 +1155,7 @@ feature
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( defined( $err_msg ) ) {
+      if ( defined $err_msg ) {
         my $err_code = shift;
 
         # error handling ...
@@ -1331,7 +1331,7 @@ the client just print an error messages to C<STDERR>.
 
 =head1 COMMAND EXECUTION
 
-=head2 <command>( [ @args ][, ( $cb | \%callbacks ) ] )
+=head2 <command>( [ @args, ][ $cb | \%callbacks ] )
 
 The full list of the Redis commands can be found here: L<http://redis.io/commands>.
 
@@ -1376,7 +1376,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( defined( $err_msg ) ) {
+      if ( defined $err_msg ) {
         my $err_code = shift;
 
         # error handling ...
@@ -1393,7 +1393,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         my $reply   = shift;
         my $err_msg = shift;
 
-        if ( defined( $err_msg ) ) {
+        if ( defined $err_msg ) {
           my $err_code = shift;
 
           # error handling ...
@@ -1410,20 +1410,21 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
 =item on_done => $cb->( [ $reply ] )
 
-The C<on_done> callback is called, when the current operation is done.
+The C<on_done> callback is called, when the current operation was completed
+successfully.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
 The C<on_error> callback is called, when some error occurred.
 
-=item on_reply => $cb->( [ $reply ][, $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
 
 Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
 is called in both cases: when operation was completed successfully and when some
 error occurred. In first case to callback is passed only reply data. In second
-case to callback is passed three arguments: C<undef> value or reply data with error
-objects (see below), error mesage and error code.
+case to callback is passed three arguments: The C<undef> value or reply data
+with error objects (see below), error message and error code.
 
 =back
 
@@ -1432,12 +1433,12 @@ objects (see below), error mesage and error code.
 The detailed information abount the Redis transactions can be found here:
 L<http://redis.io/topics/transactions>.
 
-=head2 multi( [ ( $cb | \%callbacks ) ] )
+=head2 multi( [ $cb | \%callbacks ] )
 
 Marks the start of a transaction block. Subsequent commands will be queued for
 atomic execution using C<EXEC>.
 
-=head2 exec( [ ( $cb | \%callbacks ) ] )
+=head2 exec( [ $cb | \%callbacks ] )
 
 Executes all previously queued commands in a transaction and restores the
 connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
@@ -1481,7 +1482,7 @@ code.
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( defined( $err_msg ) ) {
+      if ( defined $err_msg ) {
         my $err_code = shift;
 
         foreach my $reply ( @{$reply}  ) {
@@ -1496,18 +1497,18 @@ code.
     },
   );
 
-=head2 discard( [ ( $cb | \%callbacks ) ] )
+=head2 discard( [ $cb | \%callbacks ] )
 
 Flushes all previously queued commands in a transaction and restores the
 connection state to normal.
 
 If C<WATCH> was used, C<DISCARD> unwatches all keys.
 
-=head2 watch( @keys[, ( $cb | \%callbacks ) ] )
+=head2 watch( @keys, [ $cb | \%callbacks ] )
 
 Marks the given keys to be watched for conditional execution of a transaction.
 
-=head2 unwatch( [ ( $cb | \%callbacks ) ] )
+=head2 unwatch( [ $cb | \%callbacks ] )
 
 Forget about all watched keys.
 
@@ -1562,7 +1563,7 @@ and C<PUNSUBSCRIBE> commands.
         my $reply   = shift;
         my $err_msg = shift;
 
-        if ( defined( $err_msg ) ) {
+        if ( defined $err_msg ) {
           my $err_code = shift;
 
           # error handling ...
@@ -1600,7 +1601,7 @@ The C<on_message> callback is called, when a published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription operation
 was completed successfully and when subscription operation fails. In first case
@@ -1654,7 +1655,7 @@ Subscribes the client to the given patterns.
         my $reply   = shift;
         my $err_msg = shift;
 
-        if ( defined( $err_msg ) ) {
+        if ( defined $err_msg ) {
           my $err_code = shift;
 
           # error handling ...
@@ -1693,7 +1694,7 @@ The C<on_message> callback is called, when published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription
 operation was completed successfully and when subscription operation fails.
@@ -1703,11 +1704,11 @@ in first argument as an array reference.
 
 =back
 
-=head2 publish( $channel, $message[, ( $cb | \%callbacks ) ] )
+=head2 publish( $channel, $message, [ $cb | \%callbacks ] )
 
 Posts a message to the given channel.
 
-=head2 unsubscribe( [ @channels ][, ( $cb | \%callbacks ) ] )
+=head2 unsubscribe( [ @channels, ][ $cb | \%callbacks ] )
 
 Unsubscribes the client from the given channels, or from all of them if none
 is given.
@@ -1731,7 +1732,7 @@ channel will be sent to the client.
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( defined( $err_msg ) ) {
+      if ( defined $err_msg ) {
         my $err_code = shift;
 
         # error handling ...
@@ -1757,7 +1758,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1767,7 +1768,7 @@ to callback in first argument as an array reference.
 
 =back
 
-=head2 punsubscribe( [ @patterns ][, ( $cb | \%callbacks ) ] )
+=head2 punsubscribe( [ @patterns, ][ $cb | \%callbacks ] )
 
 Unsubscribes the client from the given patterns, or from all of them if none
 is given.
@@ -1791,7 +1792,7 @@ pattern will be sent to the client.
       my $reply   = shift;
       my $err_msg = shift;
 
-      if ( defined( $err_msg ) ) {
+      if ( defined $err_msg ) {
         my $err_code = shift;
 
         # error handling ...
@@ -1817,7 +1818,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( $reply[, $err_msg, $err_code ] )
+=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1869,10 +1870,10 @@ and error objects for each error reply, as well as described for C<EXEC> command
 
   $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     sub {
-      my $reply    = shift;
-      my $err_msg  = shift;
+      my $reply   = shift;
+      my $err_msg = shift;
 
-      if ( defined( $err_msg ) ) {
+      if ( defined $err_msg ) {
         my $err_code = shift;
 
         foreach my $reply ( @{$reply}  ) {
@@ -1887,11 +1888,11 @@ and error objects for each error reply, as well as described for C<EXEC> command
     }
   );
 
-=head2 eval_cached( $script, $numkeys[, @keys ][, @args ][, ( $cb | \%callbacks ) ] );
+=head2 eval_cached( $script, $numkeys, [ @keys, ][ @args, ][ $cb | \%callbacks ] );
 
 When you call the C<eval_cached()> method, the client first generate a SHA1
 hash for a Lua script and cache it in memory. Then the client optimistically
-send the C<EVALSHA> command under the hood. If the C<NO_SCRIPT> error will be
+send the C<EVALSHA> command under the hood. If the C<E_NO_SCRIPT> error will be
 returned, the client send the C<EVAL> command.
 
 If you call the C<eval_cached()> method with the same Lua script, client don not
@@ -2058,36 +2059,36 @@ method, will be completed correctly.
 
 =head1 OTHER METHODS
 
-=head2 connection_timeout( $seconds )
+=head2 connection_timeout( [ $seconds ] )
 
-Get or set the C<connection_timeout> of the client. C<undef> value resets the
-C<connection_timeout> to default value.
+Get or set the C<connection_timeout> of the client. The C<undef> value resets
+the C<connection_timeout> to default value.
 
-=head2 read_timeout( $seconds )
+=head2 read_timeout( [ $seconds ] )
 
 Get or set the C<read_timeout> of the client.
 
-=head2 reconnect( $boolean )
+=head2 reconnect( [ $boolean ] )
 
 Enable or disable reconnection mode of the client.
 
-=head2 encoding( $enc_name )
+=head2 encoding( [ $enc_name ] )
 
 Get or set the current C<encoding> of the client.
 
-=head2 on_connect( $callback )
+=head2 on_connect( [ $callback ] )
 
 Get or set the C<on_connect> callback.
 
-=head2 on_disconnect( $callback )
+=head2 on_disconnect( [ $callback ] )
 
 Get or set the C<on_disconnect> callback.
 
-=head2 on_connect_error( $callback )
+=head2 on_connect_error( [ $callback ] )
 
 Get or set the C<on_connect_error> callback.
 
-=head2 on_error( $callback )
+=head2 on_error( [ $callback ] )
 
 Get or set the C<on_error> callback.
 

@@ -33,7 +33,7 @@ $timer = AE::timer( 0, 1,
         my $reply   = shift;
         my $err_msg = shift;
 
-        if ( defined( $err_msg ) ) {
+        if ( defined $err_msg ) {
           warn $err_msg;
 
           return;

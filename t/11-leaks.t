@@ -15,7 +15,7 @@ BEGIN {
 }
 
 my $SERVER_INFO = run_redis_instance();
-if ( !defined( $SERVER_INFO ) ) {
+if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 10;
@@ -95,7 +95,7 @@ sub t_leaks_status_reply_mth2 {
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
           }
@@ -105,7 +105,7 @@ sub t_leaks_status_reply_mth2 {
           sub {
             my $err_msg = $_[1];
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -166,7 +166,7 @@ sub t_leaks_bulk_reply_mth2 {
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
           }
@@ -176,7 +176,7 @@ sub t_leaks_bulk_reply_mth2 {
           sub {
             my $err_msg = $_[1];
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -241,7 +241,7 @@ sub t_leaks_mbulk_reply_mth2 {
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
           }
@@ -251,7 +251,7 @@ sub t_leaks_mbulk_reply_mth2 {
           sub {
             my $err_msg = $_[1];
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -332,7 +332,7 @@ sub t_leaks_nested_mbulk_reply_mth2 {
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
           },
@@ -342,7 +342,7 @@ sub t_leaks_nested_mbulk_reply_mth2 {
           sub {
             my $err_msg = $_[1];
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -415,7 +415,7 @@ LUA
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
               return;
             }
@@ -425,7 +425,7 @@ LUA
                 my $reply   = shift;
                 my $err_msg = shift;
 
-                if ( defined( $err_msg ) ) {
+                if ( defined $err_msg ) {
                   diag( $err_msg );
                 }
 

@@ -15,17 +15,17 @@ sub run_redis_instance {
       conf => \%params,
     );
   };
-  if ( !defined( $redis_server ) ) {
+  if ( !defined $redis_server ) {
     return;
   }
 
   my $host;
   my $port;
   my %conn_info = $redis_server->connect_info();
-  if ( defined( $conn_info{server} ) ) {
+  if ( defined $conn_info{server} ) {
     ( $host, $port ) = split( ':', $conn_info{server} );
   }
-  elsif ( defined( $conn_info{sock} ) ) {
+  elsif ( defined $conn_info{sock} ) {
     $host = 'unix/';
     $port = $conn_info{sock};
   }
@@ -57,7 +57,7 @@ sub ev_loop {
   );
 
   $cv->recv();
-  undef( $timer );
+  undef $timer;
 
   return;
 }
@@ -78,15 +78,15 @@ sub get_redis_version {
 
             if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/m ) {
               my $prod_ver = 0;
-              if ( defined( $1 ) and $1 ne '' ) {
+              if ( defined $1 and $1 ne '' ) {
                 $prod_ver = $1;
               }
               my $major_ver = 0;
-              if ( defined( $2 ) and $2 ne '' ) {
+              if ( defined $2 and $2 ne '' ) {
                 $major_ver = $2;
               }
               my $minor_ver = 0;
-              if ( defined( $3 ) and $3 ne '' ) {
+              if ( defined $3 and $3 ne '' ) {
                 $minor_ver = $3;
               }
               $ver = $prod_ver + ( $major_ver * 10 ** -3 )

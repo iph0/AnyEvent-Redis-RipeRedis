@@ -197,7 +197,7 @@ sub t_reconnection {
   );
 
   SKIP: {
-    if ( !defined( $server_info ) ) {
+    if ( !defined $server_info ) {
       skip 'redis-server is required for this test', 5;
     }
 
@@ -234,7 +234,7 @@ sub t_reconnection {
               my $timer;
               $timer = AE::postpone(
                 sub {
-                  undef( $timer );
+                  undef $timer;
                   $server_info->{server}->stop();
                 }
               );
@@ -284,7 +284,7 @@ sub t_read_timeout {
   my $server_info = run_redis_instance();
 
   SKIP: {
-    if ( !defined( $server_info ) ) {
+    if ( !defined $server_info ) {
       skip 'redis-server is required for this test', 4;
     }
 

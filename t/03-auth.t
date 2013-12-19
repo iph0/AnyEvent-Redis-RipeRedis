@@ -9,7 +9,7 @@ require 't/test_helper.pl';
 my $SERVER_INFO = run_redis_instance(
   requirepass => 'testpass',
 );
-if ( !defined( $SERVER_INFO ) ) {
+if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 6;
@@ -94,7 +94,7 @@ sub t_invalid_password {
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
       "$t_name; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
-  ok( defined( $t_comm_err_msg ), "$t_name; common error message" );
+  ok( defined $t_comm_err_msg, "$t_name; common error message" );
   is( $t_comm_err_code, E_OPRN_ERROR, "$t_name; common error code" );
 
   return;

@@ -7,7 +7,7 @@ use AnyEvent::Redis::RipeRedis;
 require 't/test_helper.pl';
 
 my $SERVER_INFO = run_redis_instance();
-if ( !defined( $SERVER_INFO ) ) {
+if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 2;
@@ -34,7 +34,7 @@ ev_loop(
     $timer = AnyEvent->timer(
       after => 3,
       cb => sub {
-        undef( $timer );
+        undef $timer;
 
         ok( !$T_IS_CONN, 'lazy connection (no connected yet)' );
 

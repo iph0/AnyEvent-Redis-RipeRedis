@@ -8,7 +8,7 @@ use AnyEvent::Redis::RipeRedis qw( :err_codes );
 require 't/test_helper.pl';
 
 my $SERVER_INFO = run_redis_instance();
-if ( !defined( $SERVER_INFO ) ) {
+if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 48;
@@ -134,7 +134,7 @@ sub t_status_reply_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         }
@@ -144,7 +144,7 @@ sub t_status_reply_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -205,7 +205,7 @@ sub t_numeric_reply_mth2 {
           $t_reply    = shift;
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         }
@@ -215,7 +215,7 @@ sub t_numeric_reply_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -280,7 +280,7 @@ sub t_bulk_reply_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         }
@@ -290,7 +290,7 @@ sub t_bulk_reply_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -345,7 +345,7 @@ sub t_set_undef_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -401,7 +401,7 @@ sub t_get_undef_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -462,7 +462,7 @@ sub t_set_utf8_string_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         },
@@ -472,7 +472,7 @@ sub t_set_utf8_string_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -537,7 +537,7 @@ sub t_get_utf8_string_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         }
@@ -547,7 +547,7 @@ sub t_get_utf8_string_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -603,7 +603,7 @@ sub t_get_non_existent_mth2 {
           $t_reply   = shift;
           $t_err_msg = shift;
 
-          if ( defined( $t_err_msg ) ) {
+          if ( defined $t_err_msg ) {
             diag( $t_err_msg );
           }
 
@@ -613,7 +613,7 @@ sub t_get_non_existent_mth2 {
     }
   );
 
-  ok( !defined( $t_reply ) && !defined( $t_err_msg ),
+  ok( !defined $t_reply && !defined $t_err_msg,
       'GET; \'on_reply\' used; non existent key' );
 
   return;
@@ -681,7 +681,7 @@ sub t_mbulk_reply_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         }
@@ -691,7 +691,7 @@ sub t_mbulk_reply_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -754,7 +754,7 @@ sub t_mbulk_reply_empty_list_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -810,7 +810,7 @@ sub t_mbulk_reply_undef_mth2 {
           $t_reply   = shift;
           $t_err_msg = shift;
 
-          if ( defined( $t_err_msg ) ) {
+          if ( defined $t_err_msg ) {
             diag( $t_err_msg );
           }
 
@@ -820,7 +820,7 @@ sub t_mbulk_reply_undef_mth2 {
     }
   );
 
-  ok( !defined( $t_reply ) && !defined( $t_err_msg ),
+  ok( !defined $t_reply && !defined $t_err_msg,
       'BRPOP; \'on_reply\' used; multi-bulk undef' );
 
   return;
@@ -914,7 +914,7 @@ sub t_nested_mbulk_reply_mth2 {
           $t_reply    = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
         },
@@ -924,7 +924,7 @@ sub t_nested_mbulk_reply_mth2 {
         sub {
           my $err_msg = $_[1];
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
           }
 
@@ -981,7 +981,7 @@ sub t_oprn_error_mth1 {
     }
   );
 
-  ok( defined( $t_err_msg ), 'operation error; \'on_error\' used; error message' );
+  ok( defined $t_err_msg, 'operation error; \'on_error\' used; error message' );
   is( $t_err_code, E_OPRN_ERROR, 'operation error; \'on_error\' used; error code' );
 
   return;
@@ -1004,7 +1004,7 @@ sub t_oprn_error_mth2 {
           my $reply  = shift;
           $t_err_msg = shift;
 
-          if ( defined( $t_err_msg ) ) {
+          if ( defined $t_err_msg ) {
             $t_err_code = shift;
           }
 
@@ -1014,7 +1014,7 @@ sub t_oprn_error_mth2 {
     }
   );
 
-  ok( defined( $t_err_msg ), 'operation error; \'on_reply\' used; error message' );
+  ok( defined $t_err_msg, 'operation error; \'on_reply\' used; error message' );
   is( $t_err_code, E_OPRN_ERROR, 'operation error; \'on_reply\' used; error code' );
 
   return;
@@ -1041,9 +1041,9 @@ sub t_default_on_error {
     }
   );
 
-  undef( $SIG{__WARN__} );
+  undef $SIG{__WARN__};
 
-  ok( defined( $t_err_msg ), "Default 'on_error' callback" );
+  ok( defined $t_err_msg, "Default 'on_error' callback" );
 
   return;
 }
@@ -1086,7 +1086,7 @@ sub t_error_after_exec_mth1 {
       'error after EXEC; \'on_error\' used;' );
   can_ok( $t_reply->[1], 'code' );
   can_ok( $t_reply->[1], 'message' );
-  ok( defined( $t_reply->[1]->message() ),
+  ok( defined $t_reply->[1]->message( ),
       'error after EXEC; \'on_error\' used; nested error message' );
   is( $t_reply->[1]->code(), E_OPRN_ERROR,
       'error after EXEC; \'on_error\' used; nested error message' );
@@ -1114,7 +1114,7 @@ sub t_error_after_exec_mth2 {
           $t_reply   = shift;
           $t_err_msg = shift;
 
-          if ( defined( $t_err_msg ) ) {
+          if ( defined $t_err_msg ) {
             $t_err_code = shift;
           }
 
@@ -1134,7 +1134,7 @@ sub t_error_after_exec_mth2 {
       'error after EXEC; \'on_reply\' used;' );
   can_ok( $t_reply->[1], 'code' );
   can_ok( $t_reply->[1], 'message' );
-  ok( defined( $t_reply->[1]->message() ),
+  ok( defined $t_reply->[1]->message( ),
       'error after EXEC; \'on_reply\' used; nested error message' );
   is( $t_reply->[1]->code(), E_OPRN_ERROR,
       'error after EXEC; \'on_reply\' used; nested error message' );

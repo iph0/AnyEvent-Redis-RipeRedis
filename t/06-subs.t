@@ -7,7 +7,7 @@ use AnyEvent::Redis::RipeRedis qw( :err_codes );
 require 't/test_helper.pl';
 
 my $SERVER_INFO = run_redis_instance();
-if ( !defined( $SERVER_INFO ) ) {
+if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
 plan tests => 14;
@@ -176,7 +176,7 @@ sub t_sub_unsub_mth2 {
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
               return;
             }
@@ -253,7 +253,7 @@ sub t_sub_unsub_mth2 {
           my $reply   = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
             return;
           }
@@ -443,7 +443,7 @@ sub t_psub_punsub_mth2 {
             my $reply   = shift;
             my $err_msg = shift;
 
-            if ( defined( $err_msg ) ) {
+            if ( defined $err_msg ) {
               diag( $err_msg );
               return;
             }
@@ -527,7 +527,7 @@ sub t_psub_punsub_mth2 {
           my $reply   = shift;
           my $err_msg = shift;
 
-          if ( defined( $err_msg ) ) {
+          if ( defined $err_msg ) {
             diag( $err_msg );
             return;
           }
