@@ -1462,7 +1462,7 @@ code.
         my $err_code = shift;
         my $reply    = shift;
 
-        foreach my $reply ( @{$reply}  ) {
+        foreach my $reply ( @{$reply} ) {
           if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
             my $oprn_err_msg  = $reply->message();
             my $oprn_err_code = $reply->code();
@@ -1485,7 +1485,7 @@ code.
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        foreach my $reply ( @{$reply}  ) {
+        foreach my $reply ( @{$reply} ) {
           if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
             my $oprn_err_msg  = $reply->message();
             my $oprn_err_code = $reply->code();
@@ -1856,7 +1856,7 @@ and error objects for each error reply, as well as described for C<EXEC> command
         my $err_code = shift;
         my $reply    = shift;
 
-        foreach my $reply ( @{$reply}  ) {
+        foreach my $reply ( @{$reply} ) {
           if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
             my $nested_err_msg  = $reply->message();
             my $nested_err_code = $reply->code();
@@ -1876,7 +1876,7 @@ and error objects for each error reply, as well as described for C<EXEC> command
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        foreach my $reply ( @{$reply}  ) {
+        foreach my $reply ( @{$reply} ) {
           if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
             my $nested_err_msg  = $reply->message();
             my $nested_err_code = $reply->code();
