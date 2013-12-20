@@ -57,7 +57,6 @@ sub ev_loop {
   );
 
   $cv->recv();
-  undef $timer;
 
   return;
 }
