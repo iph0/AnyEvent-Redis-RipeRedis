@@ -1024,9 +1024,8 @@ sub t_oprn_error_mth2 {
 sub t_default_on_error {
   my $redis = shift;
 
+  my $cv;
   my $t_err_msg;
-
-  my $cv = AE::cv();
 
   local $SIG{__WARN__} = sub {
     $t_err_msg = shift;
@@ -1035,16 +1034,13 @@ sub t_default_on_error {
     $cv->send();
   };
 
-  $redis->set(); # missing argument
-
-  my $timer = AE::timer( 10, 0,
+  ev_loop(
     sub {
-      diag( 'Emergency exit from event loop. Test failed' );
-      $cv->send();
+      $cv = shift;
+
+      $redis->set(); # missing argument
     }
   );
-
-  $cv->recv();
 
   ok( defined $t_err_msg, "Default 'on_error' callback" );
 
