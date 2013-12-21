@@ -1081,12 +1081,14 @@ sub new {
 ####
 sub message {
   my __PACKAGE__ $self = shift;
+
   return $self->{message};
 }
 
 ####
 sub code {
   my __PACKAGE__ $self = shift;
+
   return $self->{code};
 }
 
@@ -1109,15 +1111,6 @@ feature
     host     => 'localhost',
     port     => '6379',
     password => 'yourpass',
-
-    on_error => sub {
-      my $err_msg  = shift;
-      my $err_code = shift;
-
-      # error handling ...
-
-      $cv->croak( $err_msg );
-    },
   );
 
   $redis->set( 'foo', 'string',
@@ -1170,9 +1163,8 @@ feature
   );
 
   $redis->quit(
-    { on_done => sub {
-        $cv->send();
-      },
+    sub {
+      $cv->send();
     }
   );
 
