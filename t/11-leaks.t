@@ -63,7 +63,6 @@ sub t_leaks_status_reply_mth1 {
         $redis->set( 'foo', "some\r\nstring",
           { on_done => sub {
               my $reply = shift;
-              $cv->send();
             },
           }
         );

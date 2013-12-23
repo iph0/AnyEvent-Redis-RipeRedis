@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.314 Mon Dec 24 19:10:00 MSK 2013
+  - Slight fix in unit tests
+
 1.312 Mon Dec 24 18:00:00 MSK 2013
   - Several changes in POD.
   - Several changes in tests.
