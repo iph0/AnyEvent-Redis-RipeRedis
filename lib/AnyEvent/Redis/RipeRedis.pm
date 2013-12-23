@@ -1118,7 +1118,7 @@ feature
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
 
         $cv->croak( $err_msg );
       },
@@ -1136,7 +1136,7 @@ feature
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
 
         $cv->croak( $err_msg );
       }
@@ -1151,7 +1151,7 @@ feature
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
 
         $cv->croak( $err_msg );
 
@@ -1194,24 +1194,24 @@ Requires Redis 1.2 or higher, and any supported event loop.
     encoding           => 'utf8',
 
     on_connect => sub {
-      print "Connected to Redis server\n";
+      # handling...
     },
 
     on_disconnect => sub {
-      print "Disconnected from Redis server\n";
+      # handling...
     },
 
     on_connect_error => sub {
       my $err_msg = shift;
 
-      # error handling ...
+      # error handling...
     },
 
     on_error => sub {
       my $err_msg  = shift;
       my $err_code = shift;
 
-      # error handling ...
+      # error handling...
     },
   );
 
@@ -1340,7 +1340,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
       }
     }
   );
@@ -1358,7 +1358,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
       },
     }
   );
@@ -1371,7 +1371,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
 
         return;
       }
@@ -1388,7 +1388,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         if ( defined $err_msg ) {
           my $err_code = shift;
 
-          # error handling ...
+          # error handling...
 
           return;
         }
@@ -1459,7 +1459,7 @@ code.
             my $oprn_err_msg  = $reply->message();
             my $oprn_err_code = $reply->code();
 
-            # error handling ...
+            # error handling...
           }
         }
       },
@@ -1482,7 +1482,7 @@ code.
             my $oprn_err_msg  = $reply->message();
             my $oprn_err_code = $reply->code();
 
-            # error handling ...
+            # error handling...
           }
         }
       }
@@ -1522,21 +1522,21 @@ and C<PUNSUBSCRIBE> commands.
         my $ch_name  = shift;
         my $subs_num = shift;
 
-        # subscription handling ...
+        # handling...
       },
 
       on_message => sub {
         my $ch_name = shift;
         my $msg     = shift;
 
-        # message handling ...
+        # handling...
       },
 
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
       },
     }
   );
@@ -1546,7 +1546,7 @@ and C<PUNSUBSCRIBE> commands.
       my $ch_name = shift;
       my $msg     = shift;
 
-      # message handling ...
+      # handling...
     }
   );
 
@@ -1558,7 +1558,7 @@ and C<PUNSUBSCRIBE> commands.
         if ( defined $err_msg ) {
           my $err_code = shift;
 
-          # error handling ...
+          # error handling...
 
           return;
         }
@@ -1566,14 +1566,14 @@ and C<PUNSUBSCRIBE> commands.
         my $ch_name  = $reply->[0];
         my $subs_num = $reply->[1];
 
-        # subscription handling ...
+        # handling...
       },
 
       on_message => sub {
         my $ch_name = shift;
         my $msg     = shift;
 
-        # message handling ...
+        # handling...
       },
     }
   );
@@ -1612,7 +1612,7 @@ Subscribes the client to the given patterns.
         my $ch_pattern = shift;
         my $subs_num   = shift;
 
-        # subscription handling ...
+        # handling...
       },
 
       on_message => sub {
@@ -1620,14 +1620,14 @@ Subscribes the client to the given patterns.
         my $msg        = shift;
         my $ch_pattern = shift;
 
-        # message handling ...
+        # handling...
       },
 
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
       },
     }
   );
@@ -1638,7 +1638,7 @@ Subscribes the client to the given patterns.
       my $msg        = shift;
       my $ch_pattern = shift;
 
-      # message handling ...
+      # handling...
     }
   );
 
@@ -1650,7 +1650,7 @@ Subscribes the client to the given patterns.
         if ( defined $err_msg ) {
           my $err_code = shift;
 
-          # error handling ...
+          # error handling...
 
           return;
         }
@@ -1658,7 +1658,7 @@ Subscribes the client to the given patterns.
         my $ch_pattern = $reply->[0];
         my $subs_num   = $reply->[1];
 
-        # subscription handling ...
+        # handling...
       },
 
       on_message => sub {
@@ -1666,7 +1666,7 @@ Subscribes the client to the given patterns.
         my $msg        = shift;
         my $ch_pattern = shift;
 
-        # message handling ...
+        # handling...
       },
     }
   );
@@ -1714,7 +1714,7 @@ channel will be sent to the client.
         my $ch_name  = shift;
         my $subs_num = shift;
 
-        # unsubscription handling ...
+        # handling...
       },
     }
   );
@@ -1727,7 +1727,7 @@ channel will be sent to the client.
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
 
         return;
       }
@@ -1735,7 +1735,7 @@ channel will be sent to the client.
       my $ch_name  = $reply->[0];
       my $subs_num = $reply->[1];
 
-      # unsubscription handling ...
+      # handling...
     }
   );
 
@@ -1774,7 +1774,7 @@ pattern will be sent to the client.
         my $ch_pattern = shift;
         my $subs_num   = shift;
 
-        # unsubscription handling ...
+        # handling...
       },
     }
   );
@@ -1787,7 +1787,7 @@ pattern will be sent to the client.
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        # error handling ...
+        # error handling...
 
         return;
       }
@@ -1795,7 +1795,7 @@ pattern will be sent to the client.
       my $ch_pattern = $reply->[0];
       my $subs_num   = $reply->[1];
 
-      # unsubscription handling ...
+      # handling...
     }
   );
 
@@ -1853,7 +1853,7 @@ and error objects for each error reply, as well as described for C<EXEC> command
             my $nested_err_msg  = $reply->message();
             my $nested_err_code = $reply->code();
 
-            # error handling ...
+            # error handling...
           }
         }
       }
@@ -1873,7 +1873,7 @@ and error objects for each error reply, as well as described for C<EXEC> command
             my $nested_err_msg  = $reply->message();
             my $nested_err_code = $reply->code();
 
-            # error handling ...
+            # error handling...
           }
         }
       }

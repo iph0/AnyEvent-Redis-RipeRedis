@@ -1085,7 +1085,7 @@ sub t_error_after_exec_mth1 {
       'error after EXEC; \'on_error\' used;' );
   can_ok( $t_reply->[1], 'code' );
   can_ok( $t_reply->[1], 'message' );
-  ok( defined $t_reply->[1]->message( ),
+  ok( defined $t_reply->[1]->message(),
       'error after EXEC; \'on_error\' used; nested error message' );
   is( $t_reply->[1]->code(), E_OPRN_ERROR,
       'error after EXEC; \'on_error\' used; nested error message' );
@@ -1133,7 +1133,7 @@ sub t_error_after_exec_mth2 {
       'error after EXEC; \'on_reply\' used;' );
   can_ok( $t_reply->[1], 'code' );
   can_ok( $t_reply->[1], 'message' );
-  ok( defined $t_reply->[1]->message( ),
+  ok( defined $t_reply->[1]->message(),
       'error after EXEC; \'on_reply\' used; nested error message' );
   is( $t_reply->[1]->code(), E_OPRN_ERROR,
       'error after EXEC; \'on_reply\' used; nested error message' );

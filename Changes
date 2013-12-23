@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.312 Mon Dec 24 18:00:00 MSK 2013
+  - Several changes in POD.
+  - Several changes in tests.
+
 1.311 Fri Dec 20 00:30:00 MSK 2013
   - Several fixes in POD.
   - Cosmetic changes.
@@ -12,7 +16,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 
 1.303 Tue Dec 17 23:00:00 MSK 2013
   - Added version numbers to dependencies in BUILD_REQUIRES section in Makefile.PL.
-  - Increased several timeouts in unit-tests.
+  - Increased several timeouts in unit tests.
 
 1.302 Tue Dec 17 01:20:00 MSK 2013
   - Fixed typo in POD.
@@ -25,7 +29,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
     is called in both cases: when operation was completed successfully and when
     some error occurred.
   - Improved POD.
-  - Improved unit-tests.
+  - Improved unit tests.
   - Another wave of refactoring.
 
 1.254 Mon Jun 9 17:44:55 MSK 2013
@@ -72,7 +76,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - [FEATURE] Now, destroying of object can produce warnings if some commands were not completed.
   - [BUGFIX] Fixed parsing of empty bulk reply.
   - Error codes E_INVALID_PASS and E_OPRN_NOT_PERMITTED were joined with code E_OPRN_ERROR.
-  - Unit-tests completely rewritten with using module Test::RedisServer.
+  - unit tests completely rewritten with using module Test::RedisServer.
 
 1.239 Sat Mar 2 15:28:50 MSK 2013
   - Slight changes in POD
@@ -82,7 +86,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Added list of error codes in POD.
 
 1.237 Sat Feb 16 12:36:55 MSK 2013
-  - Module Digest::SHA1 replaced on Digest::SHA in unit-tests too.
+  - Module Digest::SHA1 replaced on Digest::SHA in unit tests too.
 
 1.236 Thu Feb 14 15:20:25 MSK 2013
   - Module Digest::SHA1 replaced on Digest::SHA.
@@ -90,7 +94,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.235 Mon Feb 11 16:41:30 MSK 2013
   - [BUGFIX] Empty strings in command arguments now processed correctly
     (bug discovered by Andrey Kuzmin).
-  - Slight changes in unit-tests.
+  - Slight changes in unit tests.
 
 1.234 Mon Jan 14 18:10::40 MSK 2013
   - Fixes in POD.
@@ -137,7 +141,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Added section TRANSACTIONS in POD.
   - Refactoring.
   - POD improved.
-  - Unit-tests improved.
+  - unit tests improved.
 
 1.204 Tue Nov 27 22:28:15 MSK 2012
   - Fixed typo in the name of internal method _process_response() (typo discovered
@@ -148,7 +152,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 
 1.202 Fri Nov 23 11:17:00 MSK 2012
   - [BUGFIX] Now, lazy connection works correctly if the parameter 'reconnect' is false.
-  - Unit-tests improved.
+  - unit tests improved.
   - Slight internal changes
 
 1.201 Mon Nov 19 11:05:55 MSK 2012
@@ -158,7 +162,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Implemented new method eval_cached()
   - Added new error code NO_SCRIPT.
   - Many internal changes.
-  - Unit-tests improved.
+  - unit tests improved.
   - Fixes in POD.
   - Added new example script eval.pl
 
@@ -178,7 +182,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 
 1.111 Fri Oct 27 15:30:25 MSK 2012
   - Slight changes in POD.
-  - Slight improvement in unit-test.
+  - Slight improvement in unit test.
   - Slight internal changes.
 
 1.110 Fri Oct 26 18:08:20 MSK 2012
@@ -218,7 +222,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.102 Fri Aug 31 00:19:15 MSK 2012
   - [FEATURE] Added error codes in 'on_error' callbacks.
   - [FEATURE] Added constants for error codes.
-  - Unit-tests improved.
+  - unit tests improved.
   - Many internal changes.
 
 1.000 Wed Aug 15 23:24:05 MSK 2012
