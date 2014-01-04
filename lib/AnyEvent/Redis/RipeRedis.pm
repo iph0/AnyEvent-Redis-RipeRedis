@@ -968,11 +968,11 @@ sub _abort_all {
   $self->{_processing_queue} = [];
   $self->{_subs}             = {};
 
-  if ( !defined( $err_msg ) and @cmds ) {
+  if ( !defined $err_msg and @cmds ) {
     $err_msg = 'Connection closed by client prematurely.';
     $err_code = E_CONN_CLOSED_BY_CLIENT;
   }
-  if ( defined( $err_msg ) ) {
+  if ( defined $err_msg ) {
     $self->_handle_client_error( $err_msg, $err_code );
   }
 
