@@ -314,7 +314,7 @@ sub _connect {
     on_connect_error => $self->_get_connect_error_cb(),
     on_rtimeout      => $self->_get_rtimeout_cb(),
     on_eof           => $self->_get_eof_cb(),
-    on_error         => $self->_get_crit_error_cb(),
+    on_error         => $self->_get_client_error_cb(),
     on_read          => $self->_get_read_cb( $self->_get_reply_cb() ),
   );
 
@@ -412,7 +412,7 @@ sub _get_eof_cb {
 }
 
 ####
-sub _get_crit_error_cb {
+sub _get_client_error_cb {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
