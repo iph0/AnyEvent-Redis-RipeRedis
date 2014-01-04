@@ -27,14 +27,14 @@ use fields qw(
   _auth_st
   _db_select_st
   _ready_to_write
-  _input_buf
-  _tmp_buf
+  _input_queue
+  _tmp_queue
   _processing_queue
   _sub_lock
   _subs
 );
 
-our $VERSION = '1.314';
+our $VERSION = '1.320';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -101,9 +101,6 @@ use constant {
   S_NEED_PERFORM => 1,
   S_IN_PROGRESS  => 2,
   S_IS_DONE      => 3,
-
-  # Flags
-  F_SAFE_DISCONN => 1,
 
   # String terminator
   EOL     => "\r\n",
@@ -178,8 +175,8 @@ sub new {
   $self->{_auth_st}          = S_NEED_PERFORM;
   $self->{_db_select_st}     = S_NEED_PERFORM;
   $self->{_ready_to_write}   = 0;
-  $self->{_input_buf}        = [];
-  $self->{_tmp_buf}          = [];
+  $self->{_input_queue}      = [];
+  $self->{_tmp_queue}        = [];
   $self->{_processing_queue} = [];
   $self->{_sub_lock}         = 0;
   $self->{_subs}             = {};
@@ -256,6 +253,7 @@ sub on_error {
     if ( !defined $on_error ) {
       $on_error = sub {
         my $err_msg = shift;
+
         warn "$err_msg\n";
       };
     }
@@ -361,7 +359,7 @@ sub _get_connect_cb {
     }
     else {
       $self->{_ready_to_write} = 1;
-      $self->_flush_input_buf();
+      $self->_flush_input_queue();
     }
 
     if ( defined $self->{on_connect} ) {
@@ -379,7 +377,7 @@ sub _get_connect_error_cb {
   return sub {
     my $err_msg = pop;
 
-    $self->_handle_crit_error(
+    $self->_disconnect(
         "Can't connect to $self->{host}:$self->{port}: $err_msg",
         E_CANT_CONN );
   };
@@ -393,7 +391,7 @@ sub _get_rtimeout_cb {
 
   return sub {
     if ( @{$self->{_processing_queue}} ) {
-      $self->_handle_crit_error( 'Read timed out.', E_READ_TIMEDOUT );
+      $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
     }
     else {
       $self->{_handle}->rtimeout( undef );
@@ -408,7 +406,7 @@ sub _get_eof_cb {
   weaken( $self );
 
   return sub {
-    $self->_handle_crit_error( 'Connection closed by remote host.',
+    $self->_disconnect( 'Connection closed by remote host.',
         E_CONN_CLOSED_BY_REMOTE_HOST );
   };
 }
@@ -422,7 +420,7 @@ sub _get_crit_error_cb {
   return sub {
     my $err_msg = pop;
 
-    $self->_handle_crit_error( $err_msg, E_IO );
+    $self->_disconnect( $err_msg, E_IO );
   };
 }
 
@@ -502,7 +500,7 @@ sub _get_read_cb {
           return 1 if $cb->( $reply, $err_code );
         }
         else {
-          $self->_handle_crit_error( 'Unexpected data type received.',
+          $self->_disconnect( 'Unexpected data type received.',
               E_UNEXPECTED_DATA );
 
           return;
@@ -610,7 +608,7 @@ sub _execute_cmd {
       return;
     }
 
-    push( @{$self->{_input_buf}}, $cmd );
+    push( @{$self->{_input_queue}}, $cmd );
   }
 
   return;
@@ -662,13 +660,12 @@ sub _auth {
         }
         else {
           $self->{_ready_to_write} = 1;
-          $self->_flush_input_buf();
+          $self->_flush_input_queue();
         }
       },
       on_error => sub {
         $self->{_auth_st} = S_NEED_PERFORM;
-        $self->_abort_cmds( @_ );
-        $self->{on_error}->( @_ );
+        $self->_abort_all( @_ );
       },
     }
   );
@@ -689,15 +686,27 @@ sub _select_db {
       on_done => sub {
         $self->{_db_select_st} = S_IS_DONE;
         $self->{_ready_to_write} = 1;
-        $self->_flush_input_buf();
+        $self->_flush_input_queue();
       },
       on_error => sub {
         $self->{_db_select_st} = S_NEED_PERFORM;
-        $self->_abort_cmds( @_ );
-        $self->{on_error}->( @_ );
+        $self->_abort_all( @_ );
       },
     }
   );
+
+  return;
+}
+
+####
+sub _flush_input_queue {
+  my __PACKAGE__ $self = shift;
+
+  $self->{_tmp_queue} = $self->{_input_queue};
+  $self->{_input_queue} = [];
+  while ( my $cmd = shift( @{$self->{_tmp_queue}} ) ) {
+    $self->_push_write( $cmd );
+  }
 
   return;
 }
@@ -768,7 +777,7 @@ sub _handle_success_reply {
   my $cmd = $self->{_processing_queue}[0];
 
   if ( !defined $cmd ) {
-    $self->_handle_crit_error(
+    $self->_disconnect(
         'Don\'t known how process reply. Command queue is empty.',
         E_UNEXPECTED_DATA );
 
@@ -823,7 +832,7 @@ sub _handle_error_reply {
   my $cmd = shift( @{$self->{_processing_queue}} );
 
   if ( !defined $cmd ) {
-    $self->_handle_crit_error(
+    $self->_disconnect(
         'Don\'t known how process error. Command queue is empty.',
         E_UNEXPECTED_DATA );
 
@@ -860,7 +869,7 @@ sub _handle_pub_message {
   my $msg_cb = $self->{_subs}{ $reply->[1] };
 
   if ( !defined $msg_cb ) {
-    $self->_handle_crit_error(
+    $self->_disconnect(
         'Don\'t known how process published message.'
             . " Unknown channel or pattern '$reply->[1]'.",
         E_UNEXPECTED_DATA );
@@ -873,6 +882,25 @@ sub _handle_pub_message {
   }
   else {
     $msg_cb->( @{$reply}[ 2, 3, 1 ] );
+  }
+
+  return;
+}
+
+####
+sub _handle_client_error {
+  my __PACKAGE__ $self = shift;
+
+  if ( $_[1] == E_CANT_CONN ) {
+    if ( defined $self->{on_connect_error} ) {
+      $self->{on_connect_error}->( $_[0] );
+    }
+    else {
+      $self->{on_error}->( @_ );
+    }
+  }
+  else {
+    $self->{on_error}->( @_ );
   }
 
   return;
@@ -897,60 +925,26 @@ sub _handle_cmd_error {
 }
 
 ####
-sub _handle_crit_error {
-  my __PACKAGE__ $self = shift;
-
-  $self->_reset_state();
-
-  $self->_abort_cmds( @_ );
-
-  if ( $_[1] == E_CANT_CONN ) {
-    if ( defined $self->{on_connect_error} ) {
-      $self->{on_connect_error}->( $_[0] );
-    }
-    else {
-      $self->{on_error}->( @_ );
-    }
-  }
-  else {
-    $self->{on_error}->( @_ );
-    if ( defined $self->{on_disconnect} ) {
-      $self->{on_disconnect}->();
-    }
-  }
-
-  return;
-}
-
-####
-sub _flush_input_buf {
-  my __PACKAGE__ $self = shift;
-
-  $self->{_tmp_buf} = $self->{_input_buf};
-  $self->{_input_buf} = [];
-  while ( my $cmd = shift( @{$self->{_tmp_buf}} ) ) {
-    $self->_push_write( $cmd );
-  }
-
-  return;
-}
-
-####
 sub _disconnect {
   my __PACKAGE__ $self = shift;
-  my $safe_disconn = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
 
   my $was_connected = $self->{_connected};
 
-  $self->_reset_state();
+  if ( defined $self->{_handle} ) {
+    $self->{_handle}->destroy();
+    undef $self->{_handle};
+  }
+  $self->{_connected}      = 0;
+  $self->{_auth_st}        = S_NEED_PERFORM;
+  $self->{_db_select_st}   = S_NEED_PERFORM;
+  $self->{_ready_to_write} = 0;
+  $self->{_sub_lock}       = 0;
 
-  $self->_abort_cmds( 'Connection closed by client.', E_CONN_CLOSED_BY_CLIENT,
-      $safe_disconn );
+  $self->_abort_all( $err_msg, $err_code );
 
-  if (
-    $was_connected and !$safe_disconn
-      and defined $self->{on_disconnect}
-      ) {
+  if ( $was_connected and defined $self->{on_disconnect} ) {
     $self->{on_disconnect}->();
   }
 
@@ -958,49 +952,33 @@ sub _disconnect {
 }
 
 ####
-sub _reset_state {
+sub _abort_all {
   my __PACKAGE__ $self = shift;
-
-  if ( defined $self->{_handle} ) {
-    $self->{_handle}->destroy();
-    undef $self->{_handle};
-  }
-
-  $self->{_connected}      = 0;
-  $self->{_auth_st}        = S_NEED_PERFORM;
-  $self->{_db_select_st}   = S_NEED_PERFORM;
-  $self->{_ready_to_write} = 0;
-  $self->{_sub_lock}       = 0;
-  $self->{_subs}           = {};
-
-  return;
-}
-
-####
-sub _abort_cmds {
-  my __PACKAGE__ $self = shift;
-  my $err_msg    = shift;
-  my $err_code   = shift;
-  my $safe_abort = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
 
   my @cmds = (
     @{$self->{_processing_queue}},
-    @{$self->{_tmp_buf}},
-    @{$self->{_input_buf}},
+    @{$self->{_tmp_queue}},
+    @{$self->{_input_queue}},
   );
 
-  $self->{_input_buf}        = [];
-  $self->{_tmp_buf}          = [];
+  $self->{_input_queue}      = [];
+  $self->{_tmp_queue}        = [];
   $self->{_processing_queue} = [];
+  $self->{_subs}             = {};
+
+  if ( !defined( $err_msg ) and @cmds ) {
+    $err_msg = 'Connection closed by client prematurely.';
+    $err_code = E_CONN_CLOSED_BY_CLIENT;
+  }
+  if ( defined( $err_msg ) ) {
+    $self->_handle_client_error( $err_msg, $err_code );
+  }
 
   foreach my $cmd ( @cmds ) {
     my $cmd_err_msg = "Operation '$cmd->{keyword}' aborted: $err_msg";
-    if ( !$safe_abort ) {
-      $self->_handle_cmd_error( $cmd, $cmd_err_msg, $err_code );
-    }
-    else {
-      warn "$cmd_err_msg\n";
-    }
+    $self->_handle_cmd_error( $cmd, $cmd_err_msg, $err_code );
   }
 
   return;
@@ -1046,10 +1024,17 @@ sub AUTOLOAD {
 sub DESTROY {
   my __PACKAGE__ $self = shift;
 
-  # Check whether the object was created entirely
-  if ( defined $self->{_subs} ) {
-    # Disconnect without calling any callbacks
-    $self->_disconnect( F_SAFE_DISCONN );
+  if ( defined $self->{_handle} ) {
+    my @cmds = (
+      @{$self->{_processing_queue}},
+      @{$self->{_tmp_queue}},
+      @{$self->{_input_queue}},
+    );
+
+    foreach my $cmd ( @cmds ) {
+      warn "Operation '$cmd->{keyword}' aborted:"
+          . " Client object destroyed prematurely\n";
+    }
   }
 
   return;
@@ -1937,8 +1922,7 @@ The connection closed by remote host. All operations were aborted.
 
 =item E_CONN_CLOSED_BY_CLIENT
 
-Uncompleted operations were aborted at time of calling C<disconnect()> method
-or after executing C<QUIT> command.
+Connection closed by client prematurely. Uncompleted operations were aborted.
 
 =item E_NO_CONN
 

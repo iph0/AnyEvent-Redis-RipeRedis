@@ -90,12 +90,11 @@ sub t_invalid_password {
 
   $redis->disconnect();
 
-  my $t_name = 'invalid password;';
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
-      "$t_name; command error message" );
-  is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
-  ok( defined $t_comm_err_msg, "$t_name; common error message" );
-  is( $t_comm_err_code, E_OPRN_ERROR, "$t_name; common error code" );
+      'invalid password; command error message' );
+  is( $t_cmd_err_code, E_OPRN_ERROR, 'invalid password; command error code' );
+  ok( defined $t_comm_err_msg, 'invalid password; common error message' );
+  is( $t_comm_err_code, E_OPRN_ERROR, 'invalid password; common error code' );
 
   return;
 }
