@@ -17,7 +17,7 @@ WriteMakefile(
     'ExtUtils::MakeMaker' => 6.82,
   },
   BUILD_REQUIRES => {
-    'Test::More'        => 0.99,
+    'Test::More'        => 0.98,
     'Test::RedisServer' => 0.14,
     'Test::TCP'         => 2.02,
     'Test::Fatal'       => 0.013,
