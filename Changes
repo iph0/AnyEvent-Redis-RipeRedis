@@ -1,7 +1,16 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.320 Sat Jan 11 23:40:00 MSK 2014
+  - On premature connection close, the client additionally calls the common
+    'on_error' callback.
+  - Premature connection close or premature destroy of the client object produce
+    different warnings.
+  - Internal API improved.
+  - Unit tests improved.
+  - Slight changes in POD.
+
 1.314 Tue Dec 24 19:10:00 MSK 2013
-  - Slight fix in unit tests
+  - Slight fix in unit tests.
 
 1.312 Tue Dec 24 18:00:00 MSK 2013
   - Several changes in POD.
@@ -76,9 +85,11 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Slight fix in POD.
 
 1.240 Tue Apr 9 19:40:55 MSK 2013
-  - [FEATURE] Now, destroying of object can produce warnings if some commands were not completed.
+  - [FEATURE] Now, destroying of object can produce warnings if some commands
+    were not completed.
   - [BUGFIX] Fixed parsing of empty bulk reply.
-  - Error codes E_INVALID_PASS and E_OPRN_NOT_PERMITTED were joined with code E_OPRN_ERROR.
+  - Error codes E_INVALID_PASS and E_OPRN_NOT_PERMITTED were joined with code
+    E_OPRN_ERROR.
   - unit tests completely rewritten with using module Test::RedisServer.
 
 1.239 Sat Mar 2 15:28:50 MSK 2013
@@ -138,7 +149,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.210 Mon Dec 24 00:10:00 MSK 2012
   - [FEATURE] Implemented parameter 'read_timeout' in constructor.
   - [FEATURE] Added error code constant E_READ_TIMEDOUT.
-  - Now, if client received unexpected data, it abort all commands and close connection.
+  - Now, if client received unexpected data, it abort all commands and close
+    connection.
   - Validation of input parameters became less strict.
   - Slight optimization.
   - Added section TRANSACTIONS in POD.
@@ -154,7 +166,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Internal method _async_call() replaced by AE::postpone() function.
 
 1.202 Fri Nov 23 11:17:00 MSK 2012
-  - [BUGFIX] Now, lazy connection works correctly if the parameter 'reconnect' is false.
+  - [BUGFIX] Now, lazy connection works correctly if the parameter 'reconnect'
+    is false.
   - unit tests improved.
   - Slight internal changes
 
@@ -191,7 +204,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.110 Fri Oct 26 18:08:20 MSK 2012
   - [FEATURE] Added constructor parameter 'database'.
   - [FEATURE] Added constructor parameter 'lazy'.
-  - [BUGFIX] Fixed reconnect error, which has been occurred if password was not been required.
+  - [BUGFIX] Fixed reconnect error, which has been occurred if password was not
+    been required.
   - Changes in POD.
 
 1.109 Fri Oct 20 01:54:40 MSK 2012
