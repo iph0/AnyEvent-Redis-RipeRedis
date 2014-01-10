@@ -64,8 +64,8 @@ sub t_invalid_db_index {
 
   my $redis;
 
-  my $t_comm_err_msg;
-  my $t_comm_err_code;
+  my $t_cli_err_msg;
+  my $t_cli_err_code;
   my $t_cmd_err_msg;
   my $t_cmd_err_code;
 
@@ -80,8 +80,8 @@ sub t_invalid_db_index {
         database => 42,
 
         on_error => sub {
-          $t_comm_err_msg  = shift;
-          $t_comm_err_code = shift;
+          $t_cli_err_msg  = shift;
+          $t_cli_err_code = shift;
           $cv->send();
         },
       );
@@ -102,8 +102,8 @@ sub t_invalid_db_index {
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
       "$t_name; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name; command error code" );
-  ok( defined $t_comm_err_msg, "$t_name; common error message" );
-  is( $t_comm_err_code, E_OPRN_ERROR, "$t_name common error code" );
+  ok( defined $t_cli_err_msg, "$t_name; client error message" );
+  is( $t_cli_err_code, E_OPRN_ERROR, "$t_name client error code" );
 
   return;
 }

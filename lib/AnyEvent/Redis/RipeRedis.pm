@@ -1033,7 +1033,7 @@ sub DESTROY {
 
     foreach my $cmd ( @cmds ) {
       warn "Operation '$cmd->{keyword}' aborted:"
-          . " Client object destroyed prematurely\n";
+          . " Client object destroyed prematurely.\n";
     }
   }
 

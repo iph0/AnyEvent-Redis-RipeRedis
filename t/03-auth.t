@@ -57,8 +57,8 @@ sub t_invalid_password {
 
   my $redis;
 
-  my $t_comm_err_msg;
-  my $t_comm_err_code;
+  my $t_cli_err_msg;
+  my $t_cli_err_code;
   my $t_cmd_err_msg;
   my $t_cmd_err_code;
 
@@ -72,8 +72,8 @@ sub t_invalid_password {
         password => 'invalid',
 
         on_error => sub {
-          $t_comm_err_msg  = shift;
-          $t_comm_err_code = shift;
+          $t_cli_err_msg  = shift;
+          $t_cli_err_code = shift;
           $cv->send();
         },
       );
@@ -93,8 +93,8 @@ sub t_invalid_password {
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
       'invalid password; command error message' );
   is( $t_cmd_err_code, E_OPRN_ERROR, 'invalid password; command error code' );
-  ok( defined $t_comm_err_msg, 'invalid password; common error message' );
-  is( $t_comm_err_code, E_OPRN_ERROR, 'invalid password; common error code' );
+  ok( defined $t_cli_err_msg, 'invalid password; client error message' );
+  is( $t_cli_err_code, E_OPRN_ERROR, 'invalid password; client error code' );
 
   return;
 }
