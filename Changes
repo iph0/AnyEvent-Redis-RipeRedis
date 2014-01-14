@@ -1,10 +1,13 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.344 Wed Jan 15 00:45:00 MSK 2014
+  - Minor changes.
+
 1.343 Wed Jan 15 00:40:00 MSK 2014
-  - Several changes unit tests.
+  - Several changes in unit tests.
 
 1.342 Wed Jan 15 00:30:00 MSK 2014
-  - Slight fix in unit tests.
+  - Fix in unit tests.
 
 1.341 Tue Jan 14 22:15:00 MSK 2014
   - BUGFIX: Now, selected_database() method returns '0' if 'database' parameter
@@ -13,7 +16,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.340 Tue Jan 14 21:00:00 MSK 2014
   - FEATURE: Added selected_database() method.
   - BUGFIX: Now, client remembers last selected database after reconnection.
-  - Slight changes in POD.
+  - Minor changes in POD.
   - Required version of ExtUtils::MakeMaker decremented back to 6.64.
   - Several internal changes.
 
@@ -27,10 +30,10 @@ Revision history for AnyEvent::Redis::RipeRedis.
     produce different warnings.
   - Internal API improved.
   - Unit tests improved.
-  - Slight changes in POD.
+  - Minor changes in POD.
 
 1.314 Tue Dec 24 19:10:00 MSK 2013
-  - Slight fix in unit tests.
+  - Minor fix in unit tests.
 
 1.312 Tue Dec 24 18:00:00 MSK 2013
   - Several changes in POD.
@@ -43,7 +46,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.310 Wed Dec 18 19:10:00 MSK 2013
   - FEATURE: Added error codes based on error prefixes.
   - Improved parsing of error prefixes.
-  - Slight changes in POD.
+  - Minor changes in POD.
   - Cosmetic changes in example scripts.
 
 1.303 Tue Dec 17 23:00:00 MSK 2013
@@ -65,7 +68,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Another wave of refactoring.
 
 1.254 Mon Jun 9 17:44:55 MSK 2013
-  - Slight changes in POD.
+  - Minor changes in POD.
 
 1.253 Wed May 31 14:38:35 MSK 2013
   - BUGFIX: Fixed premature triggering of the 'rtimeout' timer in some cases.
@@ -90,19 +93,19 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - TEST_REQUIRES section renamed back to BUILD_REQUIRES.
 
 1.243 Sat Apr 13 00:41:25 MSK 2013
-  - Slight fixes in POD.
+  - Minor fixes in POD.
 
 1.242 Fri Apr 12 16:54:10 MSK 2013
   - Increased minimal required version of Perl up to v5.8.0
   - Test 10-exceptions.t rewritten with using Test::Fatal
   - Edited POD.
-  - Slight changes in examples.
+  - Minor changes in examples.
   - Fixed dates in Changes file
   - Fixed year in copyright in README file
 
 1.241 Wed Apr 10 07:35:25 MSK 2013
   - Removed Test::MockObject from dependencies.
-  - Slight fix in POD.
+  - Minor fix in POD.
 
 1.240 Tue Apr 9 19:40:55 MSK 2013
   - FEATURE: Now, destroying of object can produce warnings if some commands
@@ -113,7 +116,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - unit tests completely rewritten with using module Test::RedisServer.
 
 1.239 Sat Mar 2 15:28:50 MSK 2013
-  - Slight changes in POD
+  - Minor changes in POD
 
 1.238 Fri Mar 1 18:00:00 MSK 2013
   - Slight refactoring of input parameters validation.
@@ -128,7 +131,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.235 Mon Feb 11 16:41:30 MSK 2013
   - BUGFIX: Empty strings in command arguments now processed correctly
     (bug discovered by Andrey Kuzmin).
-  - Slight changes in unit tests.
+  - Minor changes in unit tests.
 
 1.234 Mon Jan 14 18:10::40 MSK 2013
   - Fixes in POD.
@@ -189,7 +192,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - BUGFIX: Now, lazy connection works correctly if the parameter 'reconnect'
     is false.
   - unit tests improved.
-  - Slight internal changes
+  - Minor internal changes
 
 1.201 Mon Nov 19 11:05:55 MSK 2012
   - Fixes in POD
@@ -203,7 +206,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Added new example script eval.pl
 
 1.115 Wed Oct 31 18:51:50 MSK 2012
-  - Slight fixes in POD.
+  - Minor fixes in POD.
 
 1.114 Wed Oct 31 14:37:55 MSK 2012
   - Added protection from deep recursion in case of some errors.
@@ -217,9 +220,9 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - POD edited.
 
 1.111 Fri Oct 27 15:30:25 MSK 2012
-  - Slight changes in POD.
+  - Minor changes in POD.
   - Slight improvement in unit test.
-  - Slight internal changes.
+  - Minor internal changes.
 
 1.110 Fri Oct 26 18:08:20 MSK 2012
   - FEATURE: Added constructor parameter 'database'.
