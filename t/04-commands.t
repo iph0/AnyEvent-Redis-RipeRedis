@@ -11,7 +11,7 @@ my $SERVER_INFO = run_redis_instance();
 if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
-plan tests => 28;
+plan tests => 48;
 
 my $REDIS;
 my $T_IS_CONN = 0;
