@@ -8,7 +8,6 @@ use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
   password           => 'test',
-  database           => 7,
   connection_timeout => 10,
   read_timeout       => 5,
   reconnect          => 1,
@@ -210,7 +209,7 @@ sub t_selected_database {
 
   my $db_index = $redis->selected_database();
 
-  is( $db_index, 7, 'get selected database' );
+  is( $db_index, 0, 'get selected database' );
 
   return;
 }

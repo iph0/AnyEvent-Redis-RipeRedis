@@ -1,8 +1,12 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.341 Tue Jan 14 22:15:00 MSK 2014
+  - BUGFIX: Now, selected_database() method returns '0' if 'database' parameter
+    was not specified in constructor.
+
 1.340 Tue Jan 14 21:00:00 MSK 2014
-  - [FEATURE] Added method selected_database()
-  - [BUGFIX] The client did not remember last selected database after reconnection.
+  - FEATURE: Added selected_database() method.
+  - BUGFIX: Now, client remembers last selected database after reconnection.
   - Slight changes in POD.
   - Required version of ExtUtils::MakeMaker decremented back to 6.64.
   - Several internal changes.
@@ -13,8 +17,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
 1.320 Sat Jan 11 23:40:00 MSK 2014
   - On premature connection close, the client additionally calls the common
     'on_error' callback.
-  - Premature connection close or premature destroy of the client object produce
-    different warnings.
+  - The premature connection close or the premature destroy of the client object
+    produce different warnings.
   - Internal API improved.
   - Unit tests improved.
   - Slight changes in POD.
@@ -31,7 +35,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Cosmetic changes.
 
 1.310 Wed Dec 18 19:10:00 MSK 2013
-  - [FEATURE] Added error codes based on error prefixes.
+  - FEATURE: Added error codes based on error prefixes.
   - Improved parsing of error prefixes.
   - Slight changes in POD.
   - Cosmetic changes in example scripts.
@@ -47,7 +51,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Some fixes in POD.
 
 1.300 Mon Dec 16 19:50:00 MSK 2013
-  - [FEATURE] Now, in command methods can be specified single callback, which
+  - FEATURE: Now, in command methods can be specified single callback, which
     is called in both cases: when operation was completed successfully and when
     some error occurred.
   - Improved POD.
@@ -58,11 +62,11 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Slight changes in POD.
 
 1.253 Wed May 31 14:38:35 MSK 2013
-  - [BUGFIX] Fixed premature triggering of the 'rtimeout' timer in some cases.
+  - BUGFIX: Fixed premature triggering of the 'rtimeout' timer in some cases.
 
 1.252 Wed May 29 11:00:45 MSK 2013
-  - [BUGFIX] Fixed reading from the uninitialized read buffer in some cases.
-  - Now in tests empty TCP port is taken using module Net::EmptyPort.
+  - BUGFIX: Fixed reading from the uninitialized read buffer in some cases.
+  - Now, in tests empty TCP port is taken using module Net::EmptyPort.
 
 1.251 Fri Apr 26 11:29:05 MSK 2013
   - Slight modification of examples in POD
@@ -95,9 +99,9 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Slight fix in POD.
 
 1.240 Tue Apr 9 19:40:55 MSK 2013
-  - [FEATURE] Now, destroying of object can produce warnings if some commands
+  - FEATURE: Now, destroying of object can produce warnings if some commands
     were not completed.
-  - [BUGFIX] Fixed parsing of empty bulk reply.
+  - BUGFIX: Fixed parsing of empty bulk reply.
   - Error codes E_INVALID_PASS and E_OPRN_NOT_PERMITTED were joined with code
     E_OPRN_ERROR.
   - unit tests completely rewritten with using module Test::RedisServer.
@@ -116,7 +120,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Module Digest::SHA1 replaced on Digest::SHA.
 
 1.235 Mon Feb 11 16:41:30 MSK 2013
-  - [BUGFIX] Empty strings in command arguments now processed correctly
+  - BUGFIX: Empty strings in command arguments now processed correctly
     (bug discovered by Andrey Kuzmin).
   - Slight changes in unit tests.
 
@@ -133,12 +137,12 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Slight improvements.
 
 1.230 Wed Jan 9 11:12:12 MSK 2013
-  - [BUGFIX] Fixed the bug, which was a cause of crashes of the client in some
+  - BUGFIX: Fixed the bug, which was a cause of crashes of the client in some
     cases of lost connection.
   - Slight refactoring and optimization.
 
 1.220 Mon Jan 7 17:47:47 MSK 2013
-  - [FEATURE] Added following accessors:
+  - FEATURE: Added following accessors:
     - connection_timeout,
     - read_timeout,
     - reconnect,
@@ -157,8 +161,8 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Fixes in POD.
 
 1.210 Mon Dec 24 00:10:00 MSK 2012
-  - [FEATURE] Implemented parameter 'read_timeout' in constructor.
-  - [FEATURE] Added error code constant E_READ_TIMEDOUT.
+  - FEATURE: Implemented parameter 'read_timeout' in constructor.
+  - FEATURE: Added error code constant E_READ_TIMEDOUT.
   - Now, if client received unexpected data, it abort all commands and close
     connection.
   - Validation of input parameters became less strict.
@@ -176,7 +180,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Internal method _async_call() replaced by AE::postpone() function.
 
 1.202 Fri Nov 23 11:17:00 MSK 2012
-  - [BUGFIX] Now, lazy connection works correctly if the parameter 'reconnect'
+  - BUGFIX: Now, lazy connection works correctly if the parameter 'reconnect'
     is false.
   - unit tests improved.
   - Slight internal changes
@@ -212,9 +216,9 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Slight internal changes.
 
 1.110 Fri Oct 26 18:08:20 MSK 2012
-  - [FEATURE] Added constructor parameter 'database'.
-  - [FEATURE] Added constructor parameter 'lazy'.
-  - [BUGFIX] Fixed reconnect error, which has been occurred if password was not
+  - FEATURE: Added constructor parameter 'database'.
+  - FEATURE: Added constructor parameter 'lazy'.
+  - BUGFIX: Fixed reconnect error, which has been occurred if password was not
     been required.
   - Changes in POD.
 
@@ -230,7 +234,7 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Added minimal Perl version in Makefile.PL.
 
 1.106 Fri Oct 19 16:44:00 MSK 2012
-  - [BUGFIX] In some cases method disconnect() has not been closing the connection.
+  - BUGFIX: In some cases method disconnect() has not been closing the connection.
 
 1.105 Tue Oct 10 18:31:40 MSK 2012
   - Slight optimization.
@@ -247,15 +251,15 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Cosmetic changes.
 
 1.102 Fri Aug 31 00:19:15 MSK 2012
-  - [FEATURE] Added error codes in 'on_error' callbacks.
-  - [FEATURE] Added constants for error codes.
+  - FEATURE: Added error codes in 'on_error' callbacks.
+  - FEATURE: Added constants for error codes.
   - unit tests improved.
   - Many internal changes.
 
 1.000 Wed Aug 15 23:24:05 MSK 2012
-  - [BUGFIX] Now, connection to server closed automatically after destroying
+  - BUGFIX: Now, connection to server closed automatically after destroying
     last reference on AnyEvent::Redis::RipeRedis object.
-  - [BUGFIX] Fixed cyclic references.
+  - BUGFIX: Fixed cyclic references.
 
 0.807301 Wed Aug 15 00:52:45 MSK 2012
   - Changes in POD
@@ -265,32 +269,32 @@ Revision history for AnyEvent::Redis::RipeRedis.
   - Changed format of error messages.
 
 0.807200 Fri Jun 29 22:12:40 MSK 2012
-  - [BUGFIX] "on_done" callback now calls at the end of processing of response,
+  - BUGFIX: "on_done" callback now calls at the end of processing of response,
     to avoid unexpected behavior.
 
 0.807100 Wed Jun 20 10:38:50 MSK 2012
-  - [BUGFIX] If some error ocurred or if connection was closed, then uncompleted
+  - BUGFIX: If some error ocurred or if connection was closed, then uncompleted
     commands will be aborted before calling 'on_error', 'on_connect_error'
     or 'on_disconnect' callbacks, to avoid unexpected behavior.
 
 0.807000 Mon Jun 18 14:55:50 MSK 2012
-  - [FEATURE] Added 'on_connect_error' callback in constructor
+  - FEATURE: Added 'on_connect_error' callback in constructor
 
 0.806000 Thu Jun 14 15:47:10 MSK 2012
-  - [FEATURE] Added public method disconnect()
+  - FEATURE: Added public method disconnect()
 
 0.805201 Wed Jun 13 10:14:00 MSK 2012
   - Minor fix in POD.
 
 0.805200 Tue May 29 11:02:30 MSK 2012
-  - [BUGFIX] Fixed probable race condition in auto-authentication.
+  - BUGFIX: Fixed probable race condition in auto-authentication.
 
 0.805103 Thu May 17 12:27:05 MSK 2012
-  - [BUGFIX] Prevented an infinite loop in method _abort_commands() in case, when
+  - BUGFIX: Prevented an infinite loop in method _abort_commands() in case, when
     commands was executed in 'on_error' callback wihtout delay.
 
 0.805000 Wed May 16 21:20:15 MSK 2012
-  - [BUGFIX] Automatic authentication now works correctly in case, when Redis
+  - BUGFIX: Automatic authentication now works correctly in case, when Redis
     server needs some time to load data file in memory.
 
 0.804106 Sat Apr 14 15:48:46 MSK 2012

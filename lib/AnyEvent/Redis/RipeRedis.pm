@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.340';
+our $VERSION = '1.341';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -73,8 +73,9 @@ BEGIN {
 
 use constant {
   # Default values
-  D_HOST => 'localhost',
-  D_PORT => 6379,
+  D_HOST     => 'localhost',
+  D_PORT     => 6379,
+  D_DB_INDEX => 0,
 
   # Error codes
   E_CANT_CONN                  => 1,
@@ -154,9 +155,15 @@ sub new {
   $self->{host}     = $params->{host} || D_HOST;
   $self->{port}     = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
+
+  if ( !defined $params->{database} ) {
+    $params->{database} = D_DB_INDEX;
+  }
   $self->{database} = $params->{database};
+
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
+
   if ( !exists $params->{reconnect} ) {
     $params->{reconnect} = 1;
   }
@@ -354,7 +361,7 @@ sub _get_connect_cb {
     if ( !defined $self->{password} ) {
       $self->{_auth_st} = S_IS_DONE;
     }
-    if ( !defined $self->{database} ) {
+    if ( $self->{database} == 0 ) {
       $self->{_db_select_st} = S_IS_DONE;
     }
 
