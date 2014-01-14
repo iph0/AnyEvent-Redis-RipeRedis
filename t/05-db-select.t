@@ -11,7 +11,7 @@ plan tests => 16;
 my $SERVER_INFO = run_redis_instance();
 SKIP : {
   if ( !defined $SERVER_INFO ) {
-    skip 'redis-server is required for this test', 5;
+    skip 'redis-server is required for this test', 13;
   }
 
   t_auto_select( $SERVER_INFO );
@@ -28,7 +28,7 @@ $SERVER_INFO = run_redis_instance(
 );
 SKIP: {
   if ( !defined $SERVER_INFO ) {
-    skip 'redis-server is required for this test', 1;
+    skip 'redis-server is required for this test', 3;
   }
 
   t_auto_select_after_auth( $SERVER_INFO );
