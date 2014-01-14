@@ -6,33 +6,24 @@ use Test::More;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 require 't/test_helper.pl';
 
+my $SERVER_INFO = run_redis_instance();
+if ( !defined $SERVER_INFO ) {
+  plan skip_all => 'redis-server is required for this test';
+}
 plan tests => 16;
 
-my $SERVER_INFO = run_redis_instance();
-SKIP : {
-  if ( !defined $SERVER_INFO ) {
-    skip 'redis-server is required for this test', 13;
-  }
+t_auto_select( $SERVER_INFO );
+t_select( $SERVER_INFO );
+t_invalid_db_index( $SERVER_INFO );
+t_auto_select_after_reconn( $SERVER_INFO );
 
-  t_auto_select( $SERVER_INFO );
-  t_select( $SERVER_INFO );
-  t_invalid_db_index( $SERVER_INFO );
-  t_auto_select_after_reconn( $SERVER_INFO );
-
-  $SERVER_INFO->{server}->stop();
-}
-
+$SERVER_INFO->{server}->stop();
 
 $SERVER_INFO = run_redis_instance(
   requirepass => 'testpass',
 );
-SKIP: {
-  if ( !defined $SERVER_INFO ) {
-    skip 'redis-server is required for this test', 3;
-  }
 
-  t_auto_select_after_auth( $SERVER_INFO );
-}
+t_auto_select_after_auth( $SERVER_INFO );
 
 
 ####
