@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.342 Wed Jan 15 00:30:00 MSK 2014
+  - Slight fix in unit tests.
+
 1.341 Tue Jan 14 22:15:00 MSK 2014
   - BUGFIX: Now, selected_database() method returns '0' if 'database' parameter
     was not specified in constructor.
