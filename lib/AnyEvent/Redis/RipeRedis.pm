@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.344';
+our $VERSION = '1.345';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -999,6 +999,7 @@ sub AUTOLOAD {
   our $AUTOLOAD;
   my $cmd_keyword = $AUTOLOAD;
   $cmd_keyword =~ s/^.+:://;
+  $cmd_keyword = lc( $cmd_keyword );
 
   my $sub = sub {
     my __PACKAGE__ $self = shift;
