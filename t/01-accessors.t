@@ -3,24 +3,29 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 32;
+use Test::More tests => 34;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
-  password => 'test',
+  password           => 'test',
+  database           => 7,
   connection_timeout => 10,
-  read_timeout => 5,
-  reconnect => 1,
-  encoding => 'UTF-16',
+  read_timeout       => 5,
+  reconnect          => 1,
+  encoding           => 'utf8',
+
   on_connect => sub {
     return 1;
   },
+
   on_disconnect => sub {
     return 2;
   },
+
   on_connect_error => sub {
     return 3;
   },
+
   on_error => sub {
     return 4;
   },
@@ -34,6 +39,7 @@ can_ok( $REDIS, 'on_connect' );
 can_ok( $REDIS, 'on_disconnect' );
 can_ok( $REDIS, 'on_connect_error' );
 can_ok( $REDIS, 'on_error' );
+can_ok( $REDIS, 'selected_database' );
 
 t_conn_timeout( $REDIS );
 t_read_timeout( $REDIS );
@@ -43,6 +49,7 @@ t_on_connect( $REDIS );
 t_on_disconnect( $REDIS );
 t_on_connect_error( $REDIS );
 t_on_error( $REDIS );
+t_selected_database( $REDIS );
 
 
 ####
@@ -99,13 +106,13 @@ sub t_encoding {
   my $redis = shift;
 
   my $t_enc = $redis->encoding();
-  is( $redis->{encoding}->name(), 'UTF-16', "get 'encoding'" );
+  is( $redis->{encoding}->name(), 'utf8', "get 'encoding'" );
 
   $redis->encoding( undef );
   is( $redis->{encoding}, undef, "disable 'encoding'" );
 
-  $redis->encoding( 'utf8' );
-  is( $redis->{encoding}->name(), 'utf8', "set 'encoding'" );
+  $redis->encoding( 'UTF-16' );
+  is( $redis->{encoding}->name(), 'UTF-16', "set 'encoding'" );
 
   return;
 }
@@ -193,6 +200,17 @@ sub t_on_error {
     }
   );
   is( $redis->{on_error}->(), 8, "set 'on_error' callback" );
+
+  return;
+}
+
+####
+sub t_selected_database {
+  my $redis = shift;
+
+  my $db_index = $redis->selected_database();
+
+  is( $db_index, 7, 'get selected database' );
 
   return;
 }

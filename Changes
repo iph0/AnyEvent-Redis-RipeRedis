@@ -1,10 +1,11 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.330 Tue Jan 14 01:00:00 MSK 2014
+1.340 Tue Jan 14 21:00:00 MSK 2014
+  - [FEATURE] Added method selected_database()
   - [BUGFIX] The client did not remember last selected database after reconnection.
   - Slight changes in POD.
-  - Several internal changes.
   - Required version of ExtUtils::MakeMaker decremented back to 6.64.
+  - Several internal changes.
 
 1.321 Sun Jan 12 14:30:00 MSK 2014
   - Required version of Test::More decremented to 0.98.

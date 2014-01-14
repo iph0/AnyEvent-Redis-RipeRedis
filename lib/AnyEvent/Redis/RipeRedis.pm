@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.330';
+our $VERSION = '1.340';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -301,6 +301,13 @@ sub on_error {
       return $self->{ $field_name };
     }
   }
+}
+
+####
+sub selected_database {
+  my __PACKAGE__ $self = shift;
+
+  return $self->{database};
 }
 
 ####
@@ -2008,21 +2015,20 @@ the C<on_disconnect> callback to avoid an unexpected behavior.
 
 =head2 disconnect()
 
-The method for synchronous disconnection. Uncompleted operations will be aborted.
+The method for synchronous disconnection. All uncompleted operations will be
+aborted.
 
   $redis->disconnect();
 
 =head2 quit()
 
-The method for asynchronous disconnection. All commands, executed before this
-method, will be completed correctly.
+The method for asynchronous disconnection. Uncompleted operations which was
+started before C<QUIT> will be completed correctly.
 
   my $cv = AE::cv();
 
   $redis->set( 'foo', 'string' );
-
   $redis->incr( 'bar' );
-
   $redis->quit(
     sub {
       $cv->send();
@@ -2065,6 +2071,10 @@ Get or set the C<on_connect_error> callback.
 =head2 on_error( [ $callback ] )
 
 Get or set the C<on_error> callback.
+
+=head2 selected_database()
+
+Get currently selected database index.
 
 =head1 SEE ALSO
 
