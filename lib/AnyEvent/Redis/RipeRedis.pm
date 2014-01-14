@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.321';
+our $VERSION = '1.330';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -123,7 +123,7 @@ my %SUB_MSG_TYPES = (
 
 my %SPECIAL_CMDS = (
   %SUB_UNSUB_CMDS,
-  exec => 1,
+  exec  => 1,
   multi => 1,
 );
 
@@ -809,7 +809,10 @@ sub _handle_success_reply {
 
   shift( @{$self->{_processing_queue}} );
 
-  if ( $cmd->{keyword} eq 'quit' ) {
+  if ( $cmd->{keyword} eq 'select' ) {
+    $self->{database} = $cmd->{args}[0];
+  }
+  elsif ( $cmd->{keyword} eq 'quit' ) {
     $self->_disconnect();
   }
 
@@ -1212,13 +1215,15 @@ Server port (default: 6379)
 
 =item password
 
-If the password is specified, then the C<AUTH> command is sent immediately to
-the server after every connection.
+If the password is specified, then the C<AUTH> command is sent to the server
+after connection.
 
 =item database
 
 Database index. If the index is specified, then the client is switched to
-the specified database immediately after every connection.
+the specified database after connection. You can also switch to another database
+after connection by using C<SELECT> command. The client remembers last selected
+database after reconnection.
 
 The default database index is C<0>.
 
@@ -2010,7 +2015,7 @@ the C<on_disconnect> callback to avoid an unexpected behavior.
 
 =head2 disconnect()
 
-The method for synchronous disconnection. Not completed operations will be aborted.
+The method for synchronous disconnection. Uncompleted operations will be aborted.
 
   $redis->disconnect();
 
