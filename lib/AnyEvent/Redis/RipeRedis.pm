@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.345';
+our $VERSION = '1.346';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -2112,7 +2112,7 @@ Konstantin Uvarin
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012-2013, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
+Copyright (c) 2012-2014, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
 All rights reserved.
 
 This module is free software; you can redistribute it and/or modify it under

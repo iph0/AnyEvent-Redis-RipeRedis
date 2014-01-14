@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.346 Wed Jan 15 01:45:00 MSK 2014
+  - Copyright updated.
+
 1.345 Wed Jan 15 01:25:00 MSK 2014
   - Command keyword is converted to lowercase.
 
