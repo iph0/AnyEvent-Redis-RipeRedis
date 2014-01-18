@@ -2,7 +2,7 @@ use 5.008000;
 use strict;
 use warnings;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 
 my $T_CLASS;
 
@@ -12,3 +12,4 @@ BEGIN {
 }
 
 can_ok( $T_CLASS, 'new' );
+my $redis = new_ok( $T_CLASS );

@@ -60,13 +60,14 @@ sub t_auto_select {
 
   my $t_reply = set_get( $redis_db1, $redis_db2 );
 
-  is( $db1_index, 1, 'auto-selection of DB; first DB index' );
-  is( $db2_index, 2, 'auto-selection of DB; second DB index' );
+  my $t_npref = 'auto-selection of DB';
+  is( $db1_index, 1, "$t_npref; first DB index" );
+  is( $db2_index, 2, "$t_npref; second DB index" );
   is_deeply( $t_reply,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
-    'auto-selection of DB; SET and GET'
+    "$t_npref; SET and GET"
   );
 
   return;
@@ -104,13 +105,14 @@ sub t_select {
 
   my $t_reply = set_get( $redis_db1, $redis_db2 );
 
-  is( $db1_index, 1, 'SELECT; first DB index' );
-  is( $db2_index, 2, 'SELECT; second DB index' );
+  my $t_npref = 'SELECT';
+  is( $db1_index, 1, "$t_npref; first DB index" );
+  is( $db2_index, 2, "$t_npref; second DB index" );
   is_deeply( $t_reply,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
-    'SELECT; SET and GET'
+    "$t_npref; SET and GET"
   );
 
   return;
@@ -139,7 +141,6 @@ sub t_invalid_db_index {
         on_error => sub {
           $t_cli_err_msg  = shift;
           $t_cli_err_code = shift;
-          $cv->send();
         },
       );
 
@@ -147,17 +148,20 @@ sub t_invalid_db_index {
         { on_error => sub {
             $t_cmd_err_msg = shift;
             $t_cmd_err_code = shift;
+
+            $cv->send();
           },
         }
       );
     }
   );
 
+  my $t_npref = 'invalid DB index';
   like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
-      "invalid DB index; command error message" );
-  is( $t_cmd_err_code, E_OPRN_ERROR, "invalid DB index; command error code" );
-  ok( defined $t_cli_err_msg, "invalid DB index; client error message" );
-  is( $t_cli_err_code, E_OPRN_ERROR, "invalid DB index; client error code" );
+      "$t_npref; command error message" );
+  is( $t_cmd_err_code, E_OPRN_ERROR, "$t_npref; command error code" );
+  ok( defined $t_cli_err_msg, "$t_npref; client error message" );
+  is( $t_cli_err_code, E_OPRN_ERROR, "$t_npref; client error code" );
 
   return;
 }
@@ -243,13 +247,14 @@ sub t_auto_select_after_reconn {
     }
   );
 
-  is( $db1_index, 1, 'auto-selection of DB after reconnection; first DB index' );
-  is( $db2_index, 2, 'auto-selection of DB after reconnection; second DB index' );
+  my $t_npref = 'auto-selection of DB after reconnection';
+  is( $db1_index, 1, "$t_npref; first DB index" );
+  is( $db2_index, 2, "$t_npref; second DB index" );
   is_deeply( \%t_reply,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
-    'auto-selection of DB after reconnection; SET and GET'
+    "$t_npref; SET and GET"
   );
 
 
@@ -293,15 +298,14 @@ sub t_auto_select_after_auth {
 
   my $t_reply = set_get( $redis_db1, $redis_db2 );
 
-  is( $db1_index, 1, 'auto-selection of DB after authentication;'
-      . ' first DB index' );
-  is( $db2_index, 2, 'auto-selection of DB after authentication;'
-      . ' second DB index' );
+  my $t_npref = 'auto-selection of DB after authentication';
+  is( $db1_index, 1, "$t_npref; first DB index" );
+  is( $db2_index, 2, "$t_npref; second DB index" );
   is_deeply( $t_reply,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
-    'auto-selection of DB after authentication; SET and GET'
+    "$t_npref; SET and GET"
   );
 
   return;
@@ -348,14 +352,12 @@ sub set_get {
       );
 
       my $done_cnt = 0;
-
       my $on_done = sub {
         $done_cnt++;
         if ( $done_cnt == 2 ) {
           $cv->send();
         }
       };
-
       $redis_db1->del( 'foo', { on_done => $on_done } );
       $redis_db2->del( 'foo', { on_done => $on_done } );
     }

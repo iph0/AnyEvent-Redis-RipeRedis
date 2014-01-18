@@ -39,8 +39,6 @@ sub t_cant_connect_mth1 {
 
         on_connect_error => sub {
           $t_cli_err_msg = shift;
-
-          $cv->send();
         },
       );
 
@@ -48,6 +46,8 @@ sub t_cant_connect_mth1 {
         { on_error => sub {
             $t_cmd_err_msg  = shift;
             $t_cmd_err_code = shift;
+
+            $cv->send();
           },
         }
       );
@@ -55,13 +55,13 @@ sub t_cant_connect_mth1 {
     0
   );
 
+  my $t_npref = 'can\'t connect; \'on_connect_error\' used';
+  like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
+      "$t_npref; client error message" );
   like( $t_cmd_err_msg,
       qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
-      'can\'t connect; \'on_connect_error\' used; command error message' );
-  is( $t_cmd_err_code, E_CANT_CONN,
-      'can\'t connect; \'on_connect_error\' used; command error code' );
-  like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
-      'can\'t connect; \'on_connect_error\' used; client error message' );
+      "$t_npref; command error message" );
+  is( $t_cmd_err_code, E_CANT_CONN, "$t_npref; command error code" );
 
   return;
 }
@@ -89,8 +89,6 @@ sub t_cant_connect_mth2 {
         on_error => sub {
           $t_cli_err_msg  = shift;
           $t_cli_err_code = shift;
-
-          $cv->send();
         },
       );
 
@@ -98,6 +96,8 @@ sub t_cant_connect_mth2 {
         { on_error => sub {
             $t_cmd_err_msg  = shift;
             $t_cmd_err_code = shift;
+
+            $cv->send();
           },
         }
       );
@@ -105,15 +105,14 @@ sub t_cant_connect_mth2 {
     0
   );
 
+  my $t_npref = 'can\'t connect; \'on_error\' used';
+  like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
+      "$t_npref; client error message" );
+  is( $t_cli_err_code, E_CANT_CONN, "$t_npref; client error code" );
   like( $t_cmd_err_msg,
       qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
-      'can\'t connect; \'on_error\' used; command error message' );
-  is( $t_cmd_err_code, E_CANT_CONN,
-      'can\'t connect; \'on_error\' used; command error code' );
-  like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
-      'can\'t connect; \'on_error\' used; client error message' );
-  is( $t_cli_err_code, E_CANT_CONN,
-      'can\'t connect; \'on_error\' used; client error code' );
+      "$t_npref; command error message" );
+  is( $t_cmd_err_code, E_CANT_CONN, "$t_npref; command error code" );
 
   return;
 }
@@ -139,8 +138,6 @@ sub t_no_connection {
 
         on_connect_error => sub {
           $t_cli_err_msg = shift;
-
-          $cv->send();
         },
       );
 
@@ -148,6 +145,8 @@ sub t_no_connection {
         { on_error => sub {
             $t_cmd_err_msg_0  = shift;
             $t_cmd_err_code_0 = shift;
+
+            $cv->send();
           },
         }
       );
@@ -155,14 +154,13 @@ sub t_no_connection {
     0
   );
 
-  my $t_name = 'no connection';
-
+  my $t_npref = 'no connection';
+  like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
+      "$t_npref; client error message" );
   like( $t_cmd_err_msg_0,
       qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
-      "$t_name; first command error message" );
-  is( $t_cmd_err_code_0, E_CANT_CONN, "$t_name; first command error code" );
-  like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
-      "$t_name; client error message" );
+      "$t_npref; first command error message" );
+  is( $t_cmd_err_code_0, E_CANT_CONN, "$t_npref; first command error code" );
 
   my $t_cmd_err_msg_1;
   my $t_cmd_err_code_1;
@@ -185,8 +183,8 @@ sub t_no_connection {
 
   is( $t_cmd_err_msg_1,
       'Can\'t handle the command \'ping\'. No connection to the server.',
-      "$t_name; second command error message" );
-  is( $t_cmd_err_code_1, E_NO_CONN, "$t_name; second command error code" );
+      "$t_npref; second command error message" );
+  is( $t_cmd_err_code_1, E_NO_CONN, "$t_npref; second command error code" );
 
   return;
 }
@@ -267,13 +265,13 @@ sub t_reconnection {
       }
     );
 
-    is( $t_conn_cnt, 2, 'reconnection; connections' );
-    is( $t_disconn_cnt, 1, 'reconnection; disconnections' );
+    my $t_npref = 'reconnection';
+    is( $t_conn_cnt, 2, "$t_npref; connections" );
+    is( $t_disconn_cnt, 1, "$t_npref; disconnections" );
     is( $t_cli_err_msg, 'Connection closed by remote host.',
-        'reconnection; error message' );
-    is( $t_cli_err_code, E_CONN_CLOSED_BY_REMOTE_HOST,
-        'reconnection; error code' );
-    is( $t_pong, 'PONG', 'reconnection; success PING' );
+        "$t_npref; error message" );
+    is( $t_cli_err_code, E_CONN_CLOSED_BY_REMOTE_HOST, "$t_npref; error code" );
+    is( $t_pong, 'PONG', "$t_npref; success PING" );
 
     $redis->disconnect();
   }
@@ -310,7 +308,6 @@ sub t_read_timeout {
           on_error => sub {
             $t_cli_err_msg  = shift;
             $t_cli_err_code = shift;
-            $cv->send();
           },
         );
 
@@ -328,11 +325,12 @@ sub t_read_timeout {
 
     $redis->disconnect();
 
+    my $t_npref = 'read timeout';
+    is( $t_cli_err_msg, 'Read timed out.', "$t_npref; client error message" );
+    is( $t_cli_err_code, E_READ_TIMEDOUT, "$t_npref; client error code" );
     is( $t_cmd_err_msg, 'Operation \'brpop\' aborted: Read timed out.',
-        'read timeout; command error message' );
-    is( $t_cmd_err_code, E_READ_TIMEDOUT, 'read timeout; command error code' );
-    is( $t_cli_err_msg, 'Read timed out.', 'read timeout; client error message' );
-    is( $t_cli_err_code, E_READ_TIMEDOUT, 'read timeout; client error code' );
+        "$t_npref; command error message" );
+    is( $t_cmd_err_code, E_READ_TIMEDOUT, "$t_npref; command error code" );
   }
 
   return;
@@ -362,15 +360,14 @@ sub t_premature_conn_close_mth1 {
 
   $redis->disconnect();
 
+  my $t_npref = 'premature connection close; disconnect() used';
   is( $t_cli_err_msg, 'Connection closed by client prematurely.',
-      'premature connection close; disconnect() used; client error message' );
-  is( $t_cli_err_code, E_CONN_CLOSED_BY_CLIENT,
-      'premature connection close; disconnect() used; client error message' );
+      "$t_npref; client error message" );
+  is( $t_cli_err_code, E_CONN_CLOSED_BY_CLIENT, "$t_npref; client error message" );
   is( $t_cmd_err_msg,
       'Operation \'ping\' aborted: Connection closed by client prematurely.',
-      'premature connection close; disconnect() used; command error message' );
-  is( $t_cmd_err_code, E_CONN_CLOSED_BY_CLIENT,
-      'premature connection close; disconnect() used; command error message' );
+      "$t_npref; command error message" );
+  is( $t_cmd_err_code, E_CONN_CLOSED_BY_CLIENT, "$t_npref; command error message" );
 
   return;
 }
@@ -397,11 +394,11 @@ sub t_premature_conn_close_mth2 {
 
   undef $redis;
 
-  ok( !$on_error_was_called, 'premature connection close; undef() used;'
-      . ' \'on_error\' callback ignored' );
+  my $t_npref = 'premature connection close; undef() used;';
+  ok( !$on_error_was_called, "$t_npref; \'on_error\' callback ignored" );
   is( $t_cmd_err_msg,
       'Operation \'ping\' aborted: Client object destroyed prematurely.',
-      'premature connection close; undef() used; command error message' );
+      "$t_npref; command error message" );
 
   return;
 }

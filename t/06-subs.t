@@ -604,11 +604,11 @@ sub t_sub_after_multi {
 
   $redis->disconnect();
 
-  my $t_name = 'subscription after MULTI command';
-  is( $t_err_msg, "Command 'subscribe' not allowed"
-      . " after 'multi' command. First, the transaction must be completed.",
-      "$t_name; error message" );
-  is( $t_err_code, E_OPRN_ERROR, "$t_name; error code" );
+  my $t_pname = 'subscription after MULTI command';
+  is( $t_err_msg, 'Command \'subscribe\' not allowed'
+      . ' after \'multi\' command. First, the transaction must be completed.',
+      "$t_pname; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_pname; error code" );
 
   return;
 }

@@ -67,8 +67,9 @@ LUA
     }
   );
 
-  like( $t_err_msg, qr/^NOSCRIPT/, 'no script; \'on_error\' used; error message' );
-  is( $t_err_code, E_NO_SCRIPT, 'no script; \'on_error\' used; error code' );
+  my $t_npref = 'no script; \'on_error\' used';
+  like( $t_err_msg, qr/^NOSCRIPT/, "$t_npref; error message" );
+  is( $t_err_code, E_NO_SCRIPT, "$t_npref; error code" );
 
   return;
 }
@@ -201,10 +202,9 @@ LUA
     }
   );
 
-  is( $t_err_msg, 'ERR Something wrong.',
-      'eval_cached; \'on_error\' used; error reply; error message' );
-  is( $t_err_code, E_OPRN_ERROR,
-      'eval_cached; \'on_error\' used; error reply; error code' );
+  my $t_npref = 'eval_cached; error reply; \'on_error\' used';
+  is( $t_err_msg, 'ERR Something wrong.', "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
   return;
 }
@@ -239,10 +239,9 @@ LUA
     }
   );
 
-  is( $t_err_msg, 'ERR Something wrong.',
-      'eval_cached; \'on_reply\' used; error reply; error message' );
-  is( $t_err_code, E_OPRN_ERROR,
-      'eval_cached; \'on_reply\' used; error reply; error code' );
+  my $t_npref = 'eval_cached; error reply; \'on_reply\' used';
+  is( $t_err_msg, 'ERR Something wrong.', "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
   return;
 }
@@ -277,24 +276,24 @@ LUA
     }
   );
 
+  my $t_npref = 'errors in multi-bulk reply; \'on_error\' used;';
   is( $t_err_msg, 'Operation \'eval\' completed with errors.',
-      'errors in multi-bulk reply; \'on_error\' used; error message' );
-  is( $t_err_code, E_OPRN_ERROR,
-      'errors in multi-bulk reply; \'on_error\' used; error code' );
-  is( $t_reply->[0], 42,
-      'errors in multi-bulk reply; \'on_error\' used; numeric reply' );
+      "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
+
+  is( $t_reply->[0], 42, "$t_npref; numeric reply" );
+
   isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      'errors in multi-bulk reply; \'on_error\' used; level_0;' );
+      "$t_npref; level 0" );
   is( $t_reply->[1]->message(), 'Something wrong.',
-      'errors in multi-bulk reply; \'on_error\' used; level_0; error message' );
-  is( $t_reply->[1]->code(), E_OPRN_ERROR,
-      'errors in multi-bulk reply; \'on_error\' used; level_0; error code' );
+      "$t_npref; level 0; error message" );
+  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; level 0; error code" );
+
   isa_ok( $t_reply->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      'errors in multi-bulk reply; \'on_error\' used; level_1;' );
+      "$t_npref; level 1" );
   is( $t_reply->[2][0]->message(), 'NOSCRIPT No matching script.',
-      'errors in multi-bulk reply; \'on_error\' used; level_1; error message' );
-  is( $t_reply->[2][0]->code(), E_NO_SCRIPT,
-      'errors in multi-bulk reply; \'on_error\' used; level_1; error code' );
+      "$t_npref; level 1; error message" );
+  is( $t_reply->[2][0]->code(), E_NO_SCRIPT, "$t_npref; level 1; error code" );
 
   return;
 }
@@ -331,24 +330,24 @@ LUA
     }
   );
 
+  my $t_npref = 'errors in multi-bulk reply; \'on_reply\' used;';
   is( $t_err_msg, 'Operation \'eval\' completed with errors.',
-      'errors in multi-bulk reply; \'on_reply\' used; error message' );
-  is( $t_err_code, E_OPRN_ERROR,
-      'errors in multi-bulk reply; \'on_reply\' used; error code' );
-  is( $t_reply->[0], 42,
-      'errors in multi-bulk reply; \'on_reply\' used; numeric reply' );
+      "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
+
+  is( $t_reply->[0], 42, "$t_npref; numeric reply" );
+
   isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      'errors in multi-bulk reply; \'on_reply\' used; level_0;' );
+      "$t_npref; level 0" );
   is( $t_reply->[1]->message(), 'Something wrong.',
-      'errors in multi-bulk reply; \'on_reply\' used; level_0; error message' );
-  is( $t_reply->[1]->code(), E_OPRN_ERROR,
-      'errors in multi-bulk reply; \'on_reply\' used; level_0; error code' );
+      "$t_npref; level 0; error message" );
+  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; level 0; error code" );
+
   isa_ok( $t_reply->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      'errors in multi-bulk reply; \'on_reply\' used; level_1;' );
+      "$t_npref; level 1" );
   is( $t_reply->[2][0]->message(), 'NOSCRIPT No matching script.',
-      'errors in multi-bulk reply; \'on_reply\' used; level_1; error message' );
-  is( $t_reply->[2][0]->code(), E_NO_SCRIPT,
-      'errors in multi-bulk reply; \'on_reply\' used; level_1; error code' );
+      "$t_npref; level 1; error message" );
+  is( $t_reply->[2][0]->code(), E_NO_SCRIPT, "$t_npref; level 1; error code" );
 
   return;
 }

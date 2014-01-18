@@ -49,6 +49,4 @@ ev_loop(
   }
 );
 
-$REDIS->disconnect();
-
 ok( $T_IS_CONN, 'lazy connection (connected)' );

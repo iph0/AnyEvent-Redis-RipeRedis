@@ -34,7 +34,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.346';
+our $VERSION = '1.35_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -270,6 +270,13 @@ sub on_error {
   return $self->{on_error};
 }
 
+####
+sub selected_database {
+  my __PACKAGE__ $self = shift;
+
+  return $self->{database};
+}
+
 # Generate more accessors
 {
   no strict 'refs';
@@ -308,13 +315,6 @@ sub on_error {
       return $self->{ $field_name };
     }
   }
-}
-
-####
-sub selected_database {
-  my __PACKAGE__ $self = shift;
-
-  return $self->{database};
 }
 
 ####
@@ -799,14 +799,13 @@ sub _handle_success_reply {
       shift( @{$self->{_processing_queue}} );
     }
 
+    shift( @{$_[0]} );
     if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-      $self->{_subs}{ $_[0][1] } = $cmd->{on_message};
+      $self->{_subs}{ $_[0][0] } = $cmd->{on_message};
     }
     else {
-      delete( $self->{_subs}{ $_[0][1] } );
+      delete( $self->{_subs}{ $_[0][0] } );
     }
-
-    shift( @{$_[0]} );
     if ( defined $cmd->{on_done} ) {
       $cmd->{on_done}->( @{$_[0]} );
     }
@@ -890,7 +889,7 @@ sub _handle_pub_message {
   if ( $_[0][0] eq 'message' ) {
     $msg_cb->( @{$_[0]}[ 1, 2 ] );
   }
-  else {
+  else { # pmessage
     $msg_cb->( @{$_[0]}[ 2, 3, 1 ] );
   }
 
@@ -1591,7 +1590,7 @@ The C<on_message> callback is called, when a published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription operation
 was completed successfully and when subscription operation fails. In first case
@@ -1684,7 +1683,7 @@ The C<on_message> callback is called, when published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription
 operation was completed successfully and when subscription operation fails.
@@ -1748,7 +1747,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1808,7 +1807,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( $reply, [ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -2018,8 +2017,8 @@ Not enough good slaves to write.
 When the connection to the server is no longer needed you can close it in three
 ways: call the method C<disconnect()>, send the C<QUIT> command or you can just
 "forget" any references to an AnyEvent::Redis::RipeRedis object, but in this
-case a client object is destroyed without calling any callbacks including
-the C<on_disconnect> callback to avoid an unexpected behavior.
+case a client object is destroyed without calling any callbacks, including
+the C<on_disconnect> callback, to avoid an unexpected behavior.
 
 =head2 disconnect()
 

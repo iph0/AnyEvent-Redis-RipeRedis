@@ -981,8 +981,9 @@ sub t_oprn_error_mth1 {
     }
   );
 
-  ok( defined $t_err_msg, 'operation error; \'on_error\' used; error message' );
-  is( $t_err_code, E_OPRN_ERROR, 'operation error; \'on_error\' used; error code' );
+  my $t_npref = 'operation error; \'on_error\' used';
+  ok( defined $t_err_msg, "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
   return;
 }
@@ -1014,8 +1015,9 @@ sub t_oprn_error_mth2 {
     }
   );
 
-  ok( defined $t_err_msg, 'operation error; \'on_reply\' used; error message' );
-  is( $t_err_code, E_OPRN_ERROR, 'operation error; \'on_reply\' used; error code' );
+  my $t_npref = 'operation error; \'on_reply\' used';
+  ok( defined $t_err_msg, "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
   return;
 }
@@ -1075,20 +1077,17 @@ sub t_error_after_exec_mth1 {
     }
   );
 
+  my $t_npref = 'error after EXEC; \'on_error\' used';
   is( $t_err_msg, 'Operation \'exec\' completed with errors.',
-      'error after EXEC; \'on_error\' used; error message' );
-  is( $t_err_code, E_OPRN_ERROR,
-      'error after EXEC; \'on_error\' used; error code' );
-  is( $t_reply->[0], 'OK', 'error after EXEC; \'on_error\' used; status reply' );
+      "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
+  is( $t_reply->[0], 'OK', "$t_npref; status reply" );
 
-  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      'error after EXEC; \'on_error\' used;' );
+  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error', $t_npref );
   can_ok( $t_reply->[1], 'code' );
   can_ok( $t_reply->[1], 'message' );
-  ok( defined $t_reply->[1]->message(),
-      'error after EXEC; \'on_error\' used; nested error message' );
-  is( $t_reply->[1]->code(), E_OPRN_ERROR,
-      'error after EXEC; \'on_error\' used; nested error message' );
+  ok( defined $t_reply->[1]->message(), "$t_npref; nested error message" );
+  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; nested error message" );
 
   return;
 }
@@ -1123,20 +1122,17 @@ sub t_error_after_exec_mth2 {
     }
   );
 
+  my $t_npref = 'error after EXEC; \'on_reply\' used';
   is( $t_err_msg, 'Operation \'exec\' completed with errors.',
-      'error after EXEC; \'on_reply\' used; error message' );
-  is( $t_err_code, E_OPRN_ERROR,
-      'error after EXEC; \'on_reply\' used; error code' );
-  is( $t_reply->[0], 'OK', 'error after EXEC; \'on_reply\' used; status reply' );
+      "$t_npref; error message" );
+  is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
+  is( $t_reply->[0], 'OK', "$t_npref; status reply" );
 
-  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      'error after EXEC; \'on_reply\' used;' );
+  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error', $t_npref );
   can_ok( $t_reply->[1], 'code' );
   can_ok( $t_reply->[1], 'message' );
-  ok( defined $t_reply->[1]->message(),
-      'error after EXEC; \'on_reply\' used; nested error message' );
-  is( $t_reply->[1]->code(), E_OPRN_ERROR,
-      'error after EXEC; \'on_reply\' used; nested error message' );
+  ok( defined $t_reply->[1]->message(), "$t_npref; nested error message" );
+  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; nested error message" );
 
   return;
 }
