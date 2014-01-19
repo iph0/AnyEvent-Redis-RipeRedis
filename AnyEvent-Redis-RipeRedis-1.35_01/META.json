@@ -1,0 +1,61 @@
+{
+   "abstract" : "Flexible non-blocking Redis client with reconnect feature",
+   "author" : [
+      "Eugene Ponizovsky <ponizovsky@gmail.com>"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "ExtUtils::MakeMaker version 6.82, CPAN::Meta::Converter version 2.132830",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "AnyEvent-Redis-RipeRedis",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "inc"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::Fatal" : "0.013",
+            "Test::More" : "0.98",
+            "Test::RedisServer" : "0.14",
+            "Test::TCP" : "2.02"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.64"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "AnyEvent" : "6.01",
+            "Carp" : "0",
+            "Digest::SHA" : "0",
+            "Encode" : "0",
+            "Scalar::Util" : "0",
+            "perl" : "5.008000"
+         }
+      }
+   },
+   "release_status" : "testing",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/iph0/AnyEvent-Redis-RipeRedis/issues"
+      },
+      "homepage" : "https://github.com/iph0/AnyEvent-Redis-RipeRedis",
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ],
+      "repository" : {
+         "url" : "https://github.com/iph0/AnyEvent-Redis-RipeRedis"
+      }
+   },
+   "version" : "1.35_01"
+}
