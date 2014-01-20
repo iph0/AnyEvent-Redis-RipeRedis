@@ -25,3 +25,4 @@ META.yml
 MYMETA.json
 MYMETA.yml
 inc/
+AnyEvent-Redis-RipeRedis-*
