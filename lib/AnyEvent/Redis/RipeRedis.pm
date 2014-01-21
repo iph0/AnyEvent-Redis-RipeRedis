@@ -1297,10 +1297,11 @@ By default is TRUE.
 
 =item autocork
 
-When enabled, writes will always be queued till the next event loop iteration.
-This is efficient when you do many small writes per iteration, but less efficient
-when you do a single write only per iteration (or when the write buffer often
-is full). It also increases write latency. See L<AnyEvent::Handle> for more info.
+When enabled, writes to socket will always be queued till the next event loop
+iteration. This is efficient when you do many operations per iteration, but less
+efficient when you do a single operation only per iteration (or when the write
+buffer often is full). It also increases operation latency. See L<AnyEvent::Handle>
+for more info.
 
 =item encoding
 
