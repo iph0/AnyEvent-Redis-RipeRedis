@@ -1280,9 +1280,11 @@ Not set by default.
 
 =item lazy
 
-If this parameter is set, then the connection establishes, when you will send
-the first command to the server. By default the connection establishes after
-calling of the C<new> method.
+If enabled, the connection establishes at time, when you will send the first
+command to the server. By default the connection establishes after calling of
+the C<new> method.
+
+Disabled by default.
 
 =item reconnect
 
@@ -1293,7 +1295,7 @@ C<on_error> callback. If you need several attempts of the reconnection, just
 retry a command from the C<on_error> callback as many times, as you need. This
 feature made the client more responsive.
 
-By default is TRUE.
+Enabled by default.
 
 =item autocork
 
@@ -1302,6 +1304,8 @@ iteration. This is efficient when you do many operations per iteration, but less
 efficient when you do a single operation only per iteration (or when the write
 buffer often is full). It also increases operation latency. See L<AnyEvent::Handle>
 for more info.
+
+Disabled by default.
 
 =item encoding
 
