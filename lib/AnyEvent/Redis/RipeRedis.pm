@@ -14,6 +14,7 @@ use fields qw(
   database
   connection_timeout
   read_timeout
+  autocork
   reconnect
   encoding
   on_connect
@@ -34,7 +35,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.36';
+our $VERSION = '1.37_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -163,6 +164,7 @@ sub new {
 
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
+  $self->{autocork} = $params->{autocork};
 
   if ( !exists $params->{reconnect} ) {
     $params->{reconnect} = 1;
@@ -323,6 +325,7 @@ sub _connect {
 
   $self->{_handle} = AnyEvent::Handle->new(
     connect          => [ $self->{host}, $self->{port} ],
+    autocork         => $self->{autocork},
     on_prepare       => $self->_get_prepare_cb(),
     on_connect       => $self->_get_connect_cb(),
     on_connect_error => $self->_get_connect_error_cb(),
@@ -996,9 +999,9 @@ sub _abort_all {
 ####
 sub AUTOLOAD {
   our $AUTOLOAD;
-  my $cmd_keyword = $AUTOLOAD;
-  $cmd_keyword =~ s/^.+:://;
-  $cmd_keyword = lc( $cmd_keyword );
+  my $method = $AUTOLOAD;
+  $method =~ s/^.+:://;
+  my $cmd_keyword = lc( $method );
 
   my $sub = sub {
     my __PACKAGE__ $self = shift;
@@ -1024,7 +1027,7 @@ sub AUTOLOAD {
 
   do {
     no strict 'refs';
-    *{$cmd_keyword} = $sub;
+    *{$method} = $sub;
   };
 
   goto &{$sub};
