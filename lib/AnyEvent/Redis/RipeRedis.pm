@@ -35,7 +35,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.37_01';
+our $VERSION = '1.37_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -2084,12 +2084,12 @@ Get or set the C<read_timeout> of the client.
 
 =head2 reconnect( [ $boolean ] )
 
-Enable or disable reconnection mode of the client.
+Enables or disables reconnection mode of the client.
 
 =head2 autocork( [ $boolean ] )
 
 Enables or disables the current autocork behaviour (see C<autocork> constructor
-argument). Changes will only take effect on the next write.
+argument). Changes will only take effect on the next write to socket.
 
 =head2 encoding( [ $enc_name ] )
 

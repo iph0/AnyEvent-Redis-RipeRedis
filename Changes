@@ -1,5 +1,8 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.37_02 Wed Jan 22 00:55:00 MSK 2014
+  - Minor changes in POD.
+
 1.37_01 Wed Jan 22 00:34:00 MSK 2014
   - FEATURE: added 'autocork' behavior. It can be enabled or disabled.
   - BUGFIX: fixed error in convertation to lower case of command keyword.
