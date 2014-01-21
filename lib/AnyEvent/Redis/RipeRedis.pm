@@ -14,8 +14,8 @@ use fields qw(
   database
   connection_timeout
   read_timeout
-  autocork
   reconnect
+  autocork
   encoding
   on_connect
   on_disconnect
@@ -164,13 +164,13 @@ sub new {
 
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
-  $self->{autocork} = $params->{autocork};
 
   if ( !exists $params->{reconnect} ) {
     $params->{reconnect} = 1;
   }
   $self->{reconnect} = $params->{reconnect};
 
+  $self->{autocork} = $params->{autocork};
   $self->encoding( $params->{encoding} );
 
   $self->{on_connect}       = $params->{on_connect};
@@ -277,6 +277,18 @@ sub selected_database {
   my __PACKAGE__ $self = shift;
 
   return $self->{database};
+}
+
+####
+sub autocork {
+  my __PACKAGE__ $self = shift;
+
+  if ( @_ ) {
+    $self->{autocork} = shift;
+    $self->{_handle}->autocork( $self->{autocork} );
+  }
+
+  return $self->{autocork};
 }
 
 # Generate more accessors
@@ -1283,6 +1295,13 @@ feature made the client more responsive.
 
 By default is TRUE.
 
+=item autocork
+
+When enabled, writes will always be queued till the next event loop iteration.
+This is efficient when you do many small writes per iteration, but less efficient
+when you do a single write only per iteration (or when the write buffer often
+is full). It also increases write latency. See L<AnyEvent::Handle> for more info.
+
 =item encoding
 
 Used for encode/decode strings at time of input/output operations.
@@ -2061,6 +2080,11 @@ Get or set the C<read_timeout> of the client.
 =head2 reconnect( [ $boolean ] )
 
 Enable or disable reconnection mode of the client.
+
+=head2 autocork( [ $boolean ] )
+
+Enables or disables the current autocork behaviour (see C<autocork> constructor
+argument). Changes will only take effect on the next write.
 
 =head2 encoding( [ $enc_name ] )
 

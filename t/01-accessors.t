@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib 't/tlib';
-use Test::More tests => 34;
+use Test::More tests => 38;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
@@ -11,6 +11,7 @@ my $REDIS = AnyEvent::Redis::RipeRedis->new(
   connection_timeout => 10,
   read_timeout       => 5,
   reconnect          => 1,
+  autocork           => 1,
   encoding           => 'utf8',
 
   on_connect => sub {
@@ -32,17 +33,19 @@ my $REDIS = AnyEvent::Redis::RipeRedis->new(
 
 can_ok( $REDIS, 'connection_timeout' );
 can_ok( $REDIS, 'read_timeout' );
+can_ok( $REDIS, 'selected_database' );
 can_ok( $REDIS, 'reconnect' );
+can_ok( $REDIS, 'autocork' );
 can_ok( $REDIS, 'encoding' );
 can_ok( $REDIS, 'on_connect' );
 can_ok( $REDIS, 'on_disconnect' );
 can_ok( $REDIS, 'on_connect_error' );
 can_ok( $REDIS, 'on_error' );
-can_ok( $REDIS, 'selected_database' );
 
 t_conn_timeout( $REDIS );
 t_read_timeout( $REDIS );
 t_reconnect( $REDIS );
+t_autocork( $REDIS );
 t_encoding( $REDIS );
 t_on_connect( $REDIS );
 t_on_disconnect( $REDIS );
@@ -96,6 +99,22 @@ sub t_reconnect {
 
   $redis->reconnect( 1 );
   is( $redis->{reconnect}, 1, "enable reconnection mode" );
+
+  return;
+}
+
+####
+sub t_autocork {
+  my $redis = shift;
+
+  my $autocork_state = $redis->autocork();
+  is( $autocork_state, 1, "get current autocork state" );
+
+  $redis->autocork( undef );
+  is( $redis->{autocork }, undef, "disable autocork" );
+
+  $redis->autocork( 1 );
+  is( $redis->{autocork }, 1, "enable autocork" );
 
   return;
 }
