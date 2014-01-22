@@ -35,7 +35,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.37_02';
+our $VERSION = '1.37_03';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1300,10 +1300,10 @@ Enabled by default.
 =item autocork
 
 When enabled, writes to socket will always be queued till the next event loop
-iteration. This is efficient when you do many operations per iteration, but less
-efficient when you do a single operation only per iteration (or when the write
-buffer often is full). It also increases operation latency. See L<AnyEvent::Handle>
-for more info.
+iteration. This is efficient when you execute many operations per iteration, but
+less efficient when you execute a single operation only per iteration (or when
+the write buffer often is full). It also increases operation latency. See
+L<AnyEvent::Handle> for more info.
 
 Disabled by default.
 
