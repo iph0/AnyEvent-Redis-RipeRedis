@@ -419,7 +419,12 @@ sub _get_rtimeout_cb {
   weaken( $self );
 
   return sub {
-    $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
+    if ( @{$self->{_processing_queue}} ) {
+      $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
+    }
+    else {
+      $self->{_handle}->rtimeout( undef );
+    }
   };
 }
 
@@ -807,9 +812,6 @@ sub _handle_success_reply {
   if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
     if ( --$cmd->{replies_left} == 0 ) {
       shift( @{$self->{_processing_queue}} );
-      if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
-        $self->{_handle}->rtimeout( undef );
-      }
     }
 
     shift( @{$_[0]} );
@@ -831,9 +833,6 @@ sub _handle_success_reply {
   }
 
   shift( @{$self->{_processing_queue}} );
-  if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
-    $self->{_handle}->rtimeout( undef );
-  }
 
   if ( $cmd->{keyword} eq 'select' ) {
     $self->{database} = $cmd->{args}[0];
@@ -857,9 +856,6 @@ sub _handle_error_reply {
   my __PACKAGE__ $self = shift;
 
   my $cmd = shift( @{$self->{_processing_queue}} );
-  if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
-    $self->{_handle}->rtimeout( undef );
-  }
 
   if ( !defined $cmd ) {
     $self->_disconnect(
