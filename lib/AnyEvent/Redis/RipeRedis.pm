@@ -35,7 +35,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.37_03';
+our $VERSION = '1.37_04';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -419,12 +419,7 @@ sub _get_rtimeout_cb {
   weaken( $self );
 
   return sub {
-    if ( @{$self->{_processing_queue}} ) {
-      $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
-    }
-    else {
-      $self->{_handle}->rtimeout( undef );
-    }
+    $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
   };
 }
 
@@ -658,7 +653,7 @@ sub _push_write {
   $cmd_str = '*' . ( scalar( @{$cmd->{args}} ) + 1 ) . EOL . $cmd_str;
 
   my $hdl = $self->{_handle};
-  if ( !@{$self->{_processing_queue}} ) {
+  if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
     $hdl->rtimeout_reset();
     $hdl->rtimeout( $self->{read_timeout} );
   }
@@ -812,6 +807,9 @@ sub _handle_success_reply {
   if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
     if ( --$cmd->{replies_left} == 0 ) {
       shift( @{$self->{_processing_queue}} );
+      if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
+        $self->{_handle}->rtimeout( undef );
+      }
     }
 
     shift( @{$_[0]} );
@@ -821,6 +819,7 @@ sub _handle_success_reply {
     else {
       delete( $self->{_subs}{ $_[0][0] } );
     }
+
     if ( defined $cmd->{on_done} ) {
       $cmd->{on_done}->( @{$_[0]} );
     }
@@ -832,6 +831,9 @@ sub _handle_success_reply {
   }
 
   shift( @{$self->{_processing_queue}} );
+  if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
+    $self->{_handle}->rtimeout( undef );
+  }
 
   if ( $cmd->{keyword} eq 'select' ) {
     $self->{database} = $cmd->{args}[0];
@@ -855,6 +857,9 @@ sub _handle_error_reply {
   my __PACKAGE__ $self = shift;
 
   my $cmd = shift( @{$self->{_processing_queue}} );
+  if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
+    $self->{_handle}->rtimeout( undef );
+  }
 
   if ( !defined $cmd ) {
     $self->_disconnect(
