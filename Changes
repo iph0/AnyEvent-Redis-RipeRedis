@@ -1,23 +1,12 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.37_04 Fri Jan 24 14:55:00 MSK 2014
-  - Minor internal change.
-
-1.37_03 Wed Jan 22 19:30:00 MSK 2014
-  - Minor changes in POD.
-
-1.37_02 Wed Jan 22 00:55:00 MSK 2014
-  - Minor changes in POD.
-
-1.37_01 Wed Jan 22 00:34:00 MSK 2014
-  - FEATURE: added 'autocork' behavior. It can be enabled or disabled.
-  - BUGFIX: fixed error in convertation to lower case of command keyword.
+1.38 Sun Jan 26 19:15:00 MSK 2014
+  - FEATURE: added 'autocork' behavior, which can be enabled or disabled.
+  - BUGFIX: fixed conversion to lower case of command keyword.
+  - Minor internal changes.
   - Minor changes in POD.
 
 1.36 Mon Jan 20 19:15:00 MSK 2014
-  - No changes from 1.35_01
-
-1.35_01 Sun Jan 19 13:29:00 MSK 2014
   - Accepted new versioning convention.
   - Unit tests improved.
   - Minor internal changes.
