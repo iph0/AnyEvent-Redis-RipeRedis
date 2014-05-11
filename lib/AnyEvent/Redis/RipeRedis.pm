@@ -15,6 +15,7 @@ use fields qw(
   connection_timeout
   read_timeout
   reconnect
+  linger
   autocork
   encoding
   on_connect
@@ -170,6 +171,7 @@ sub new {
   }
   $self->{reconnect} = $params->{reconnect};
 
+  $self->{linger}   = $params->{linger};
   $self->{autocork} = $params->{autocork};
   $self->encoding( $params->{encoding} );
 
@@ -345,6 +347,7 @@ sub _connect {
     on_eof           => $self->_get_eof_cb(),
     on_error         => $self->_get_client_error_cb(),
     on_read          => $self->_get_read_cb( $self->_get_reply_cb() ),
+    (defined $self->{linger} ? (linger => $self->{linger}) : ()),
   );
 
   return;
@@ -1297,6 +1300,12 @@ retry a command from the C<on_error> callback as many times, as you need. This
 feature made the client more responsive.
 
 Enabled by default.
+
+=item linger
+
+This option is in effect when, for example, code terminates connection by calling C<disconnect> but there are ongoing operations. In this case destructor of underlying L<AnyEvent::Handle> object will keep the write buffer in memory for long time (see default value) causing temporal 'memory leak'. See L<AnyEvent::Handle> for more info.
+
+Apply default setting of L<AnyEvent::Handle> (i.e. 3600 seconds) by default.
 
 =item autocork
 
