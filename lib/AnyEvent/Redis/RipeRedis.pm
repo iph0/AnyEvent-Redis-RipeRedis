@@ -27,7 +27,7 @@ use fields qw(
   _connected
   _lazy_conn_st
   _auth_st
-  _db_select_st
+  _select_db_st
   _ready_to_write
   _input_queue
   _tmp_queue
@@ -36,7 +36,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.38';
+our $VERSION = '1.39_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -158,7 +158,7 @@ sub new {
   $self->{port}     = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
 
-  if ( !defined $params->{database} ) {
+  unless ( defined $params->{database} ) {
     $params->{database} = D_DB_INDEX;
   }
   $self->{database} = $params->{database};
@@ -166,7 +166,7 @@ sub new {
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
 
-  if ( !exists $params->{reconnect} ) {
+  unless ( exists $params->{reconnect} ) {
     $params->{reconnect} = 1;
   }
   $self->{reconnect} = $params->{reconnect};
@@ -184,7 +184,7 @@ sub new {
   $self->{_connected}        = 0;
   $self->{_lazy_conn_st}     = $params->{lazy};
   $self->{_auth_st}          = S_NEED_PERFORM;
-  $self->{_db_select_st}     = S_NEED_PERFORM;
+  $self->{_select_db_st}     = S_NEED_PERFORM;
   $self->{_ready_to_write}   = 0;
   $self->{_input_queue}      = [];
   $self->{_tmp_queue}        = [];
@@ -192,7 +192,7 @@ sub new {
   $self->{_sub_lock}         = 0;
   $self->{_subs}             = {};
 
-  if ( !$self->{_lazy_conn_st} ) {
+  unless ( $self->{_lazy_conn_st} ) {
     $self->_connect();
   }
 
@@ -215,7 +215,7 @@ sub eval_cached {
   $cmd->{args} = \@args;
 
   $cmd->{script} = $args[0];
-  if ( !exists $EVAL_CACHE{ $cmd->{script} } ) {
+  unless ( exists $EVAL_CACHE{ $cmd->{script} } ) {
     $EVAL_CACHE{ $cmd->{script} } = sha1_hex( $cmd->{script} );
   }
   $args[0] = $EVAL_CACHE{ $cmd->{script} };
@@ -243,7 +243,7 @@ sub encoding {
 
     if ( defined $enc ) {
       $self->{encoding} = find_encoding( $enc );
-      if ( !defined $self->{encoding} ) {
+      unless ( defined $self->{encoding} ) {
         confess "Encoding '$enc' not found";
       }
     }
@@ -261,7 +261,8 @@ sub on_error {
 
   if ( @_ ) {
     my $on_error = shift;
-    if ( !defined $on_error ) {
+
+    unless ( defined $on_error ) {
       $on_error = sub {
         my $err_msg = shift;
 
@@ -293,14 +294,14 @@ sub autocork {
   return $self->{autocork};
 }
 
-# Generate more accessors
+# Create more accessors
 {
   no strict 'refs';
 
-  foreach my $field_pref ( qw( connection read ) ) {
-    my $field_name = $field_pref . '_timeout';
+  foreach my $attr_pref ( qw( connection read ) ) {
+    my $attr_name = $attr_pref . '_timeout';
 
-    *{$field_name} = sub {
+    *{$attr_name} = sub {
       my __PACKAGE__ $self = shift;
 
       if ( @_ ) {
@@ -309,26 +310,26 @@ sub autocork {
           defined $timeout
             and ( !looks_like_number( $timeout ) or $timeout < 0 )
             ) {
-          confess ucfirst( $field_pref ) . ' timeout must be a positive number';
+          confess ucfirst( $attr_pref ) . ' timeout must be a positive number';
         }
-        $self->{ $field_name } = $timeout;
+        $self->{ $attr_name } = $timeout;
       }
 
-      return $self->{ $field_name };
+      return $self->{ $attr_name };
     }
   }
 
-  foreach my $field_name (
+  foreach my $attr_name (
     qw( reconnect on_connect on_disconnect on_connect_error )
       ) {
-    *{$field_name} = sub {
+    *{$attr_name} = sub {
       my __PACKAGE__ $self = shift;
 
       if ( @_ ) {
-        $self->{ $field_name } = shift;
+        $self->{ $attr_name } = shift;
       }
 
-      return $self->{ $field_name };
+      return $self->{ $attr_name };
     }
   }
 }
@@ -345,9 +346,9 @@ sub _connect {
     on_connect_error => $self->_get_connect_error_cb(),
     on_rtimeout      => $self->_get_rtimeout_cb(),
     on_eof           => $self->_get_eof_cb(),
-    on_error         => $self->_get_client_error_cb(),
+    on_error         => $self->_get_error_cb(),
     on_read          => $self->_get_read_cb( $self->_get_reply_cb() ),
-    (defined $self->{linger} ? (linger => $self->{linger}) : ()),
+    ( defined $self->{linger} ? ( linger => $self->{linger} ) : () ),
   );
 
   return;
@@ -376,17 +377,17 @@ sub _get_connect_cb {
 
   return sub {
     $self->{_connected} = 1;
-    if ( !defined $self->{password} ) {
+    unless ( defined $self->{password} ) {
       $self->{_auth_st} = S_IS_DONE;
     }
     if ( $self->{database} == 0 ) {
-      $self->{_db_select_st} = S_IS_DONE;
+      $self->{_select_db_st} = S_IS_DONE;
     }
 
     if ( $self->{_auth_st} == S_NEED_PERFORM ) {
       $self->_auth();
     }
-    elsif ( $self->{_db_select_st} == S_NEED_PERFORM ) {
+    elsif ( $self->{_select_db_st} == S_NEED_PERFORM ) {
       $self->_select_db();
     }
     else {
@@ -444,7 +445,7 @@ sub _get_eof_cb {
 }
 
 ####
-sub _get_client_error_cb {
+sub _get_error_cb {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -576,7 +577,7 @@ sub _execute_cmd {
   if ( exists $SPECIAL_CMDS{ $cmd->{keyword} } ) {
     if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
       if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-        if ( !defined $cmd->{on_message} ) {
+        unless ( defined $cmd->{on_message} ) {
           confess '\'on_message\' callback must be specified';
         }
       }
@@ -609,7 +610,7 @@ sub _execute_cmd {
     if ( defined $self->{_handle} ) {
       if ( $self->{_connected} ) {
         if ( $self->{_auth_st} == S_IS_DONE ) {
-          if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
+          if ( $self->{_select_db_st} == S_NEED_PERFORM ) {
             $self->_select_db();
           }
         }
@@ -650,7 +651,7 @@ sub _push_write {
 
   my $cmd_str = '';
   foreach my $token ( $cmd->{keyword}, @{$cmd->{args}} ) {
-    if ( !defined $token ) {
+    unless ( defined $token ) {
       $token = '';
     }
     elsif ( defined $self->{encoding} and is_utf8( $token ) ) {
@@ -684,7 +685,7 @@ sub _auth {
       args    => [ $self->{password} ],
       on_done => sub {
         $self->{_auth_st} = S_IS_DONE;
-        if ( $self->{_db_select_st} == S_NEED_PERFORM ) {
+        if ( $self->{_select_db_st} == S_NEED_PERFORM ) {
           $self->_select_db();
         }
         else {
@@ -708,17 +709,17 @@ sub _select_db {
 
   weaken( $self );
 
-  $self->{_db_select_st} = S_IN_PROGRESS;
+  $self->{_select_db_st} = S_IN_PROGRESS;
   $self->_push_write(
     { keyword => 'select',
       args    => [ $self->{database} ],
       on_done => sub {
-        $self->{_db_select_st} = S_IS_DONE;
+        $self->{_select_db_st} = S_IS_DONE;
         $self->{_ready_to_write} = 1;
         $self->_flush_input_queue();
       },
       on_error => sub {
-        $self->{_db_select_st} = S_NEED_PERFORM;
+        $self->{_select_db_st} = S_NEED_PERFORM;
         $self->_abort_all( @_ );
       },
     }
@@ -804,7 +805,7 @@ sub _handle_success_reply {
 
   my $cmd = $self->{_processing_queue}[0];
 
-  if ( !defined $cmd ) {
+  unless ( defined $cmd ) {
     $self->_disconnect(
         'Don\'t known how process reply. Command queue is empty.',
         E_UNEXPECTED_DATA );
@@ -860,7 +861,7 @@ sub _handle_error_reply {
 
   my $cmd = shift( @{$self->{_processing_queue}} );
 
-  if ( !defined $cmd ) {
+  unless ( defined $cmd ) {
     $self->_disconnect(
         'Don\'t known how process error. Command queue is empty.',
         E_UNEXPECTED_DATA );
@@ -896,7 +897,7 @@ sub _handle_pub_message {
 
   my $msg_cb = $self->{_subs}{ $_[0][1] };
 
-  if ( !defined $msg_cb ) {
+  unless ( defined $msg_cb ) {
     $self->_disconnect(
         'Don\'t known how process published message.'
             . " Unknown channel or pattern '$_[0][1]'.",
@@ -910,25 +911,6 @@ sub _handle_pub_message {
   }
   else { # pmessage
     $msg_cb->( @{$_[0]}[ 2, 3, 1 ] );
-  }
-
-  return;
-}
-
-####
-sub _handle_client_error {
-  my __PACKAGE__ $self = shift;
-
-  if ( $_[1] == E_CANT_CONN ) {
-    if ( defined $self->{on_connect_error} ) {
-      $self->{on_connect_error}->( $_[0] );
-    }
-    else {
-      $self->{on_error}->( @_ );
-    }
-  }
-  else {
-    $self->{on_error}->( @_ );
   }
 
   return;
@@ -966,7 +948,7 @@ sub _disconnect {
   }
   $self->{_connected}      = 0;
   $self->{_auth_st}        = S_NEED_PERFORM;
-  $self->{_db_select_st}   = S_NEED_PERFORM;
+  $self->{_select_db_st}   = S_NEED_PERFORM;
   $self->{_ready_to_write} = 0;
   $self->{_sub_lock}       = 0;
 
@@ -997,16 +979,27 @@ sub _abort_all {
   $self->{_subs}             = {};
 
   if ( !defined $err_msg and @cmds ) {
-    $err_msg = 'Connection closed by client prematurely.';
+    $err_msg  = 'Connection closed by client prematurely.';
     $err_code = E_CONN_CLOSED_BY_CLIENT;
   }
+
   if ( defined $err_msg ) {
-    $self->_handle_client_error( $err_msg, $err_code );
+    if ( $err_code == E_CANT_CONN ) {
+      if ( defined $self->{on_connect_error} ) {
+        $self->{on_connect_error}->( $err_msg );
+      }
+      else {
+        $self->{on_error}->( $err_msg, $err_code );
+      }
+    }
+    else {
+      $self->{on_error}->( $err_msg, $err_code );
+    }
   }
 
   foreach my $cmd ( @cmds ) {
-    my $cmd_err_msg = "Operation '$cmd->{keyword}' aborted: $err_msg";
-    $self->_handle_cmd_error( $cmd, $cmd_err_msg, $err_code );
+    $self->_handle_cmd_error( $cmd,
+        "Operation '$cmd->{keyword}' aborted: $err_msg", $err_code );
   }
 
   return;
@@ -1303,9 +1296,13 @@ Enabled by default.
 
 =item linger
 
-This option is in effect when, for example, code terminates connection by calling C<disconnect> but there are ongoing operations. In this case destructor of underlying L<AnyEvent::Handle> object will keep the write buffer in memory for long time (see default value) causing temporal 'memory leak'. See L<AnyEvent::Handle> for more info.
+This option is in effect when, for example, code terminates connection by calling
+C<disconnect> but there are ongoing operations. In this case destructor of
+underlying L<AnyEvent::Handle> object will keep the write buffer in memory for
+long time (see default value) causing temporal 'memory leak'. See
+L<AnyEvent::Handle> for more info.
 
-Apply default setting of L<AnyEvent::Handle> (i.e. 3600 seconds) by default.
+By default is applied default setting of L<AnyEvent::Handle> (i.e. 3600 seconds).
 
 =item autocork
 
