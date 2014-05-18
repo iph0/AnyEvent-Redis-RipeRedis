@@ -36,7 +36,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.39_01';
+our $VERSION = '1.39_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -575,7 +575,13 @@ sub _execute_cmd {
   my $cmd = shift;
 
   if ( exists $SPECIAL_CMDS{ $cmd->{keyword} } ) {
-    if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
+    if ( $cmd->{keyword} eq 'multi' ) {
+      $self->{_sub_lock} = 1;
+    }
+    elsif ( $cmd->{keyword} eq 'exec' ) {
+      $self->{_sub_lock} = 0;
+    }
+    else {
       if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
         unless ( defined $cmd->{on_message} ) {
           confess '\'on_message\' callback must be specified';
@@ -594,12 +600,6 @@ sub _execute_cmd {
         return;
       }
       $cmd->{replies_left} = scalar( @{$cmd->{args}} );
-    }
-    elsif ( $cmd->{keyword} eq 'multi' ) {
-      $self->{_sub_lock} = 1;
-    }
-    else { # exec
-      $self->{_sub_lock} = 0;
     }
   }
 
@@ -2145,6 +2145,10 @@ Vadim Vlasov
 =item *
 
 Konstantin Uvarin
+
+=item *
+
+Ivan Kruglov
 
 =back
 
