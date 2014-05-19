@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.40 Mon May 19 10:45:00 MSK 2014
+  - FEATURE: added constructor parameter 'linger'. Thanks to Ivan Kruglov.
+  - Slight internal changes.
+
 1.38 Sun Jan 26 19:15:00 MSK 2014
   - FEATURE: added 'autocork' behavior, which can be enabled or disabled.
   - BUGFIX: fixed conversion to lower case of command keyword.
