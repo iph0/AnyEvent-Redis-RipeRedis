@@ -36,7 +36,7 @@ use fields qw(
   _subs
 );
 
-our $VERSION = '1.40';
+our $VERSION = '1.41_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -341,13 +341,13 @@ sub _connect {
   $self->{_handle} = AnyEvent::Handle->new(
     connect          => [ $self->{host}, $self->{port} ],
     autocork         => $self->{autocork},
-    on_prepare       => $self->_get_prepare_cb(),
-    on_connect       => $self->_get_connect_cb(),
-    on_connect_error => $self->_get_connect_error_cb(),
-    on_rtimeout      => $self->_get_rtimeout_cb(),
-    on_eof           => $self->_get_eof_cb(),
-    on_error         => $self->_get_error_cb(),
-    on_read          => $self->_get_read_cb( $self->_get_reply_cb() ),
+    on_prepare       => $self->_get_on_prepare(),
+    on_connect       => $self->_get_on_connect(),
+    on_connect_error => $self->_get_on_connect_error(),
+    on_rtimeout      => $self->_get_on_rtimeout(),
+    on_eof           => $self->_get_on_eof(),
+    on_error         => $self->_get_on_error(),
+    on_read          => $self->_get_on_read( $self->_get_on_reply() ),
     ( defined $self->{linger} ? ( linger => $self->{linger} ) : () ),
   );
 
@@ -355,7 +355,7 @@ sub _connect {
 }
 
 ####
-sub _get_prepare_cb {
+sub _get_on_prepare {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -370,7 +370,7 @@ sub _get_prepare_cb {
 }
 
 ####
-sub _get_connect_cb {
+sub _get_on_connect {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -402,7 +402,7 @@ sub _get_connect_cb {
 }
 
 ####
-sub _get_connect_error_cb {
+sub _get_on_connect_error {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -417,7 +417,7 @@ sub _get_connect_error_cb {
 }
 
 ####
-sub _get_rtimeout_cb {
+sub _get_on_rtimeout {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -433,7 +433,7 @@ sub _get_rtimeout_cb {
 }
 
 ####
-sub _get_eof_cb {
+sub _get_on_eof {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -445,7 +445,7 @@ sub _get_eof_cb {
 }
 
 ####
-sub _get_error_cb {
+sub _get_on_error {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -458,7 +458,7 @@ sub _get_error_cb {
 }
 
 ####
-sub _get_read_cb {
+sub _get_on_read {
   my __PACKAGE__ $self = shift;
   my $cb = shift;
 
@@ -546,7 +546,7 @@ sub _get_read_cb {
 }
 
 ####
-sub _get_reply_cb {
+sub _get_on_reply {
   my __PACKAGE__ $self = shift;
 
   weaken( $self );
@@ -599,14 +599,11 @@ sub _execute_cmd {
 
         return;
       }
-      $cmd->{replies_left} = scalar( @{$cmd->{args}} );
+      $cmd->{reply_cnt} = scalar( @{$cmd->{args}} );
     }
   }
 
-  if ( $self->{_ready_to_write} ) {
-    $self->_push_write( $cmd );
-  }
-  else {
+  unless ( $self->{_ready_to_write} ) {
     if ( defined $self->{_handle} ) {
       if ( $self->{_connected} ) {
         if ( $self->{_auth_st} == S_IS_DONE ) {
@@ -639,7 +636,11 @@ sub _execute_cmd {
     }
 
     push( @{$self->{_input_queue}}, $cmd );
+
+    return;
   }
+
+  $self->_push_write( $cmd );
 
   return;
 }
@@ -744,18 +745,17 @@ sub _flush_input_queue {
 ####
 sub _unshift_read {
   my __PACKAGE__ $self = shift;
-  my $replies_left = shift;
-  my $cb           = shift;
+  my $reply_cnt = shift;
+  my $cb       = shift;
 
-  my $read_cb;
-  my $reply_cb;
+  weaken( $self );
+
   my @mbulk_reply;
   my $has_err;
-  {
-    my $self = $self;
-    weaken( $self );
 
-    $reply_cb = sub {
+  my $on_read;
+  $on_read = $self->_get_on_read(
+    sub {
       my $reply    = shift;
       my $err_code = shift;
 
@@ -764,20 +764,20 @@ sub _unshift_read {
 
         if ( ref( $reply ) ne 'ARRAY' ) {
           $reply = AnyEvent::Redis::RipeRedis::Error->new(
-            code    => $err_code,
             message => $reply,
+            code    => $err_code,
           );
         }
       }
 
       push( @mbulk_reply, $reply );
 
-      $replies_left--;
-      if ( ref( $reply ) eq 'ARRAY' and @{$reply} and $replies_left > 0 ) {
-        $self->{_handle}->unshift_read( $read_cb );
+      $reply_cnt--;
+      if ( ref( $reply ) eq 'ARRAY' and @{$reply} and $reply_cnt > 0 ) {
+        $self->{_handle}->unshift_read( $on_read );
       }
-      elsif ( $replies_left == 0 ) {
-        undef $read_cb; # Collect garbage
+      elsif ( $reply_cnt == 0 ) {
+        undef $on_read; # Collect garbage
 
         if ( $has_err ) {
           $cb->( \@mbulk_reply, E_OPRN_ERROR );
@@ -790,11 +790,10 @@ sub _unshift_read {
       }
 
       return;
-    };
-  }
-  $read_cb = $self->_get_read_cb( $reply_cb );
+    }
+  );
 
-  $self->{_handle}->unshift_read( $read_cb );
+  $self->{_handle}->unshift_read( $on_read );
 
   return;
 }
@@ -814,7 +813,7 @@ sub _handle_success_reply {
   }
 
   if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
-    if ( --$cmd->{replies_left} == 0 ) {
+    if ( --$cmd->{reply_cnt} == 0 ) {
       shift( @{$self->{_processing_queue}} );
     }
 
@@ -895,9 +894,9 @@ sub _handle_error_reply {
 sub _handle_pub_message {
   my __PACKAGE__ $self = shift;
 
-  my $msg_cb = $self->{_subs}{ $_[0][1] };
+  my $cb = $self->{_subs}{ $_[0][1] };
 
-  unless ( defined $msg_cb ) {
+  unless ( defined $cb ) {
     $self->_disconnect(
         'Don\'t known how process published message.'
             . " Unknown channel or pattern '$_[0][1]'.",
@@ -907,10 +906,10 @@ sub _handle_pub_message {
   }
 
   if ( $_[0][0] eq 'message' ) {
-    $msg_cb->( @{$_[0]}[ 1, 2 ] );
+    $cb->( @{$_[0]}[ 1, 2 ] );
   }
   else { # pmessage
-    $msg_cb->( @{$_[0]}[ 2, 3, 1 ] );
+    $cb->( @{$_[0]}[ 2, 3, 1 ] );
   }
 
   return;
@@ -937,8 +936,6 @@ sub _handle_cmd_error {
 ####
 sub _disconnect {
   my __PACKAGE__ $self = shift;
-  my $err_msg  = shift;
-  my $err_code = shift;
 
   my $was_connected = $self->{_connected};
 
@@ -952,7 +949,7 @@ sub _disconnect {
   $self->{_ready_to_write} = 0;
   $self->{_sub_lock}       = 0;
 
-  $self->_abort_all( $err_msg, $err_code );
+  $self->_abort_all( @_ );
 
   if ( $was_connected and defined $self->{on_disconnect} ) {
     $self->{on_disconnect}->();
@@ -964,10 +961,8 @@ sub _disconnect {
 ####
 sub _abort_all {
   my __PACKAGE__ $self = shift;
-  my $err_msg  = shift;
-  my $err_code = shift;
 
-  my @cmds = (
+  my @unfin_cmds = (
     @{$self->{_processing_queue}},
     @{$self->{_tmp_queue}},
     @{$self->{_input_queue}},
@@ -978,28 +973,28 @@ sub _abort_all {
   $self->{_processing_queue} = [];
   $self->{_subs}             = {};
 
-  if ( !defined $err_msg and @cmds ) {
-    $err_msg  = 'Connection closed by client prematurely.';
-    $err_code = E_CONN_CLOSED_BY_CLIENT;
+  if ( !defined $_[0] and @unfin_cmds ) {
+    $_[0] = 'Connection closed by client prematurely.';
+    $_[1] = E_CONN_CLOSED_BY_CLIENT;
   }
 
-  if ( defined $err_msg ) {
-    if ( $err_code == E_CANT_CONN ) {
+  if ( defined $_[0] ) {
+    if ( $_[1] == E_CANT_CONN ) {
       if ( defined $self->{on_connect_error} ) {
-        $self->{on_connect_error}->( $err_msg );
+        $self->{on_connect_error}->( $_[0] );
       }
       else {
-        $self->{on_error}->( $err_msg, $err_code );
+        $self->{on_error}->( @_ );
       }
     }
     else {
-      $self->{on_error}->( $err_msg, $err_code );
+      $self->{on_error}->( @_ );
     }
   }
 
-  foreach my $cmd ( @cmds ) {
+  foreach my $cmd ( @unfin_cmds ) {
     $self->_handle_cmd_error( $cmd,
-        "Operation '$cmd->{keyword}' aborted: $err_msg", $err_code );
+        "Operation '$cmd->{keyword}' aborted: $_[0]", $_[1] );
   }
 
   return;
@@ -1047,13 +1042,13 @@ sub DESTROY {
   my __PACKAGE__ $self = shift;
 
   if ( defined $self->{_handle} ) {
-    my @cmds = (
+    my @unfin_cmds = (
       @{$self->{_processing_queue}},
       @{$self->{_tmp_queue}},
       @{$self->{_input_queue}},
     );
 
-    foreach my $cmd ( @cmds ) {
+    foreach my $cmd ( @unfin_cmds ) {
       warn "Operation '$cmd->{keyword}' aborted:"
           . " Client object destroyed prematurely.\n";
     }
