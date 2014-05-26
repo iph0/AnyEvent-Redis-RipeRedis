@@ -12,12 +12,11 @@ use fields qw(
   port
   password
   database
+  encoding
   connection_timeout
   read_timeout
   reconnect
-  linger
-  autocork
-  encoding
+  handle_params
   on_connect
   on_disconnect
   on_connect_error
@@ -114,7 +113,7 @@ my %SUB_CMDS = (
   subscribe  => 1,
   psubscribe => 1,
 );
-my %SUB_UNSUB_CMDS = (
+my %SUBUNSUB_CMDS = (
   %SUB_CMDS,
   unsubscribe  => 1,
   punsubscribe => 1,
@@ -125,7 +124,7 @@ my %SUB_MSG_TYPES = (
 );
 
 my %SPECIAL_CMDS = (
-  %SUB_UNSUB_CMDS,
+  %SUBUNSUB_CMDS,
   exec  => 1,
   multi => 1,
 );
@@ -157,23 +156,28 @@ sub new {
   $self->{host}     = $params->{host} || D_HOST;
   $self->{port}     = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
-
   unless ( defined $params->{database} ) {
     $params->{database} = D_DB_INDEX;
   }
   $self->{database} = $params->{database};
-
+  $self->encoding( $params->{encoding} );
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
-
   unless ( exists $params->{reconnect} ) {
     $params->{reconnect} = 1;
   }
   $self->{reconnect} = $params->{reconnect};
 
-  $self->{linger}   = $params->{linger};
-  $self->{autocork} = $params->{autocork};
-  $self->encoding( $params->{encoding} );
+  my $hdl_params = {};
+  if ( defined $params->{handle_params} ) {
+    $hdl_params = $params->{handle_params};
+  }
+  foreach my $pname ( qw( linger autocork ) ) {
+    if ( !exists $hdl_params->{ $pname } and defined $params->{ $pname } ) {
+      $hdl_params->{ $pname } = $params->{ $pname };
+    }
+  }
+  $self->{handle_params} = $hdl_params;
 
   $self->{on_connect}       = $params->{on_connect};
   $self->{on_disconnect}    = $params->{on_disconnect};
@@ -282,18 +286,6 @@ sub selected_database {
   return $self->{database};
 }
 
-####
-sub autocork {
-  my __PACKAGE__ $self = shift;
-
-  if ( @_ ) {
-    $self->{autocork} = shift;
-    $self->{_handle}->autocork( $self->{autocork} );
-  }
-
-  return $self->{autocork};
-}
-
 # Create more accessors
 {
   no strict 'refs';
@@ -339,8 +331,8 @@ sub _connect {
   my __PACKAGE__ $self = shift;
 
   $self->{_handle} = AnyEvent::Handle->new(
+    %{ $self->{handle_params} },
     connect          => [ $self->{host}, $self->{port} ],
-    autocork         => $self->{autocork},
     on_prepare       => $self->_get_on_prepare(),
     on_connect       => $self->_get_on_connect(),
     on_connect_error => $self->_get_on_connect_error(),
@@ -348,7 +340,6 @@ sub _connect {
     on_eof           => $self->_get_on_eof(),
     on_error         => $self->_get_on_error(),
     on_read          => $self->_get_on_read( $self->_get_on_reply() ),
-    ( defined $self->{linger} ? ( linger => $self->{linger} ) : () ),
   );
 
   return;
@@ -592,7 +583,7 @@ sub _execute_cmd {
           sub {
             $self->_handle_cmd_error( $cmd,
                 "Command '$cmd->{keyword}' not allowed after 'multi' command."
-                    . ' First, the transaction must be completed.',
+                    . ' First, the transaction must be finalized.',
                 E_OPRN_ERROR );
           }
         );
@@ -746,11 +737,11 @@ sub _flush_input_queue {
 sub _unshift_read {
   my __PACKAGE__ $self = shift;
   my $reply_cnt = shift;
-  my $cb       = shift;
+  my $cb        = shift;
 
   weaken( $self );
 
-  my @mbulk_reply;
+  my @mbulk_buf;
   my $has_err;
 
   my $on_read;
@@ -770,7 +761,7 @@ sub _unshift_read {
         }
       }
 
-      push( @mbulk_reply, $reply );
+      push( @mbulk_buf, $reply );
 
       $reply_cnt--;
       if ( ref( $reply ) eq 'ARRAY' and @{$reply} and $reply_cnt > 0 ) {
@@ -780,10 +771,10 @@ sub _unshift_read {
         undef $on_read; # Collect garbage
 
         if ( $has_err ) {
-          $cb->( \@mbulk_reply, E_OPRN_ERROR );
+          $cb->( \@mbulk_buf, E_OPRN_ERROR );
         }
         else {
-          $cb->( \@mbulk_reply );
+          $cb->( \@mbulk_buf );
         }
 
         return 1;
@@ -812,7 +803,7 @@ sub _handle_success_reply {
     return;
   }
 
-  if ( exists $SUB_UNSUB_CMDS{ $cmd->{keyword} } ) {
+  if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
     if ( --$cmd->{reply_cnt} == 0 ) {
       shift( @{$self->{_processing_queue}} );
     }
@@ -1241,6 +1232,12 @@ database after reconnection.
 
 The default database index is C<0>.
 
+=item encoding
+
+Used for encode/decode strings at time of input/output operations.
+
+Not set by default.
+
 =item connection_timeout
 
 Timeout, within which the client will be wait the connection establishment to
@@ -1289,31 +1286,15 @@ feature made the client more responsive.
 
 Enabled by default.
 
-=item linger
+=item handle_params
 
-This option is in effect when, for example, code terminates connection by calling
-C<disconnect> but there are ongoing operations. In this case destructor of
-underlying L<AnyEvent::Handle> object will keep the write buffer in memory for
-long time (see default value) causing temporal 'memory leak'. See
-L<AnyEvent::Handle> for more info.
+The hash reference with parameters, that will be passed to L<AnyEvent::Handle>
+constructor.
 
-By default is applied default setting of L<AnyEvent::Handle> (i.e. 3600 seconds).
-
-=item autocork
-
-When enabled, writes to socket will always be queued till the next event loop
-iteration. This is efficient when you execute many operations per iteration, but
-less efficient when you execute a single operation only per iteration (or when
-the write buffer often is full). It also increases operation latency. See
-L<AnyEvent::Handle> for more info.
-
-Disabled by default.
-
-=item encoding
-
-Used for encode/decode strings at time of input/output operations.
-
-Not set by default.
+  handle_params => {
+    linger   => 60,
+    autocork => 1,
+  },
 
 =item on_connect => $cb->()
 
@@ -2087,11 +2068,6 @@ Get or set the C<read_timeout> of the client.
 =head2 reconnect( [ $boolean ] )
 
 Enables or disables reconnection mode of the client.
-
-=head2 autocork( [ $boolean ] )
-
-Enables or disables the current autocork behaviour (see C<autocork> constructor
-argument). Changes will only take effect on the next write to socket.
 
 =head2 encoding( [ $enc_name ] )
 

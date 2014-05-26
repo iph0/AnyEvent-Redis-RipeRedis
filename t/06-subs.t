@@ -606,7 +606,7 @@ sub t_sub_after_multi {
 
   my $t_pname = 'subscription after MULTI command';
   is( $t_err_msg, 'Command \'subscribe\' not allowed'
-      . ' after \'multi\' command. First, the transaction must be completed.',
+      . ' after \'multi\' command. First, the transaction must be finalized.',
       "$t_pname; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_pname; error code" );
 
