@@ -82,7 +82,7 @@ sub t_eval_cached_mth1 {
 return ARGV[1]
 LUA
 ;
-  my @t_data;
+  my @t_data_buf;
 
   ev_loop(
     sub {
@@ -93,17 +93,17 @@ LUA
 
       $redis->eval_cached( $script, 0, 42,
         { on_done => sub {
-            my $reply = shift;
+            my $data = shift;
 
-            push( @t_data, $reply );
+            push( @t_data_buf, $data );
 
             $redis->eval_cached( $script, 0, 15 );
 
             $redis->eval_cached( $script, 0, 57,
               {
                 on_done => sub {
-                  my $reply = shift;
-                  push( @t_data, $reply );
+                  my $data = shift;
+                  push( @t_data_buf, $data );
                   $cv->send();
                 },
               }
@@ -114,7 +114,7 @@ LUA
     }
   );
 
-  is_deeply( \@t_data, [ qw( 42 57 ) ], 'eval_cached; \'on_done\' used' );
+  is_deeply( \@t_data_buf, [ qw( 42 57 ) ], 'eval_cached; \'on_done\' used' );
 
   return;
 }
@@ -127,7 +127,7 @@ sub t_eval_cached_mth2 {
 return ARGV[1]
 LUA
 ;
-  my @t_data;
+  my @t_data_buf;
 
   ev_loop(
     sub {
@@ -138,7 +138,7 @@ LUA
 
       $redis->eval_cached( $script, 0, 42,
         sub {
-          my $reply   = shift;
+          my $data    = shift;
           my $err_msg = shift;
 
           if ( defined $err_msg ) {
@@ -146,13 +146,13 @@ LUA
             return;
           }
 
-          push( @t_data, $reply );
+          push( @t_data_buf, $data );
 
           $redis->eval_cached( $script, 0, 15 );
 
           $redis->eval_cached( $script, 0, 57,
             sub {
-              my $reply   = shift;
+              my $data    = shift;
               my $err_msg = shift;
 
               if ( defined $err_msg ) {
@@ -160,7 +160,7 @@ LUA
                 return;
               }
 
-              push( @t_data, $reply );
+              push( @t_data_buf, $data );
 
               $cv->send();
             }
@@ -170,7 +170,7 @@ LUA
     }
   );
 
-  is_deeply( \@t_data, [ qw( 42 57 ) ], 'eval_cached; \'on_reply\' used' );
+  is_deeply( \@t_data_buf, [ qw( 42 57 ) ], 'eval_cached; \'on_reply\' used' );
 
   return;
 }
@@ -226,7 +226,7 @@ LUA
 
       $redis->eval_cached( $script, 0,
         sub {
-          my $reply  = shift;
+          my $data   = shift;
           $t_err_msg = shift;
 
           if ( defined $t_err_msg ) {
@@ -257,7 +257,7 @@ LUA
 ;
   my $t_err_msg;
   my $t_err_code;
-  my $t_reply;
+  my $t_data;
 
   ev_loop(
     sub {
@@ -267,7 +267,7 @@ LUA
         { on_error => sub {
             $t_err_msg  = shift;
             $t_err_code = shift;
-            $t_reply    = shift;
+            $t_data     = shift;
 
             $cv->send();
           },
@@ -281,19 +281,17 @@ LUA
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
-  is( $t_reply->[0], 42, "$t_npref; numeric reply" );
+  is( $t_data->[0], 42, "$t_npref; numeric reply" );
 
-  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      "$t_npref; level 0" );
-  is( $t_reply->[1]->message(), 'Something wrong.',
+  isa_ok( $t_data->[1], 'AnyEvent::Redis::RipeRedis::Error' );
+  is( $t_data->[1]->message(), 'Something wrong.',
       "$t_npref; level 0; error message" );
-  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; level 0; error code" );
+  is( $t_data->[1]->code(), E_OPRN_ERROR, "$t_npref; level 0; error code" );
 
-  isa_ok( $t_reply->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      "$t_npref; level 1" );
-  is( $t_reply->[2][0]->message(), 'NOSCRIPT No matching script.',
+  isa_ok( $t_data->[2][0], 'AnyEvent::Redis::RipeRedis::Error' );
+  is( $t_data->[2][0]->message(), 'NOSCRIPT No matching script.',
       "$t_npref; level 1; error message" );
-  is( $t_reply->[2][0]->code(), E_NO_SCRIPT, "$t_npref; level 1; error code" );
+  is( $t_data->[2][0]->code(), E_NO_SCRIPT, "$t_npref; level 1; error code" );
 
   return;
 }
@@ -309,7 +307,7 @@ LUA
 ;
   my $t_err_msg;
   my $t_err_code;
-  my $t_reply;
+  my $t_data;
 
   ev_loop(
     sub {
@@ -317,7 +315,7 @@ LUA
 
       $redis->eval( $script, 0, 42,
         sub {
-          $t_reply   = shift;
+          $t_data    = shift;
           $t_err_msg = shift;
 
           if ( defined $t_err_msg ) {
@@ -335,19 +333,17 @@ LUA
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
-  is( $t_reply->[0], 42, "$t_npref; numeric reply" );
+  is( $t_data->[0], 42, "$t_npref; numeric reply" );
 
-  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error',
-      "$t_npref; level 0" );
-  is( $t_reply->[1]->message(), 'Something wrong.',
+  isa_ok( $t_data->[1], 'AnyEvent::Redis::RipeRedis::Error' );
+  is( $t_data->[1]->message(), 'Something wrong.',
       "$t_npref; level 0; error message" );
-  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; level 0; error code" );
+  is( $t_data->[1]->code(), E_OPRN_ERROR, "$t_npref; level 0; error code" );
 
-  isa_ok( $t_reply->[2][0], 'AnyEvent::Redis::RipeRedis::Error',
-      "$t_npref; level 1" );
-  is( $t_reply->[2][0]->message(), 'NOSCRIPT No matching script.',
+  isa_ok( $t_data->[2][0], 'AnyEvent::Redis::RipeRedis::Error' );
+  is( $t_data->[2][0]->message(), 'NOSCRIPT No matching script.',
       "$t_npref; level 1; error message" );
-  is( $t_reply->[2][0]->code(), E_NO_SCRIPT, "$t_npref; level 1; error code" );
+  is( $t_data->[2][0]->code(), E_NO_SCRIPT, "$t_npref; level 1; error code" );
 
   return;
 }

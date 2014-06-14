@@ -182,7 +182,7 @@ sub t_no_connection {
   );
 
   is( $t_cmd_err_msg_1,
-      'Can\'t handle the command \'ping\'. No connection to the server.',
+      'Operation \'ping\' aborted: No connection to the server.',
       "$t_npref; second command error message" );
   is( $t_cmd_err_code_1, E_NO_CONN, "$t_npref; second command error code" );
 

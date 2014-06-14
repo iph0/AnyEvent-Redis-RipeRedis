@@ -25,9 +25,9 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 # Increment
 $redis->incr( 'foo',
   { on_done => sub {
-      my $reply = shift;
+      my $data = shift;
 
-      print "$reply\n";
+      print "$data\n";
     },
   }
 );
@@ -43,9 +43,9 @@ $redis->set( 'bar', 'Some string',
 # Get value
 $redis->get( 'bar',
   { on_done => sub {
-      my $reply = shift;
+      my $data = shift;
 
-      print "$reply\n";
+      print "$data\n";
     },
   }
 );
@@ -54,9 +54,9 @@ $redis->get( 'bar',
 for ( my $i = 1; $i <= 3; $i++ ) {
   $redis->rpush( 'list', "element_$i",
     { on_done => sub {
-        my $reply = shift;
+        my $data = shift;
 
-        print "$reply\n";
+        print "$data\n";
       },
     }
   );
@@ -65,9 +65,9 @@ for ( my $i = 1; $i <= 3; $i++ ) {
 # Get list of values
 $redis->lrange( 'list', 0, -1,
   { on_done => sub {
-      my $reply = shift;
+      my $data = shift;
 
-      foreach my $val ( @{$reply} ) {
+      foreach my $val ( @{$data} ) {
         print "$val\n";
       }
     },
@@ -83,30 +83,30 @@ $redis->multi(
 );
 $redis->incr( 'foo',
   { on_done => sub {
-      my $reply = shift;
-      print "$reply\n";
+      my $data = shift;
+      print "$data\n";
     },
   }
 );
 $redis->lrange( 'list', 0, -1,
   { on_done => sub {
-      my $reply = shift;
-      print "$reply\n";
+      my $data = shift;
+      print "$data\n";
     },
   }
 );
 $redis->get( 'bar',
   { on_done => sub {
-      my $reply = shift;
-      print "$reply\n";
+      my $data = shift;
+      print "$data\n";
     },
   }
 );
 $redis->exec(
   { on_done => sub {
-      my $reply = shift;
+      my $data = shift;
 
-      foreach my $chunk ( @{$reply} ) {
+      foreach my $chunk ( @{$data} ) {
         if ( ref( $chunk ) eq 'ARRAY' ) {
           foreach my $val ( @{$chunk} ) {
             print "$val\n";

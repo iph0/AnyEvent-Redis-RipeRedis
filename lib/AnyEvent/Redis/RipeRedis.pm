@@ -7,34 +7,6 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-use fields qw(
-  host
-  port
-  password
-  database
-  encoding
-  connection_timeout
-  read_timeout
-  reconnect
-  handle_params
-  on_connect
-  on_disconnect
-  on_connect_error
-  on_error
-
-  _handle
-  _connected
-  _lazy_conn_st
-  _auth_st
-  _select_db_st
-  _ready_to_write
-  _input_queue
-  _tmp_queue
-  _processing_queue
-  _sub_lock
-  _subs
-);
-
 our $VERSION = '1.41_01';
 
 use AnyEvent;
@@ -113,20 +85,22 @@ my %SUB_CMDS = (
   subscribe  => 1,
   psubscribe => 1,
 );
+
 my %SUBUNSUB_CMDS = (
   %SUB_CMDS,
   unsubscribe  => 1,
   punsubscribe => 1,
 );
-my %SUB_MSG_TYPES = (
+
+my %MSG_TYPES = (
   message  => 1,
   pmessage => 1,
 );
 
-my %SPECIAL_CMDS = (
+my %NEED_POST_PROCESS = (
   %SUBUNSUB_CMDS,
-  exec  => 1,
-  multi => 1,
+  select => 1,
+  quit   => 1,
 );
 
 my %ERR_PREFIXES_MAP = (
@@ -148,10 +122,10 @@ my %EVAL_CACHE;
 
 # Constructor
 sub new {
-  my $proto = shift;
+  my $proto  = shift;
   my $params = { @_ };
 
-  my __PACKAGE__ $self = ref( $proto ) ? $proto : fields::new( $proto );
+  my $self = ref( $proto ) ? $proto : bless {}, $proto;
 
   $self->{host}     = $params->{host} || D_HOST;
   $self->{port}     = $params->{port} || D_PORT;
@@ -168,33 +142,33 @@ sub new {
   }
   $self->{reconnect} = $params->{reconnect};
 
-  my $hdl_params = {};
-  if ( defined $params->{handle_params} ) {
-    $hdl_params = $params->{handle_params};
+  my $handle_params = $params->{handle_params};
+  if ( !defined $params->{handle_params} ) {
+    $handle_params = {};
   }
-  foreach my $pname ( qw( linger autocork ) ) {
-    if ( !exists $hdl_params->{ $pname } and defined $params->{ $pname } ) {
-      $hdl_params->{ $pname } = $params->{ $pname };
+  foreach my $p_name ( qw( linger autocork ) ) {
+    if ( !exists $handle_params->{ $p_name } and defined $params->{ $p_name } ) {
+      $handle_params->{ $p_name } = $params->{ $p_name };
     }
   }
-  $self->{handle_params} = $hdl_params;
+  $self->{handle_params} = $handle_params;
 
   $self->{on_connect}       = $params->{on_connect};
   $self->{on_disconnect}    = $params->{on_disconnect};
   $self->{on_connect_error} = $params->{on_connect_error};
   $self->on_error( $params->{on_error} );
 
-  $self->{_handle}           = undef;
-  $self->{_connected}        = 0;
-  $self->{_lazy_conn_st}     = $params->{lazy};
-  $self->{_auth_st}          = S_NEED_PERFORM;
-  $self->{_select_db_st}     = S_NEED_PERFORM;
-  $self->{_ready_to_write}   = 0;
-  $self->{_input_queue}      = [];
-  $self->{_tmp_queue}        = [];
-  $self->{_processing_queue} = [];
-  $self->{_sub_lock}         = 0;
-  $self->{_subs}             = {};
+  $self->{_handle}         = undef;
+  $self->{_connected}      = 0;
+  $self->{_lazy_conn_st}   = $params->{lazy};
+  $self->{_auth_st}        = S_NEED_PERFORM;
+  $self->{_select_db_st}   = S_NEED_PERFORM;
+  $self->{_ready_to_write} = 0;
+  $self->{_input_queue}    = [];
+  $self->{_tmp_queue}      = [];
+  $self->{_process_queue}  = [];
+  $self->{_multi_lock}     = 0;
+  $self->{_subs}           = {};
 
   unless ( $self->{_lazy_conn_st} ) {
     $self->_connect();
@@ -204,25 +178,40 @@ sub new {
 }
 
 ####
+sub multi {
+  my $self = shift;
+  my $cmd  = $self->_parse_cmd_args( [ @_ ] );
+  $cmd->{keyword} = 'multi';
+
+  $self->{_multi_lock} = 1;
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
+sub exec {
+  my $self = shift;
+  my $cmd  = $self->_parse_cmd_args( [ @_ ] );
+  $cmd->{keyword} = 'exec';
+
+  $self->{_multi_lock} = 0;
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
 sub eval_cached {
-  my __PACKAGE__ $self = shift;
-  my @args = @_;
-
-  my $cmd = {};
-  if ( ref( $args[-1] ) eq 'CODE' ) {
-    $cmd->{on_reply} = pop( @args );
-  }
-  elsif ( ref( $args[-1] ) eq 'HASH' ) {
-    $cmd = pop( @args );
-  }
+  my $self = shift;
+  my $cmd  = $self->_parse_cmd_args( [ @_ ] );
   $cmd->{keyword} = 'evalsha';
-  $cmd->{args} = \@args;
 
-  $cmd->{script} = $args[0];
+  $cmd->{script} = $cmd->{args}[0];
   unless ( exists $EVAL_CACHE{ $cmd->{script} } ) {
     $EVAL_CACHE{ $cmd->{script} } = sha1_hex( $cmd->{script} );
   }
-  $args[0] = $EVAL_CACHE{ $cmd->{script} };
+  $cmd->{args}[0] = $EVAL_CACHE{ $cmd->{script} };
 
   $self->_execute_cmd( $cmd );
 
@@ -230,8 +219,52 @@ sub eval_cached {
 }
 
 ####
+sub subscribe {
+  my $self = shift;
+  my $cmd  = $self->_parse_sub_args( [ @_ ] );
+  $cmd->{keyword} = 'subscribe';
+
+  $self->_subunsub( $cmd );
+
+  return;
+}
+
+####
+sub psubscribe {
+  my $self = shift;
+  my $cmd  = $self->_parse_sub_args( [ @_ ] );
+  $cmd->{keyword} = 'psubscribe';
+
+  $self->_subunsub( $cmd );
+
+  return;
+}
+
+####
+sub unsubscribe {
+  my $self = shift;
+  my $cmd  = $self->_parse_cmd_args( [ @_ ] );
+  $cmd->{keyword} = 'unsubscribe';
+
+  $self->_subunsub( $cmd );
+
+  return;
+}
+
+####
+sub punsubscribe {
+  my $self = shift;
+  my $cmd  = $self->_parse_cmd_args( [ @_ ] );
+  $cmd->{keyword} = 'punsubscribe';
+
+  $self->_subunsub( $cmd );
+
+  return;
+}
+
+####
 sub disconnect {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   $self->_disconnect();
 
@@ -240,7 +273,7 @@ sub disconnect {
 
 ####
 sub encoding {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   if ( @_ ) {
     my $enc = shift;
@@ -261,19 +294,21 @@ sub encoding {
 
 ####
 sub on_error {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   if ( @_ ) {
     my $on_error = shift;
 
-    unless ( defined $on_error ) {
-      $on_error = sub {
+    if ( defined $on_error ) {
+      $self->{on_error} = $on_error;
+    }
+    else {
+      $self->{on_error} = sub {
         my $err_msg = shift;
 
         warn "$err_msg\n";
       };
     }
-    $self->{on_error} = $on_error;
   }
 
   return $self->{on_error};
@@ -281,7 +316,7 @@ sub on_error {
 
 ####
 sub selected_database {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   return $self->{database};
 }
@@ -294,10 +329,11 @@ sub selected_database {
     my $attr_name = $attr_pref . '_timeout';
 
     *{$attr_name} = sub {
-      my __PACKAGE__ $self = shift;
+      my $self = shift;
 
       if ( @_ ) {
         my $timeout = shift;
+
         if (
           defined $timeout
             and ( !looks_like_number( $timeout ) or $timeout < 0 )
@@ -315,7 +351,7 @@ sub selected_database {
     qw( reconnect on_connect on_disconnect on_connect_error )
       ) {
     *{$attr_name} = sub {
-      my __PACKAGE__ $self = shift;
+      my $self = shift;
 
       if ( @_ ) {
         $self->{ $attr_name } = shift;
@@ -328,7 +364,7 @@ sub selected_database {
 
 ####
 sub _connect {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   $self->{_handle} = AnyEvent::Handle->new(
     %{ $self->{handle_params} },
@@ -338,7 +374,7 @@ sub _connect {
     on_connect_error => $self->_get_on_connect_error(),
     on_rtimeout      => $self->_get_on_rtimeout(),
     on_eof           => $self->_get_on_eof(),
-    on_error         => $self->_get_on_error(),
+    on_error         => $self->_get_on_handle_error(),
     on_read          => $self->_get_on_read( $self->_get_on_reply() ),
   );
 
@@ -347,7 +383,7 @@ sub _connect {
 
 ####
 sub _get_on_prepare {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
@@ -362,7 +398,7 @@ sub _get_on_prepare {
 
 ####
 sub _get_on_connect {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
@@ -379,7 +415,7 @@ sub _get_on_connect {
       $self->_auth();
     }
     elsif ( $self->{_select_db_st} == S_NEED_PERFORM ) {
-      $self->_select_db();
+      $self->_select;
     }
     else {
       $self->{_ready_to_write} = 1;
@@ -394,27 +430,26 @@ sub _get_on_connect {
 
 ####
 sub _get_on_connect_error {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
   return sub {
     my $err_msg = pop;
 
-    $self->_disconnect(
-        "Can't connect to $self->{host}:$self->{port}: $err_msg",
+    $self->_disconnect( "Can't connect to $self->{host}:$self->{port}: $err_msg",
         E_CANT_CONN );
   };
 }
 
 ####
 sub _get_on_rtimeout {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
   return sub {
-    if ( @{$self->{_processing_queue}} ) {
+    if ( @{$self->{_process_queue}} ) {
       $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
     }
     else {
@@ -425,7 +460,7 @@ sub _get_on_rtimeout {
 
 ####
 sub _get_on_eof {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
@@ -436,8 +471,8 @@ sub _get_on_eof {
 }
 
 ####
-sub _get_on_error {
-  my __PACKAGE__ $self = shift;
+sub _get_on_handle_error {
+  my $self = shift;
 
   weaken( $self );
 
@@ -450,78 +485,79 @@ sub _get_on_error {
 
 ####
 sub _get_on_read {
-  my __PACKAGE__ $self = shift;
-  my $cb = shift;
-
-  my $bulk_len;
+  my $self     = shift;
+  my $on_reply = shift;
 
   weaken( $self );
 
+  my $str_len;
+
   return sub {
-    my $hdl = shift;
+    my $handle = shift;
 
     while ( 1 ) {
-      if ( $hdl->destroyed() ) {
+      if ( $handle->destroyed() ) {
         return;
       }
 
-      if ( defined $bulk_len ) {
-        if ( length( $hdl->{rbuf} ) < $bulk_len + EOL_LEN ) {
+      if ( defined $str_len ) {
+        if ( length( $handle->{rbuf} ) < $str_len + EOL_LEN ) {
           return;
         }
 
-        my $reply = substr( $hdl->{rbuf}, 0, $bulk_len, '' );
-        substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
+        my $data = substr( $handle->{rbuf}, 0, $str_len, '' );
+        substr( $handle->{rbuf}, 0, EOL_LEN, '' );
         if ( defined $self->{encoding} ) {
-          $reply = $self->{encoding}->decode( $reply );
+          $data = $self->{encoding}->decode( $data );
         }
-        undef $bulk_len;
+        undef $str_len;
 
-        return 1 if $cb->( $reply );
+        return 1 if $on_reply->( $data );
       }
       else {
-        my $eol_pos = index( $hdl->{rbuf}, EOL );
+        my $eol_pos = index( $handle->{rbuf}, EOL );
         if ( $eol_pos < 0 ) {
           return;
         }
 
-        my $reply = substr( $hdl->{rbuf}, 0, $eol_pos, '' );
-        my $type = substr( $reply, 0, 1, '' );
-        substr( $hdl->{rbuf}, 0, EOL_LEN, '' );
+        my $data = substr( $handle->{rbuf}, 0, $eol_pos, '' );
+        my $type = substr( $data, 0, 1, '' );
+        substr( $handle->{rbuf}, 0, EOL_LEN, '' );
 
         if ( $type eq '+' or $type eq ':' ) {
-          return 1 if $cb->( $reply );
+          return 1 if $on_reply->( $data );
         }
         elsif ( $type eq '$' ) {
-          if ( $reply >= 0 ) {
-            $bulk_len = $reply;
+          if ( $data >= 0 ) {
+            $str_len = $data;
           }
           else {
-            return 1 if $cb->();
+            return 1 if $on_reply->();
           }
         }
         elsif ( $type eq '*' ) {
-          my $mbulk_len = $reply;
-          if ( $mbulk_len > 0 ) {
-            $self->_unshift_read( $mbulk_len, $cb );
+          my $array_len = $data;
+          if ( $array_len > 0 ) {
+            $self->_unshift_read( $array_len, $on_reply );
+
             return 1;
           }
-          elsif ( $mbulk_len < 0 ) {
-            return 1 if $cb->();
+          elsif ( $array_len < 0 ) {
+            return 1 if $on_reply->();
           }
           else {
-            return 1 if $cb->( [] );
+            return 1 if $on_reply->( [] );
           }
         }
         elsif ( $type eq '-' ) {
           my $err_code = E_OPRN_ERROR;
-          if ( $reply =~ m/^([A-Z]{3,}) / ) {
+          if ( $data =~ m/^([A-Z]{3,}) / ) {
             if ( exists $ERR_PREFIXES_MAP{ $1 } ) {
               $err_code = $ERR_PREFIXES_MAP{ $1 };
             }
           }
 
-          return 1 if $cb->( $reply, $err_code );
+          return 1 if $on_reply->( $data, $err_code );
         }
         else {
           $self->_disconnect( 'Unexpected data type received.',
@@ -538,22 +574,82 @@ sub _get_on_read {
 
 ####
 sub _get_on_reply {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
   return sub {
-    if ( defined $_[1] ) {
-      $self->_handle_error_reply( @_ );
+    my $data     = shift;
+    my $err_code = shift;
+
+    if ( defined $err_code ) {
+      my $cmd = shift( @{$self->{_process_queue}} );
+
+      unless ( defined $cmd ) {
+        $self->_disconnect( 'Don\'t known how process error.'
+            . ' Command queue is empty.', E_UNEXPECTED_DATA );
+        return;
+      }
+
+      if ( $err_code == E_NO_SCRIPT and exists $cmd->{script} ) {
+        $cmd->{keyword} = 'eval';
+        $cmd->{args}[0] = $cmd->{script};
+        $self->_push_write( $cmd );
+
+        return;
+      }
+
+      $self->_call_on_cmd_error( $cmd, ref( $data )
+          ? ( "Operation '$cmd->{keyword}' completed with errors.", $err_code,
+          $data ) : ( $data, $err_code ) );
     }
     elsif (
-      %{$self->{_subs}} and ref( $_[0] ) eq 'ARRAY'
-        and exists $SUB_MSG_TYPES{ $_[0][0] }
+      %{$self->{_subs}} and ref( $data )
+        and exists $MSG_TYPES{ $data->[0] }
         ) {
-      $self->_handle_pub_message( $_[0] );
+      my $on_msg = $self->{_subs}{ $data->[1] };
+
+      unless ( defined $on_msg ) {
+        $self->_disconnect( 'Don\'t known how process published message.'
+            ." Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
+        return;
+      }
+
+      $self->_call_on_message( $on_msg, $data );
     }
     else {
-      $self->_handle_success_reply( $_[0] );
+      my $cmd = $self->{_process_queue}[0];
+
+      unless ( defined $cmd ) {
+        $self->_disconnect( 'Don\'t known how process reply.'
+            .' Command queue is empty.', E_UNEXPECTED_DATA );
+        return;
+      }
+
+      if ( !defined $cmd->{reply_cnt} or --$cmd->{reply_cnt} == 0 ) {
+        shift( @{$self->{_process_queue}} );
+      }
+
+      if ( exists $NEED_POST_PROCESS{ $cmd->{keyword} } ) {
+        if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
+          shift( @{$data} );
+
+          if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
+            $self->{_subs}{ $data->[0] } = $cmd->{on_message};
+          }
+          else {
+            delete( $self->{_subs}{ $data->[0] } );
+          }
+        }
+        elsif ( $cmd->{keyword} eq 'select' ) {
+          $self->{database} = $cmd->{args}[0];
+        }
+        else { # quit
+          $self->_disconnect();
+        }
+      }
+
+      $self->_call_on_cmd_done( $cmd, $data );
     }
 
     return;
@@ -561,45 +657,83 @@ sub _get_on_reply {
 }
 
 ####
-sub _execute_cmd {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
+sub _parse_cmd_args {
+  my $self = shift;
+  my $args = shift;
 
-  if ( exists $SPECIAL_CMDS{ $cmd->{keyword} } ) {
-    if ( $cmd->{keyword} eq 'multi' ) {
-      $self->{_sub_lock} = 1;
-    }
-    elsif ( $cmd->{keyword} eq 'exec' ) {
-      $self->{_sub_lock} = 0;
-    }
-    else {
-      if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-        unless ( defined $cmd->{on_message} ) {
-          confess '\'on_message\' callback must be specified';
-        }
-      }
-      if ( $self->{_sub_lock} ) {
-        AE::postpone(
-          sub {
-            $self->_handle_cmd_error( $cmd,
-                "Command '$cmd->{keyword}' not allowed after 'multi' command."
-                    . ' First, the transaction must be finalized.',
-                E_OPRN_ERROR );
-          }
-        );
+  my $params = {};
+  if ( ref( $args->[-1] ) eq 'CODE' ) {
+    $params->{on_reply} = pop( @{$args} );
+  }
+  elsif ( ref( $args->[-1] ) eq 'HASH' ) {
+    $params = pop( @{$args} );
+  }
+  $params->{args} = $args;
 
-        return;
+  return $params;
+}
+
+####
+sub _parse_sub_args {
+  my $self = shift;
+  my $args = shift;
+
+  my $params = {};
+  if ( ref( $args->[-1] ) eq 'CODE' ) {
+    $params->{on_message} = pop( @{$args} );
+  }
+  elsif ( ref( $args->[-1] ) eq 'HASH' ) {
+    $params = pop( @{$args} );
+  }
+  $params->{args} = $args;
+
+  unless ( defined $params->{on_message} ) {
+    confess '\'on_message\' callback must be specified';
+  }
+
+  return $params;
+}
+
+####
+sub _subunsub {
+  my $self = shift;
+  my $cmd  = shift;
+
+  if ( $self->{_multi_lock} ) {
+    AE::postpone(
+      sub {
+        $self->_call_on_cmd_error( $cmd,
+            "Command '$cmd->{keyword}' not allowed after 'multi' command."
+            . ' First, the transaction must be finalized.', E_OPRN_ERROR );
       }
-      $cmd->{reply_cnt} = scalar( @{$cmd->{args}} );
+    );
+
+    return;
+  }
+
+  if ( exists $cmd->{on_done} ) {
+    my $on_done = $cmd->{on_done};
+    $cmd->{on_done} = sub {
+      $on_done->( @{$_[0]} );
     }
   }
+  $cmd->{reply_cnt} = scalar( @{$cmd->{args}} );
+  $self->_execute_cmd( $cmd );
+
+  return;
+}
+
+####
+sub _execute_cmd {
+  my $self = shift;
+  my $cmd  = shift;
 
   unless ( $self->{_ready_to_write} ) {
     if ( defined $self->{_handle} ) {
       if ( $self->{_connected} ) {
         if ( $self->{_auth_st} == S_IS_DONE ) {
           if ( $self->{_select_db_st} == S_NEED_PERFORM ) {
-            $self->_select_db();
+            $self->_select;
           }
         }
         elsif ( $self->{_auth_st} == S_NEED_PERFORM ) {
@@ -616,10 +750,8 @@ sub _execute_cmd {
     else {
       AE::postpone(
         sub {
-          $self->_handle_cmd_error( $cmd,
-              "Can't handle the command '$cmd->{keyword}'."
-                  . ' No connection to the server.',
-              E_NO_CONN );
+          $self->_call_on_cmd_error( $cmd, "Operation '$cmd->{keyword}' aborted:"
+              . ' No connection to the server.', E_NO_CONN );
         }
       );
 
@@ -638,8 +770,8 @@ sub _execute_cmd {
 
 ####
 sub _push_write {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
+  my $self = shift;
+  my $cmd  = shift;
 
   my $cmd_str = '';
   foreach my $token ( $cmd->{keyword}, @{$cmd->{args}} ) {
@@ -653,20 +785,20 @@ sub _push_write {
   }
   $cmd_str = '*' . ( scalar( @{$cmd->{args}} ) + 1 ) . EOL . $cmd_str;
 
-  my $hdl = $self->{_handle};
-  if ( defined $self->{read_timeout} and !@{$self->{_processing_queue}} ) {
-    $hdl->rtimeout_reset();
-    $hdl->rtimeout( $self->{read_timeout} );
+  if ( defined $self->{read_timeout} and !@{$self->{_process_queue}} ) {
+    $self->{_handle}->rtimeout_reset();
+    $self->{_handle}->rtimeout( $self->{read_timeout} );
   }
-  push( @{$self->{_processing_queue}}, $cmd );
-  $hdl->push_write( $cmd_str );
+
+  push( @{$self->{_process_queue}}, $cmd );
+  $self->{_handle}->push_write( $cmd_str );
 
   return;
 }
 
 ####
 sub _auth {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   weaken( $self );
 
@@ -678,7 +810,7 @@ sub _auth {
       on_done => sub {
         $self->{_auth_st} = S_IS_DONE;
         if ( $self->{_select_db_st} == S_NEED_PERFORM ) {
-          $self->_select_db();
+          $self->_select;
         }
         else {
           $self->{_ready_to_write} = 1;
@@ -696,8 +828,8 @@ sub _auth {
 }
 
 ####
-sub _select_db {
-  my __PACKAGE__ $self = shift;
+sub _select {
+  my $self = shift;
 
   weaken( $self );
 
@@ -722,7 +854,7 @@ sub _select_db {
 
 ####
 sub _flush_input_queue {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   $self->{_tmp_queue} = $self->{_input_queue};
   $self->{_input_queue} = [];
@@ -735,49 +867,39 @@ sub _flush_input_queue {
 
 ####
 sub _unshift_read {
-  my __PACKAGE__ $self = shift;
+  my $self      = shift;
   my $reply_cnt = shift;
-  my $cb        = shift;
+  my $on_reply  = shift;
 
   weaken( $self );
 
-  my @mbulk_buf;
-  my $has_err;
-
   my $on_read;
+  my @data_buf;
+  my $ov_err_code;
+
   $on_read = $self->_get_on_read(
     sub {
-      my $reply    = shift;
+      my $data     = shift;
       my $err_code = shift;
 
+      my $is_array = ref( $data );
       if ( defined $err_code ) {
-        $has_err = 1;
-
-        if ( ref( $reply ) ne 'ARRAY' ) {
-          $reply = AnyEvent::Redis::RipeRedis::Error->new(
-            message => $reply,
-            code    => $err_code,
-          );
+        $ov_err_code = E_OPRN_ERROR;
+        unless ( $is_array ) {
+          $data = AnyEvent::Redis::RipeRedis::Error->new( $data, $err_code );
         }
       }
+      push( @data_buf, $data );
 
-      push( @mbulk_buf, $reply );
-
-      $reply_cnt--;
-      if ( ref( $reply ) eq 'ARRAY' and @{$reply} and $reply_cnt > 0 ) {
-        $self->{_handle}->unshift_read( $on_read );
-      }
-      elsif ( $reply_cnt == 0 ) {
+      if ( --$reply_cnt == 0 ) {
         undef $on_read; # Collect garbage
-
-        if ( $has_err ) {
-          $cb->( \@mbulk_buf, E_OPRN_ERROR );
-        }
-        else {
-          $cb->( \@mbulk_buf );
-        }
+        $on_reply->( \@data_buf, $ov_err_code );
 
         return 1;
+      }
+
+      if ( $is_array and @{$data} ) {
+        $self->{_handle}->unshift_read( $on_read );
       }
 
       return;
@@ -790,126 +912,23 @@ sub _unshift_read {
 }
 
 ####
-sub _handle_success_reply {
-  my __PACKAGE__ $self = shift;
+sub _call_on_error {
+  my $self = shift;
 
-  my $cmd = $self->{_processing_queue}[0];
-
-  unless ( defined $cmd ) {
-    $self->_disconnect(
-        'Don\'t known how process reply. Command queue is empty.',
-        E_UNEXPECTED_DATA );
-
-    return;
-  }
-
-  if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
-    if ( --$cmd->{reply_cnt} == 0 ) {
-      shift( @{$self->{_processing_queue}} );
-    }
-
-    shift( @{$_[0]} );
-    if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-      $self->{_subs}{ $_[0][0] } = $cmd->{on_message};
-    }
-    else {
-      delete( $self->{_subs}{ $_[0][0] } );
-    }
-
-    if ( defined $cmd->{on_done} ) {
-      $cmd->{on_done}->( @{$_[0]} );
-    }
-    elsif ( defined $cmd->{on_reply} ) {
-      $cmd->{on_reply}->( $_[0] );
-    }
-
-    return;
-  }
-
-  shift( @{$self->{_processing_queue}} );
-
-  if ( $cmd->{keyword} eq 'select' ) {
-    $self->{database} = $cmd->{args}[0];
-  }
-  elsif ( $cmd->{keyword} eq 'quit' ) {
-    $self->_disconnect();
-  }
-
-  if ( defined $cmd->{on_done} ) {
-    $cmd->{on_done}->( $_[0] );
-  }
-  elsif ( defined $cmd->{on_reply} ) {
-    $cmd->{on_reply}->( $_[0] );
-  }
-
-  return;
-}
-
-####
-sub _handle_error_reply {
-  my __PACKAGE__ $self = shift;
-
-  my $cmd = shift( @{$self->{_processing_queue}} );
-
-  unless ( defined $cmd ) {
-    $self->_disconnect(
-        'Don\'t known how process error. Command queue is empty.',
-        E_UNEXPECTED_DATA );
-
-    return;
-  }
-
-  if ( $_[1] == E_NO_SCRIPT and exists $cmd->{script} ) {
-    $cmd->{keyword} = 'eval';
-    $cmd->{args}[0] = $cmd->{script};
-
-    $self->_push_write( $cmd );
-
-    return;
-  }
-
-  # Condition for EXEC command and for some Lua scripts
-  if ( ref( $_[0] ) eq 'ARRAY' ) {
-    $self->_handle_cmd_error( $cmd,
-        "Operation '$cmd->{keyword}' completed with errors.",
-        @_[ 1, 0 ] );
+  if ( $_[1] == E_CANT_CONN and defined $self->{on_connect_error} ) {
+    $self->{on_connect_error}->( $_[0] );
   }
   else {
-    $self->_handle_cmd_error( $cmd, @_ );
+    $self->{on_error}->( @_ );
   }
 
   return;
 }
 
 ####
-sub _handle_pub_message {
-  my __PACKAGE__ $self = shift;
-
-  my $cb = $self->{_subs}{ $_[0][1] };
-
-  unless ( defined $cb ) {
-    $self->_disconnect(
-        'Don\'t known how process published message.'
-            . " Unknown channel or pattern '$_[0][1]'.",
-        E_UNEXPECTED_DATA );
-
-    return;
-  }
-
-  if ( $_[0][0] eq 'message' ) {
-    $cb->( @{$_[0]}[ 1, 2 ] );
-  }
-  else { # pmessage
-    $cb->( @{$_[0]}[ 2, 3, 1 ] );
-  }
-
-  return;
-}
-
-####
-sub _handle_cmd_error {
-  my __PACKAGE__ $self = shift;
-  my $cmd = shift;
+sub _call_on_cmd_error {
+  my $self = shift;
+  my $cmd  = shift;
 
   if ( defined $cmd->{on_error} ) {
     $cmd->{on_error}->( @_ );
@@ -925,8 +944,34 @@ sub _handle_cmd_error {
 }
 
 ####
+sub _call_on_message {
+  my $on_msg = $_[1];
+
+  $on_msg->( $_[2][0] eq 'pmessage' ? @{$_[2]}[ 2, 3, 1 ]
+      : @{$_[2]}[ 1, 2 ] );
+
+  return;
+}
+
+####
+sub _call_on_cmd_done {
+  my $cmd = $_[1];
+
+  if ( defined $cmd->{on_done} ) {
+    $cmd->{on_done}->( $_[2] );
+  }
+  elsif ( defined $cmd->{on_reply} ) {
+    $cmd->{on_reply}->( $_[2] );
+  }
+
+  return;
+}
+
+####
 sub _disconnect {
-  my __PACKAGE__ $self = shift;
+  my $self     = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
 
   my $was_connected = $self->{_connected};
 
@@ -938,9 +983,9 @@ sub _disconnect {
   $self->{_auth_st}        = S_NEED_PERFORM;
   $self->{_select_db_st}   = S_NEED_PERFORM;
   $self->{_ready_to_write} = 0;
-  $self->{_sub_lock}       = 0;
+  $self->{_multi_lock}     = 0;
 
-  $self->_abort_all( @_ );
+  $self->_abort_all( $err_msg, $err_code );
 
   if ( $was_connected and defined $self->{on_disconnect} ) {
     $self->{on_disconnect}->();
@@ -951,41 +996,32 @@ sub _disconnect {
 
 ####
 sub _abort_all {
-  my __PACKAGE__ $self = shift;
+  my $self     = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
 
   my @unfin_cmds = (
-    @{$self->{_processing_queue}},
+    @{$self->{_process_queue}},
     @{$self->{_tmp_queue}},
     @{$self->{_input_queue}},
   );
 
-  $self->{_input_queue}      = [];
-  $self->{_tmp_queue}        = [];
-  $self->{_processing_queue} = [];
-  $self->{_subs}             = {};
+  $self->{_input_queue}   = [];
+  $self->{_tmp_queue}     = [];
+  $self->{_process_queue} = [];
+  $self->{_subs}          = {};
 
-  if ( !defined $_[0] and @unfin_cmds ) {
-    $_[0] = 'Connection closed by client prematurely.';
-    $_[1] = E_CONN_CLOSED_BY_CLIENT;
+  if ( !defined $err_msg and @unfin_cmds ) {
+    $err_msg  = 'Connection closed by client prematurely.';
+    $err_code = E_CONN_CLOSED_BY_CLIENT;
   }
+  if ( defined $err_msg ) {
+    $self->_call_on_error( $err_msg, $err_code );
 
-  if ( defined $_[0] ) {
-    if ( $_[1] == E_CANT_CONN ) {
-      if ( defined $self->{on_connect_error} ) {
-        $self->{on_connect_error}->( $_[0] );
-      }
-      else {
-        $self->{on_error}->( @_ );
-      }
+    foreach my $cmd ( @unfin_cmds ) {
+      $self->_call_on_cmd_error( $cmd,
+          "Operation '$cmd->{keyword}' aborted: $err_msg", $err_code );
     }
-    else {
-      $self->{on_error}->( @_ );
-    }
-  }
-
-  foreach my $cmd ( @unfin_cmds ) {
-    $self->_handle_cmd_error( $cmd,
-        "Operation '$cmd->{keyword}' aborted: $_[0]", $_[1] );
   }
 
   return;
@@ -996,28 +1032,16 @@ sub AUTOLOAD {
   our $AUTOLOAD;
   my $method = $AUTOLOAD;
   $method =~ s/^.+:://;
-  my $cmd_keyword = lc( $method );
+  my $keyword = lc( $method );
 
   my $sub = sub {
-    my __PACKAGE__ $self = shift;
-    my @args = @_;
-
-    my $cmd = {};
-    if ( ref( $args[-1] ) eq 'CODE' ) {
-      if ( exists $SUB_CMDS{ $cmd_keyword } ) {
-        $cmd->{on_message} = pop( @args );
-      }
-      else {
-        $cmd->{on_reply} = pop( @args );
-      }
-    }
-    elsif ( ref( $args[-1] ) eq 'HASH' ) {
-      $cmd = pop( @args );
-    }
-    $cmd->{keyword} = $cmd_keyword;
-    $cmd->{args} = \@args;
+    my $self = shift;
+    my $cmd = $self->_parse_cmd_args( [ @_ ] );
+    $cmd->{keyword} = $keyword;
 
     $self->_execute_cmd( $cmd );
+
+    return;
   };
 
   do {
@@ -1030,11 +1054,11 @@ sub AUTOLOAD {
 
 ####
 sub DESTROY {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   if ( defined $self->{_handle} ) {
     my @unfin_cmds = (
-      @{$self->{_processing_queue}},
+      @{$self->{_process_queue}},
       @{$self->{_tmp_queue}},
       @{$self->{_input_queue}},
     );
@@ -1052,35 +1076,30 @@ sub DESTROY {
 ####
 package AnyEvent::Redis::RipeRedis::Error;
 
-use fields qw(
-  message
-  code
-);
-
-
 # Constructor
 sub new {
-  my $proto  = shift;
-  my %params = @_;
+  my $class    = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
 
-  my __PACKAGE__ $self = fields::new( $proto );
+  my $self = bless {}, $class;
 
-  $self->{message} = $params{message};
-  $self->{code}    = $params{code};
+  $self->{message} = $err_msg;
+  $self->{code}    = $err_code;
 
   return $self;
 }
 
 ####
 sub message {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   return $self->{message};
 }
 
 ####
 sub code {
-  my __PACKAGE__ $self = shift;
+  my $self = shift;
 
   return $self->{code};
 }
@@ -1120,9 +1139,9 @@ feature
 
   $redis->get( 'foo',
     { on_done => sub {
-        my $reply = shift;
+        my $data = shift;
 
-        print "$reply\n";
+        print "$data\n";
       },
 
       on_error => sub {
@@ -1138,7 +1157,7 @@ feature
 
   $redis->incr( 'bar',
     sub {
-      my $reply   = shift;
+      my $data    = shift;
       my $err_msg = shift;
 
       if ( defined $err_msg ) {
@@ -1151,7 +1170,7 @@ feature
         return;
       }
 
-      print "$reply\n";
+      print "$data\n";
     },
   );
 
@@ -1338,9 +1357,9 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->get( 'foo',
     { on_done => sub {
-        my $reply = shift;
+        my $data = shift;
 
-        print "$reply\n";
+        print "$data\n";
       },
 
       on_error => sub {
@@ -1354,9 +1373,9 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->lrange( 'list', 0, -1,
     { on_done => sub {
-        my $reply = shift;
+        my $data = shift;
 
-        foreach my $val ( @{$reply}  ) {
+        foreach my $val ( @{$data}  ) {
           print "$val\n";
         }
       },
@@ -1372,7 +1391,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->incr( 'bar',
     sub {
-      my $reply   = shift;
+      my $data    = shift;
       my $err_msg = shift;
 
       if ( defined $err_msg ) {
@@ -1383,13 +1402,13 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         return;
       }
 
-      print "$reply\n";
+      print "$data\n";
     },
   );
 
   $redis->incr( 'bar',
     { on_reply => sub {
-        my $reply   = shift;
+        my $data    = shift;
         my $err_msg = shift;
 
         if ( defined $err_msg ) {
@@ -1400,14 +1419,14 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
           return;
         }
 
-        print "$reply\n";
+        print "$data\n";
       },
     }
   );
 
 =over
 
-=item on_done => $cb->( [ $reply ] )
+=item on_done => $cb->( [ $data ] )
 
 The C<on_done> callback is called, when the current operation was completed
 successfully.
@@ -1416,7 +1435,7 @@ successfully.
 
 The C<on_error> callback is called, when some error occurred.
 
-=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
 
 Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
@@ -1459,12 +1478,12 @@ code.
     { on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
-        my $reply    = shift;
+        my $data     = shift;
 
-        foreach my $reply ( @{$reply} ) {
-          if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg  = $reply->message();
-            my $oprn_err_code = $reply->code();
+        foreach my $chunk ( @{$data} ) {
+          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $oprn_err_msg  = $chunk->message();
+            my $oprn_err_code = $chunk->code();
 
             # error handling...
           }
@@ -1478,16 +1497,16 @@ code.
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
     sub {
-      my $reply   = shift;
+      my $data   = shift;
       my $err_msg = shift;
 
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        foreach my $reply ( @{$reply} ) {
-          if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg  = $reply->message();
-            my $oprn_err_code = $reply->code();
+        foreach my $chunk ( @{$data} ) {
+          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $oprn_err_msg  = $chunk->message();
+            my $oprn_err_code = $chunk->code();
 
             # error handling...
           }
@@ -1559,7 +1578,7 @@ and C<PUNSUBSCRIBE> commands.
 
   $redis->subscribe( qw( ch_foo ch_bar ),
     { on_reply => sub {
-        my $reply   = shift;
+        my $data    = shift;
         my $err_msg = shift;
 
         if ( defined $err_msg ) {
@@ -1570,8 +1589,8 @@ and C<PUNSUBSCRIBE> commands.
           return;
         }
 
-        my $ch_name  = $reply->[0];
-        my $subs_num = $reply->[1];
+        my $ch_name  = $data->[0];
+        my $subs_num = $data->[1];
 
         # handling...
       },
@@ -1600,7 +1619,7 @@ The C<on_message> callback is called, when a published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription operation
 was completed successfully and when subscription operation fails. In first case
@@ -1651,7 +1670,7 @@ Subscribes the client to the given patterns.
 
   $redis->psubscribe( qw( foo_* bar_* ),
     { on_reply => sub {
-        my $reply   = shift;
+        my $data    = shift;
         my $err_msg = shift;
 
         if ( defined $err_msg ) {
@@ -1662,8 +1681,8 @@ Subscribes the client to the given patterns.
           return;
         }
 
-        my $ch_pattern = $reply->[0];
-        my $subs_num   = $reply->[1];
+        my $ch_pattern = $data->[0];
+        my $subs_num   = $data->[1];
 
         # handling...
       },
@@ -1693,7 +1712,7 @@ The C<on_message> callback is called, when published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription
 operation was completed successfully and when subscription operation fails.
@@ -1728,7 +1747,7 @@ channel will be sent to the client.
 
   $redis->unsubscribe( qw( ch_foo ch_bar ),
     sub {
-      my $reply   = shift;
+      my $data    = shift;
       my $err_msg = shift;
 
       if ( defined $err_msg ) {
@@ -1739,8 +1758,8 @@ channel will be sent to the client.
         return;
       }
 
-      my $ch_name  = $reply->[0];
-      my $subs_num = $reply->[1];
+      my $ch_name  = $data->[0];
+      my $subs_num = $data->[1];
 
       # handling...
     }
@@ -1757,7 +1776,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1788,7 +1807,7 @@ pattern will be sent to the client.
 
   $redis->punsubscribe( qw( foo_* bar_* ),
     sub {
-      my $reply   = shift;
+      my $data    = shift;
       my $err_msg = shift;
 
       if ( defined $err_msg ) {
@@ -1799,8 +1818,8 @@ pattern will be sent to the client.
         return;
       }
 
-      my $ch_pattern = $reply->[0];
-      my $subs_num   = $reply->[1];
+      my $ch_pattern = $data->[0];
+      my $subs_num   = $data->[1];
 
       # handling...
     }
@@ -1817,7 +1836,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( [ $reply, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1853,12 +1872,12 @@ and error objects for each error reply, as well as described for C<EXEC> command
     { on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
-        my $reply    = shift;
+        my $data     = shift;
 
-        foreach my $reply ( @{$reply} ) {
-          if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $nested_err_msg  = $reply->message();
-            my $nested_err_code = $reply->code();
+        foreach my $chunk ( @{$data} ) {
+          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $nested_err_msg  = $chunk->message();
+            my $nested_err_code = $chunk->code();
 
             # error handling...
           }
@@ -1869,16 +1888,16 @@ and error objects for each error reply, as well as described for C<EXEC> command
 
   $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     sub {
-      my $reply   = shift;
+      my $data    = shift;
       my $err_msg = shift;
 
       if ( defined $err_msg ) {
         my $err_code = shift;
 
-        foreach my $reply ( @{$reply} ) {
-          if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $nested_err_msg  = $reply->message();
-            my $nested_err_code = $reply->code();
+        foreach my $chunk ( @{$data} ) {
+          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $nested_err_msg  = $chunk->message();
+            my $nested_err_code = $chunk->code();
 
             # error handling...
           }
@@ -1901,9 +1920,9 @@ instead.
   $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
       2, 'key1', 'key2', 'first', 'second',
     { on_done => sub {
-        my $reply = shift;
+        my $data = shift;
 
-        foreach my $val ( @{$reply}  ) {
+        foreach my $val ( @{$data}  ) {
           print "$val\n";
         }
       }

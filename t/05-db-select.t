@@ -58,12 +58,12 @@ sub t_auto_select {
   my $db1_index = $redis_db1->selected_database();
   my $db2_index = $redis_db2->selected_database();
 
-  my $t_reply = set_get( $redis_db1, $redis_db2 );
+  my $t_data = set_get( $redis_db1, $redis_db2 );
 
   my $t_npref = 'auto-selection of DB';
   is( $db1_index, 1, "$t_npref; first DB index" );
   is( $db2_index, 2, "$t_npref; second DB index" );
-  is_deeply( $t_reply,
+  is_deeply( $t_data,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
@@ -103,12 +103,12 @@ sub t_select {
   my $db1_index = $redis_db1->selected_database();
   my $db2_index = $redis_db2->selected_database();
 
-  my $t_reply = set_get( $redis_db1, $redis_db2 );
+  my $t_data = set_get( $redis_db1, $redis_db2 );
 
   my $t_npref = 'SELECT';
   is( $db1_index, 1, "$t_npref; first DB index" );
   is( $db2_index, 2, "$t_npref; second DB index" );
-  is_deeply( $t_reply,
+  is_deeply( $t_data,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
@@ -217,7 +217,7 @@ sub t_auto_select_after_reconn {
   my $db1_index = $redis_db1->selected_database();
   my $db2_index = $redis_db2->selected_database();
 
-  my %t_reply;
+  my %t_data;
 
   ev_loop(
     sub {
@@ -225,13 +225,13 @@ sub t_auto_select_after_reconn {
 
       $redis_db1->get( 'foo',
         { on_done => sub {
-            $t_reply{db1} = shift;
+            $t_data{db1} = shift;
           },
         }
       );
       $redis_db2->get( 'foo',
         { on_done => sub {
-            $t_reply{db2} = shift;
+            $t_data{db2} = shift;
           },
         }
       );
@@ -250,7 +250,7 @@ sub t_auto_select_after_reconn {
   my $t_npref = 'auto-selection of DB after reconnection';
   is( $db1_index, 1, "$t_npref; first DB index" );
   is( $db2_index, 2, "$t_npref; second DB index" );
-  is_deeply( \%t_reply,
+  is_deeply( \%t_data,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
@@ -296,12 +296,12 @@ sub t_auto_select_after_auth {
   my $db1_index = $redis_db1->selected_database();
   my $db2_index = $redis_db2->selected_database();
 
-  my $t_reply = set_get( $redis_db1, $redis_db2 );
+  my $t_data = set_get( $redis_db1, $redis_db2 );
 
   my $t_npref = 'auto-selection of DB after authentication';
   is( $db1_index, 1, "$t_npref; first DB index" );
   is( $db2_index, 2, "$t_npref; second DB index" );
-  is_deeply( $t_reply,
+  is_deeply( $t_data,
     { db1 => 'bar1',
       db2 => 'bar2',
     },
@@ -332,7 +332,7 @@ sub set_get {
     }
   );
 
-  my %t_reply;
+  my %t_data;
 
   ev_loop(
     sub {
@@ -340,13 +340,13 @@ sub set_get {
 
       $redis_db1->get( 'foo',
         { on_done => sub {
-            $t_reply{db1} = shift;
+            $t_data{db1} = shift;
           },
         }
       );
       $redis_db2->get( 'foo',
         { on_done => sub {
-            $t_reply{db2} = shift;
+            $t_data{db2} = shift;
           },
         }
       );
@@ -363,5 +363,5 @@ sub set_get {
     }
   );
 
-  return \%t_reply;
+  return \%t_data;
 }

@@ -62,7 +62,7 @@ sub t_leaks_status_reply_mth1 {
 
         $redis->set( 'foo', "some\r\nstring",
           { on_done => sub {
-              my $reply = shift;
+              my $data = shift;
             },
           }
         );
@@ -91,7 +91,7 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->set( 'foo', "some\r\nstring",
           sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -131,7 +131,7 @@ sub t_leaks_bulk_reply_mth1 {
 
         $redis->get( 'foo',
           { on_done => sub {
-              my $reply = shift;
+              my $data = shift;
             },
           }
         );
@@ -162,7 +162,7 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->get( 'foo',
           sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -204,7 +204,7 @@ sub t_leaks_mbulk_reply_mth1 {
 
         $redis->lrange( 'list', 0, -1,
           { on_done => sub {
-              my $reply = shift;
+              my $data = shift;
             },
           }
         );
@@ -237,7 +237,7 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->lrange( 'list', 0, -1,
           sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -287,7 +287,7 @@ sub t_leaks_nested_mbulk_reply_mth1 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           { on_done => sub {
-              my $reply = shift;
+              my $data = shift;
             },
           }
         );
@@ -328,7 +328,7 @@ sub t_leaks_nested_mbulk_reply_mth2 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -373,12 +373,12 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           { on_done => sub {
-              my $reply = shift;
+              my $data = shift;
 
               $redis->eval_cached( $script, 0, 57,
                 {
                   on_done => sub {
-                    my $reply = shift;
+                    my $data = shift;
                     $cv->send();
                   },
                 }
@@ -411,7 +411,7 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -421,7 +421,7 @@ LUA
 
             $redis->eval_cached( $script, 0, 57,
               sub {
-                my $reply   = shift;
+                my $data    = shift;
                 my $err_msg = shift;
 
                 if ( defined $err_msg ) {

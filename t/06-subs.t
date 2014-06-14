@@ -173,7 +173,7 @@ sub t_sub_unsub_mth2 {
 
       $r_consum->subscribe( qw( ch_events ch_signals ),
         { on_reply => sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -182,16 +182,16 @@ sub t_sub_unsub_mth2 {
             }
 
             push( @t_sub_data,
-              { ch_name  => $reply->[0],
-                subs_num => $reply->[1],
+              { ch_name  => $data->[0],
+                subs_num => $data->[1],
               }
             );
 
-            if ( $reply->[0] eq 'ch_events' ) {
+            if ( $data->[0] eq 'ch_events' ) {
               $r_transm->publish( 'ch_foo', 'test1' );
               $r_transm->publish( 'ch_bar', 'test2' );
             }
-            $r_transm->publish( $reply->[0], "test$reply->[1]" );
+            $r_transm->publish( $data->[0], "test$data->[1]" );
           },
 
           on_message => sub {
@@ -250,7 +250,7 @@ sub t_sub_unsub_mth2 {
 
       $r_consum->unsubscribe( qw( ch_foo ch_bar ch_events ch_signals ),
         sub {
-          my $reply   = shift;
+          my $data    = shift;
           my $err_msg = shift;
 
           if ( defined $err_msg ) {
@@ -259,12 +259,12 @@ sub t_sub_unsub_mth2 {
           }
 
           push( @t_unsub_data,
-            { ch_name  => $reply->[0],
-              subs_num => $reply->[1],
+            { ch_name  => $data->[0],
+              subs_num => $data->[1],
             }
           );
 
-          if ( $reply->[1] == 0 ) {
+          if ( $data->[1] == 0 ) {
             $cv->send();
           }
         }
@@ -440,7 +440,7 @@ sub t_psub_punsub_mth2 {
 
       $r_consum->psubscribe( qw( events_* signals_* ),
         { on_reply => sub {
-            my $reply   = shift;
+            my $data    = shift;
             my $err_msg = shift;
 
             if ( defined $err_msg ) {
@@ -449,18 +449,18 @@ sub t_psub_punsub_mth2 {
             }
 
             push( @t_sub_data,
-              { ch_pattern => $reply->[0],
-                subs_num   => $reply->[1],
+              { ch_pattern => $data->[0],
+                subs_num   => $data->[1],
               }
             );
 
-            if ( $reply->[0] eq 'events_*' ) {
+            if ( $data->[0] eq 'events_*' ) {
               $r_transm->publish( 'foo_test', 'test1' );
               $r_transm->publish( 'bar_test', 'test2' );
             }
-            my $ch_name = $reply->[0];
+            my $ch_name = $data->[0];
             $ch_name =~ s/\*/test/;
-            $r_transm->publish( $ch_name, "test$reply->[1]" );
+            $r_transm->publish( $ch_name, "test$data->[1]" );
           },
 
           on_message => sub {
@@ -524,7 +524,7 @@ sub t_psub_punsub_mth2 {
 
       $r_consum->punsubscribe( qw( foo_* bar_* events_* signals_* ),
         sub {
-          my $reply   = shift;
+          my $data    = shift;
           my $err_msg = shift;
 
           if ( defined $err_msg ) {
@@ -533,12 +533,12 @@ sub t_psub_punsub_mth2 {
           }
 
           push( @t_unsub_data,
-            { ch_pattern => $reply->[0],
-              subs_num   => $reply->[1],
+            { ch_pattern => $data->[0],
+              subs_num   => $data->[1],
             }
           );
 
-          if ( $reply->[1] == 0 ) {
+          if ( $data->[1] == 0 ) {
             $cv->send();
           }
         }

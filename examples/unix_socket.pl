@@ -30,7 +30,7 @@ $timer = AE::timer( 0, 1,
   sub {
     $redis->incr( 'foo',
       sub {
-        my $reply   = shift;
+        my $data    = shift;
         my $err_msg = shift;
 
         if ( defined $err_msg ) {
@@ -39,7 +39,7 @@ $timer = AE::timer( 0, 1,
           return;
         }
 
-        print "$reply\n";
+        print "$data\n";
       },
     );
   },
