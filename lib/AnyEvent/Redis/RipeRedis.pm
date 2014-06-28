@@ -97,13 +97,13 @@ my %MSG_TYPES = (
   pmessage => 1,
 );
 
-my %NEED_POST_PROCESS = (
+my %NEED_POSTPROC = (
   %SUBUNSUB_CMDS,
   select => 1,
   quit   => 1,
 );
 
-my %ERR_PREFIXES_MAP = (
+my %ERR_PREFS_MAP = (
   LOADING    => E_LOADING_DATASET,
   NOSCRIPT   => E_NO_SCRIPT,
   BUSY       => E_BUSY,
@@ -525,39 +525,47 @@ sub _get_on_read {
         my $type = substr( $data, 0, 1, '' );
         substr( $handle->{rbuf}, 0, EOL_LEN, '' );
 
-        if ( $type eq '$' ) {
-          if ( $data >= 0 ) {
-            $str_len = $data;
+        if ( $type ne '+' and $type ne ':' ) {
+          if ( $type eq '$' ) {
+            if ( $data >= 0 ) {
+              $str_len = $data;
 
-            next;
-          }
+              next;
+            }
 
-          undef $data;
-        }
-        elsif ( $type eq '*' ) {
-          if ( $data > 0 ) {
-            $buf = {
-              data        => [],
-              err_code    => undef,
-              chunks_left => $data,
-            };
-            unshift( @bufs, $buf );
-
-            next;
-          }
-          elsif ( $data == 0 ) {
-            $data = [];
-          }
-          else {
             undef $data;
           }
-        }
-        elsif ( $type eq '-' ) {
-          $err_code = E_OPRN_ERROR;
-          if ( $data =~ m/^([A-Z]{3,}) / ) {
-            if ( exists $ERR_PREFIXES_MAP{ $1 } ) {
-              $err_code = $ERR_PREFIXES_MAP{ $1 };
+          elsif ( $type eq '*' ) {
+            if ( $data > 0 ) {
+              $buf = {
+                data        => [],
+                err_code    => undef,
+                chunks_left => $data,
+              };
+              unshift( @bufs, $buf );
+
+              next;
             }
+            elsif ( $data == 0 ) {
+              $data = [];
+            }
+            else {
+              undef $data;
+            }
+          }
+          elsif ( $type eq '-' ) {
+            $err_code = E_OPRN_ERROR;
+            if ( $data =~ m/^([A-Z]{3,}) / ) {
+              if ( exists $ERR_PREFS_MAP{ $1 } ) {
+                $err_code = $ERR_PREFS_MAP{ $1 };
+              }
+            }
+          }
+          else {
+            $self->_disconnect( 'Unexpected reply received.',
+                E_UNEXPECTED_DATA );
+
+            return;
           }
         }
       }
@@ -657,7 +665,7 @@ sub _subunsub {
       $on_done->( @{$_[0]} );
     }
   }
-  $cmd->{reply_cnt} = scalar( @{$cmd->{args}} );
+  $cmd->{replies_left} = scalar( @{$cmd->{args}} );
   $self->_execute_cmd( $cmd );
 
   return;
@@ -855,11 +863,11 @@ sub _process_reply {
       return;
     }
 
-    if ( !defined $cmd->{reply_cnt} or --$cmd->{reply_cnt} == 0 ) {
+    if ( !defined $cmd->{replies_left} or --$cmd->{replies_left} == 0 ) {
       shift( @{$self->{_process_queue}} );
     }
 
-    if ( exists $NEED_POST_PROCESS{ $cmd->{keyword} } ) {
+    if ( exists $NEED_POSTPROC{ $cmd->{keyword} } ) {
       if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
         shift( @{$data} );
 
