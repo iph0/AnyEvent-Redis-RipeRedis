@@ -491,8 +491,8 @@ sub _get_on_read {
   weaken( $self );
 
   my $str_len;
-  my @buf;
-  my $buf_len = 0;
+  my @bufs;
+  my $bufs_num = 0;
 
   return sub {
     my $handle = shift;
@@ -538,13 +538,13 @@ sub _get_on_read {
           }
           elsif ( $type eq '*' ) {
             if ( $data > 0 ) {
-              push( @buf,
+              push( @bufs,
                 { data        => [],
                   err_code    => undef,
                   chunks_left => $data,
                 }
               );
-              $buf_len++;
+              $bufs_num++;
 
               next;
             }
@@ -572,23 +572,24 @@ sub _get_on_read {
         }
       }
 
-      while ( $buf_len > 0 ) {
+      while ( $bufs_num > 0 ) {
+        my $curr_buf = $bufs[-1];
         if ( defined $err_code ) {
           unless ( ref( $data ) ) {
             $data = AnyEvent::Redis::RipeRedis::Error->new( $data,
                 $err_code );
           }
-          $buf[-1]{err_code} = E_OPRN_ERROR;
+          $curr_buf->{err_code} = E_OPRN_ERROR;
         }
-        push( @{$buf[-1]{data}}, $data );
+        push( @{$curr_buf->{data}}, $data );
 
-        if ( --$buf[-1]{chunks_left} > 0 ) {
+        if ( --$curr_buf->{chunks_left} > 0 ) {
           next MAIN;
         }
-        $data     = $buf[-1]{data};
-        $err_code = $buf[-1]{err_code};
-        pop @buf;
-        $buf_len--;
+        $data     = $curr_buf->{data};
+        $err_code = $curr_buf->{err_code};
+        pop @bufs;
+        $bufs_num--;
       }
 
       $self->_process_reply( $data, $err_code );
