@@ -375,7 +375,7 @@ sub _connect {
     on_rtimeout      => $self->_get_on_rtimeout(),
     on_eof           => $self->_get_on_eof(),
     on_error         => $self->_get_on_handle_error(),
-    on_read          => $self->_get_on_read( $self->_get_on_reply() ),
+    on_read          => $self->_get_on_read(),
   );
 
   return;
@@ -485,171 +485,111 @@ sub _get_on_handle_error {
 
 ####
 sub _get_on_read {
-  my $self     = shift;
-  my $on_reply = shift;
+  my $self = shift;
 
   weaken( $self );
 
   my $str_len;
+  my @bufs;
+  my $buf;
 
   return sub {
     my $handle = shift;
 
-    while ( 1 ) {
+    MAIN: while ( 1 ) {
       if ( $handle->destroyed() ) {
         return;
       }
+
+      my $data;
+      my $err_code;
 
       if ( defined $str_len ) {
         if ( length( $handle->{rbuf} ) < $str_len + EOL_LEN ) {
           return;
         }
-
-        my $data = substr( $handle->{rbuf}, 0, $str_len, '' );
+        $data = substr( $handle->{rbuf}, 0, $str_len, '' );
         substr( $handle->{rbuf}, 0, EOL_LEN, '' );
         if ( defined $self->{encoding} ) {
           $data = $self->{encoding}->decode( $data );
         }
         undef $str_len;
-
-        return 1 if $on_reply->( $data );
       }
       else {
         my $eol_pos = index( $handle->{rbuf}, EOL );
+
         if ( $eol_pos < 0 ) {
           return;
         }
-
-        my $data = substr( $handle->{rbuf}, 0, $eol_pos, '' );
+        $data = substr( $handle->{rbuf}, 0, $eol_pos, '' );
         my $type = substr( $data, 0, 1, '' );
         substr( $handle->{rbuf}, 0, EOL_LEN, '' );
 
-        if ( $type eq '+' or $type eq ':' ) {
-          return 1 if $on_reply->( $data );
-        }
-        elsif ( $type eq '$' ) {
+        if ( $type eq '$' ) {
           if ( $data >= 0 ) {
             $str_len = $data;
+
+            next;
           }
-          else {
-            return 1 if $on_reply->();
-          }
+
+          undef $data;
         }
         elsif ( $type eq '*' ) {
-          my $array_len = $data;
-          if ( $array_len > 0 ) {
-            $self->_unshift_read( $array_len, $on_reply );
+          if ( $data > 0 ) {
+            $buf = {
+              data        => [],
+              err_code    => undef,
+              chunks_left => $data,
+            };
+            unshift( @bufs, $buf );
 
-            return 1;
+            next;
           }
-          elsif ( $array_len < 0 ) {
-            return 1 if $on_reply->();
+          elsif ( $data == 0 ) {
+            $data = [];
           }
           else {
-            return 1 if $on_reply->( [] );
+            undef $data;
           }
         }
         elsif ( $type eq '-' ) {
-          my $err_code = E_OPRN_ERROR;
+          $err_code = E_OPRN_ERROR;
           if ( $data =~ m/^([A-Z]{3,}) / ) {
             if ( exists $ERR_PREFIXES_MAP{ $1 } ) {
               $err_code = $ERR_PREFIXES_MAP{ $1 };
             }
           }
-
-          return 1 if $on_reply->( $data, $err_code );
-        }
-        else {
-          $self->_disconnect( 'Unexpected data type received.',
-              E_UNEXPECTED_DATA );
-
-          return;
         }
       }
-    }
 
-    return;
-  };
-}
-
-####
-sub _get_on_reply {
-  my $self = shift;
-
-  weaken( $self );
-
-  return sub {
-    my $data     = shift;
-    my $err_code = shift;
-
-    if ( defined $err_code ) {
-      my $cmd = shift( @{$self->{_process_queue}} );
-
-      unless ( defined $cmd ) {
-        $self->_disconnect( 'Don\'t known how process error.'
-            . ' Command queue is empty.', E_UNEXPECTED_DATA );
-        return;
-      }
-
-      if ( $err_code == E_NO_SCRIPT and exists $cmd->{script} ) {
-        $cmd->{keyword} = 'eval';
-        $cmd->{args}[0] = $cmd->{script};
-        $self->_push_write( $cmd );
-
-        return;
-      }
-
-      $self->_call_on_cmd_error( $cmd, ref( $data )
-          ? ( "Operation '$cmd->{keyword}' completed with errors.", $err_code,
-          $data ) : ( $data, $err_code ) );
-    }
-    elsif (
-      %{$self->{_subs}} and ref( $data )
-        and exists $MSG_TYPES{ $data->[0] }
-        ) {
-      my $on_msg = $self->{_subs}{ $data->[1] };
-
-      unless ( defined $on_msg ) {
-        $self->_disconnect( 'Don\'t known how process published message.'
-            ." Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
-        return;
-      }
-
-      $self->_call_on_message( $on_msg, $data );
-    }
-    else {
-      my $cmd = $self->{_process_queue}[0];
-
-      unless ( defined $cmd ) {
-        $self->_disconnect( 'Don\'t known how process reply.'
-            .' Command queue is empty.', E_UNEXPECTED_DATA );
-        return;
-      }
-
-      if ( !defined $cmd->{reply_cnt} or --$cmd->{reply_cnt} == 0 ) {
-        shift( @{$self->{_process_queue}} );
-      }
-
-      if ( exists $NEED_POST_PROCESS{ $cmd->{keyword} } ) {
-        if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
-          shift( @{$data} );
-
-          if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-            $self->{_subs}{ $data->[0] } = $cmd->{on_message};
+      if ( defined $buf ) {
+        while ( @bufs ) {
+          if ( defined $err_code ) {
+            unless ( ref( $data ) ) {
+              $data = AnyEvent::Redis::RipeRedis::Error->new( $data,
+                  $err_code );
+            }
+            $buf->{err_code} = E_OPRN_ERROR;
           }
-          else {
-            delete( $self->{_subs}{ $data->[0] } );
+          push( @{$buf->{data}}, $data );
+
+          if ( --$buf->{chunks_left} > 0 ) {
+            next MAIN;
           }
+          $data     = $buf->{data};
+          $err_code = $buf->{err_code};
+          shift @bufs;
+
+          if ( !@bufs ) {
+            last;
+          }
+          $buf = $bufs[0];
         }
-        elsif ( $cmd->{keyword} eq 'select' ) {
-          $self->{database} = $cmd->{args}[0];
-        }
-        else { # quit
-          $self->_disconnect();
-        }
+
+        undef $buf;
       }
 
-      $self->_call_on_cmd_done( $cmd, $data );
+      $self->_process_reply( $data, $err_code );
     }
 
     return;
@@ -866,47 +806,80 @@ sub _flush_input_queue {
 }
 
 ####
-sub _unshift_read {
-  my $self      = shift;
-  my $reply_cnt = shift;
-  my $on_reply  = shift;
+sub _process_reply {
+  my $self = shift;
+  my $data     = shift;
+  my $err_code = shift;
 
-  weaken( $self );
+  if ( defined $err_code ) {
+    my $cmd = shift( @{$self->{_process_queue}} );
 
-  my $on_read;
-  my @data_buf;
-  my $ov_err_code;
+    unless ( defined $cmd ) {
+      $self->_disconnect( 'Don\'t known how process error.'
+          . ' Command queue is empty.', E_UNEXPECTED_DATA );
+      return;
+    }
 
-  $on_read = $self->_get_on_read(
-    sub {
-      my $data     = shift;
-      my $err_code = shift;
-
-      my $is_array = ref( $data );
-      if ( defined $err_code ) {
-        $ov_err_code = E_OPRN_ERROR;
-        unless ( $is_array ) {
-          $data = AnyEvent::Redis::RipeRedis::Error->new( $data, $err_code );
-        }
-      }
-      push( @data_buf, $data );
-
-      if ( --$reply_cnt == 0 ) {
-        undef $on_read; # Collect garbage
-        $on_reply->( \@data_buf, $ov_err_code );
-
-        return 1;
-      }
-
-      if ( $is_array and @{$data} ) {
-        $self->{_handle}->unshift_read( $on_read );
-      }
+    if ( $err_code == E_NO_SCRIPT and exists $cmd->{script} ) {
+      $cmd->{keyword} = 'eval';
+      $cmd->{args}[0] = $cmd->{script};
+      $self->_push_write( $cmd );
 
       return;
     }
-  );
 
-  $self->{_handle}->unshift_read( $on_read );
+    $self->_call_on_cmd_error( $cmd, ref( $data )
+        ? ( "Operation '$cmd->{keyword}' completed with errors.", $err_code,
+        $data ) : ( $data, $err_code ) );
+  }
+  elsif (
+    %{$self->{_subs}} and ref( $data )
+      and exists $MSG_TYPES{ $data->[0] }
+      ) {
+    my $on_msg = $self->{_subs}{ $data->[1] };
+
+    unless ( defined $on_msg ) {
+      $self->_disconnect( 'Don\'t known how process published message.'
+          ." Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
+      return;
+    }
+
+    $self->_call_on_message( $on_msg, $data );
+  }
+  else {
+    my $cmd = $self->{_process_queue}[0];
+
+    unless ( defined $cmd ) {
+      $self->_disconnect( 'Don\'t known how process reply.'
+          .' Command queue is empty.', E_UNEXPECTED_DATA );
+      return;
+    }
+
+    if ( !defined $cmd->{reply_cnt} or --$cmd->{reply_cnt} == 0 ) {
+      shift( @{$self->{_process_queue}} );
+    }
+
+    if ( exists $NEED_POST_PROCESS{ $cmd->{keyword} } ) {
+      if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
+        shift( @{$data} );
+
+        if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
+          $self->{_subs}{ $data->[0] } = $cmd->{on_message};
+        }
+        else {
+          delete( $self->{_subs}{ $data->[0] } );
+        }
+      }
+      elsif ( $cmd->{keyword} eq 'select' ) {
+        $self->{database} = $cmd->{args}[0];
+      }
+      else { # quit
+        $self->_disconnect();
+      }
+    }
+
+    $self->_call_on_cmd_done( $cmd, $data );
+  }
 
   return;
 }

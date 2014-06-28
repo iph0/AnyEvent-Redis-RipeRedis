@@ -123,7 +123,8 @@ $redis->exec(
 # Delete keys
 $redis->del( qw( foo bar list ),
   { on_done => sub {
-      print "Keys removed\n";
+      my $data = shift;
+      print "$data keys removed\n";
     },
   }
 );

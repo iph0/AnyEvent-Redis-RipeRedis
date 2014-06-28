@@ -32,6 +32,8 @@ t_eval_cached_mth2( $REDIS );
 t_error_reply_mth1( $REDIS );
 t_error_reply_mth2( $REDIS );
 
+# TODO протестировать многомерную вложенность
+
 t_errors_in_mbulk_reply_mth1( $REDIS );
 t_errors_in_mbulk_reply_mth2( $REDIS );
 
