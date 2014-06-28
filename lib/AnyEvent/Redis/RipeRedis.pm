@@ -169,6 +169,7 @@ sub new {
   $self->{_process_queue}  = [];
   $self->{_multi_lock}     = 0;
   $self->{_subs}           = {};
+  $self->{_subs_num}       = 0;
 
   unless ( $self->{_lazy_conn_st} ) {
     $self->_connect();
@@ -490,8 +491,8 @@ sub _get_on_read {
   weaken( $self );
 
   my $str_len;
-  my @bufs;
-  my $buf;
+  my @buf;
+  my $buf_len = 0;
 
   return sub {
     my $handle = shift;
@@ -537,12 +538,13 @@ sub _get_on_read {
           }
           elsif ( $type eq '*' ) {
             if ( $data > 0 ) {
-              $buf = {
-                data        => [],
-                err_code    => undef,
-                chunks_left => $data,
-              };
-              unshift( @bufs, $buf );
+              push( @buf,
+                { data        => [],
+                  err_code    => undef,
+                  chunks_left => $data,
+                }
+              );
+              $buf_len++;
 
               next;
             }
@@ -570,31 +572,23 @@ sub _get_on_read {
         }
       }
 
-      if ( defined $buf ) {
-        while ( @bufs ) {
-          if ( defined $err_code ) {
-            unless ( ref( $data ) ) {
-              $data = AnyEvent::Redis::RipeRedis::Error->new( $data,
-                  $err_code );
-            }
-            $buf->{err_code} = E_OPRN_ERROR;
+      while ( $buf_len > 0 ) {
+        if ( defined $err_code ) {
+          unless ( ref( $data ) ) {
+            $data = AnyEvent::Redis::RipeRedis::Error->new( $data,
+                $err_code );
           }
-          push( @{$buf->{data}}, $data );
-
-          if ( --$buf->{chunks_left} > 0 ) {
-            next MAIN;
-          }
-          $data     = $buf->{data};
-          $err_code = $buf->{err_code};
-          shift @bufs;
-
-          if ( !@bufs ) {
-            last;
-          }
-          $buf = $bufs[0];
+          $buf[-1]{err_code} = E_OPRN_ERROR;
         }
+        push( @{$buf[-1]{data}}, $data );
 
-        undef $buf;
+        if ( --$buf[-1]{chunks_left} > 0 ) {
+          next MAIN;
+        }
+        $data     = $buf[-1]{data};
+        $err_code = $buf[-1]{err_code};
+        pop @buf;
+        $buf_len--;
       }
 
       $self->_process_reply( $data, $err_code );
@@ -841,7 +835,7 @@ sub _process_reply {
         $data ) : ( $data, $err_code ) );
   }
   elsif (
-    %{$self->{_subs}} and ref( $data )
+    $self->{_subs_num} > 0 and ref( $data )
       and exists $MSG_TYPES{ $data->[0] }
       ) {
     my $on_msg = $self->{_subs}{ $data->[1] };
@@ -877,6 +871,7 @@ sub _process_reply {
         else {
           delete( $self->{_subs}{ $data->[0] } );
         }
+        $self->{_subs_num} = $data->[1];
       }
       elsif ( $cmd->{keyword} eq 'select' ) {
         $self->{database} = $cmd->{args}[0];
@@ -991,6 +986,7 @@ sub _abort_all {
   $self->{_tmp_queue}     = [];
   $self->{_process_queue} = [];
   $self->{_subs}          = {};
+  $self->{_subs_num}      = 0;
 
   if ( !defined $err_msg and @unfin_cmds ) {
     $err_msg  = 'Connection closed by client prematurely.';
