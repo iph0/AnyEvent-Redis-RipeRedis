@@ -208,11 +208,11 @@ sub eval_cached {
   my $cmd  = $self->_parse_cmd_args( [ @_ ] );
   $cmd->{keyword} = 'evalsha';
 
-  $cmd->{script} = $cmd->{args}[0];
-  unless ( exists $EVAL_CACHE{ $cmd->{script} } ) {
-    $EVAL_CACHE{ $cmd->{script} } = sha1_hex( $cmd->{script} );
+  $cmd->{code} = $cmd->{args}[0];
+  unless ( exists $EVAL_CACHE{ $cmd->{code} } ) {
+    $EVAL_CACHE{ $cmd->{code} } = sha1_hex( $cmd->{code} );
   }
-  $cmd->{args}[0] = $EVAL_CACHE{ $cmd->{script} };
+  $cmd->{args}[0] = $EVAL_CACHE{ $cmd->{code} };
 
   $self->_execute_cmd( $cmd );
 
@@ -645,7 +645,7 @@ sub _subunsub {
   if ( $self->{_multi_lock} ) {
     AE::postpone(
       sub {
-        $self->_call_on_cmd_error( $cmd,
+        $self->_process_cmd_failure( $cmd,
             "Command '$cmd->{keyword}' not allowed after 'multi' command."
             . ' First, the transaction must be finalized.', E_OPRN_ERROR );
       }
@@ -693,8 +693,8 @@ sub _execute_cmd {
     else {
       AE::postpone(
         sub {
-          $self->_call_on_cmd_error( $cmd, "Operation '$cmd->{keyword}' aborted:"
-              . ' No connection to the server.', E_NO_CONN );
+          $self->_process_cmd_failure( $cmd, "Operation '$cmd->{keyword}'"
+              . ' aborted: No connection to the server.', E_NO_CONN );
         }
       );
 
@@ -810,7 +810,7 @@ sub _flush_input_queue {
 
 ####
 sub _process_reply {
-  my $self = shift;
+  my $self     = shift;
   my $data     = shift;
   my $err_code = shift;
 
@@ -819,93 +819,59 @@ sub _process_reply {
 
     unless ( defined $cmd ) {
       $self->_disconnect( 'Don\'t known how process error.'
-          . ' Command queue is empty.', E_UNEXPECTED_DATA );
-      return;
-    }
-
-    if ( $err_code == E_NO_SCRIPT and exists $cmd->{script} ) {
-      $cmd->{keyword} = 'eval';
-      $cmd->{args}[0] = $cmd->{script};
-      $self->_push_write( $cmd );
+          . ' Processing queue is empty.', E_UNEXPECTED_DATA );
 
       return;
     }
 
-    $self->_call_on_cmd_error( $cmd, ref( $data )
+    $self->_process_cmd_failure( $cmd, ref( $data )
         ? ( "Operation '$cmd->{keyword}' completed with errors.", $err_code,
-        $data ) : ( $data, $err_code ) );
+        $data ) : $data, $err_code );
   }
   elsif (
     $self->{_subs_num} > 0 and ref( $data )
       and exists $MSG_TYPES{ $data->[0] }
       ) {
-    my $on_msg = $self->{_subs}{ $data->[1] };
-
-    unless ( defined $on_msg ) {
+    unless ( exists $self->{_subs}{ $data->[1] } ) {
       $self->_disconnect( 'Don\'t known how process published message.'
-          ." Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
+          . " Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
+
       return;
     }
 
-    $self->_call_on_message( $on_msg, $data );
+    $self->_process_message( $data );
   }
   else {
     my $cmd = $self->{_process_queue}[0];
 
     unless ( defined $cmd ) {
       $self->_disconnect( 'Don\'t known how process reply.'
-          .' Command queue is empty.', E_UNEXPECTED_DATA );
+          . ' Processing queue is empty.', E_UNEXPECTED_DATA );
+
       return;
     }
 
-    if ( !defined $cmd->{replies_left} or --$cmd->{replies_left} == 0 ) {
+    if ( !defined $cmd->{replies_left} or --$cmd->{replies_left} <= 0 ) {
       shift( @{$self->{_process_queue}} );
     }
-
-    if ( exists $NEED_POSTPROC{ $cmd->{keyword} } ) {
-      if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
-        shift( @{$data} );
-
-        if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-          $self->{_subs}{ $data->[0] } = $cmd->{on_message};
-        }
-        else {
-          delete( $self->{_subs}{ $data->[0] } );
-        }
-        $self->{_subs_num} = $data->[1];
-      }
-      elsif ( $cmd->{keyword} eq 'select' ) {
-        $self->{database} = $cmd->{args}[0];
-      }
-      else { # quit
-        $self->_disconnect();
-      }
-    }
-
-    $self->_call_on_cmd_done( $cmd, $data );
+    $self->_process_cmd_success( $cmd, $data );
   }
 
   return;
 }
 
 ####
-sub _call_on_error {
-  my $self = shift;
-
-  if ( $_[1] == E_CANT_CONN and defined $self->{on_connect_error} ) {
-    $self->{on_connect_error}->( $_[0] );
-  }
-  else {
-    $self->{on_error}->( @_ );
-  }
-
-  return;
-}
-
-####
-sub _call_on_cmd_error {
+sub _process_cmd_failure {
   my $self = shift;
   my $cmd  = shift;
+
+  if ( $_[1] == E_NO_SCRIPT and exists $cmd->{code} ) {
+    $cmd->{keyword} = 'eval';
+    $cmd->{args}[0] = $cmd->{code};
+    $self->_push_write( $cmd );
+
+    return;
+  }
 
   if ( defined $cmd->{on_error} ) {
     $cmd->{on_error}->( @_ );
@@ -921,24 +887,45 @@ sub _call_on_cmd_error {
 }
 
 ####
-sub _call_on_message {
-  my $on_msg = $_[1];
+sub _process_message {
+  my $self = shift;
 
-  $on_msg->( $_[2][0] eq 'pmessage' ? @{$_[2]}[ 2, 3, 1 ]
-      : @{$_[2]}[ 1, 2 ] );
+  $self->{_subs}{ $_[0][1] }->( $_[0][0] eq 'pmessage'
+      ? @{$_[0]}[ 2, 3, 1 ] : @{$_[0]}[ 1, 2 ] );
 
   return;
 }
 
 ####
-sub _call_on_cmd_done {
-  my $cmd = $_[1];
+sub _process_cmd_success {
+  my $self = shift;
+  my $cmd  = shift;
+
+  if ( exists $NEED_POSTPROC{ $cmd->{keyword} } ) {
+    if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
+      shift( @{$_[0]} );
+
+      if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
+        $self->{_subs}{ $_[0][0] } = $cmd->{on_message};
+      }
+      else {
+        delete( $self->{_subs}{ $_[0][0] } );
+      }
+      $self->{_subs_num} = $_[0][1];
+    }
+    elsif ( $cmd->{keyword} eq 'select' ) {
+      $self->{database} = $cmd->{args}[0];
+    }
+    else { # quit
+      $self->_disconnect();
+    }
+  }
 
   if ( defined $cmd->{on_done} ) {
-    $cmd->{on_done}->( $_[2] );
+    $cmd->{on_done}->( @_ );
   }
   elsif ( defined $cmd->{on_reply} ) {
-    $cmd->{on_reply}->( $_[2] );
+    $cmd->{on_reply}->( @_ );
   }
 
   return;
@@ -994,10 +981,15 @@ sub _abort_all {
     $err_code = E_CONN_CLOSED_BY_CLIENT;
   }
   if ( defined $err_msg ) {
-    $self->_call_on_error( $err_msg, $err_code );
+    if ( $err_code == E_CANT_CONN and defined $self->{on_connect_error} ) {
+      $self->{on_connect_error}->( $err_msg );
+    }
+    else {
+      $self->{on_error}->( $err_msg, $err_code );
+    }
 
     foreach my $cmd ( @unfin_cmds ) {
-      $self->_call_on_cmd_error( $cmd,
+      $self->_process_cmd_failure( $cmd,
           "Operation '$cmd->{keyword}' aborted: $err_msg", $err_code );
     }
   }
