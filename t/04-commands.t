@@ -318,6 +318,7 @@ sub t_set_undef_mth1 {
       $redis->set( 'empty', undef,
         { on_done => sub {
             $t_data = shift;
+
             $cv->send();
           },
         }

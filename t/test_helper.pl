@@ -77,15 +77,15 @@ sub get_redis_version {
 
             if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/m ) {
               my $prod_ver = 0;
-              if ( defined $1 and $1 ne '' ) {
+              if ( defined $1 && $1 ne '' ) {
                 $prod_ver = $1;
               }
               my $major_ver = 0;
-              if ( defined $2 and $2 ne '' ) {
+              if ( defined $2 && $2 ne '' ) {
                 $major_ver = $2;
               }
               my $minor_ver = 0;
-              if ( defined $3 and $3 ne '' ) {
+              if ( defined $3 && $3 ne '' ) {
                 $minor_ver = $3;
               }
               $ver = $prod_ver + ( $major_ver * 10 ** -3 )

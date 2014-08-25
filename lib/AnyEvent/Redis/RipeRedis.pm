@@ -147,7 +147,7 @@ sub new {
     $handle_params = {};
   }
   foreach my $p_name ( qw( linger autocork ) ) {
-    if ( !exists $handle_params->{ $p_name } and defined $params->{ $p_name } ) {
+    if ( !exists $handle_params->{ $p_name } && defined $params->{ $p_name } ) {
       $handle_params->{ $p_name } = $params->{ $p_name };
     }
   }
@@ -337,7 +337,7 @@ sub selected_database {
 
         if (
           defined $timeout
-            and ( !looks_like_number( $timeout ) or $timeout < 0 )
+            && ( !looks_like_number( $timeout ) || $timeout < 0 )
             ) {
           confess ucfirst( $attr_pref ) . ' timeout must be a positive number';
         }
@@ -526,7 +526,7 @@ sub _get_on_read {
         my $type = substr( $data, 0, 1, '' );
         substr( $handle->{rbuf}, 0, EOL_LEN, '' );
 
-        if ( $type ne '+' and $type ne ':' ) {
+        if ( $type ne '+' && $type ne ':' ) {
           if ( $type eq '$' ) {
             if ( $data >= 0 ) {
               $str_len = $data;
@@ -576,8 +576,7 @@ sub _get_on_read {
         my $curr_buf = $bufs[-1];
         if ( defined $err_code ) {
           unless ( ref( $data ) ) {
-            $data = AnyEvent::Redis::RipeRedis::Error->new( $data,
-                $err_code );
+            $data = AnyEvent::Redis::RipeRedis::Error->new( $data, $err_code );
           }
           $curr_buf->{err_code} = E_OPRN_ERROR;
         }
@@ -684,7 +683,7 @@ sub _execute_cmd {
         }
       }
     }
-    elsif ( $self->{reconnect} or $self->{_lazy_conn_st} ) {
+    elsif ( $self->{reconnect} || $self->{_lazy_conn_st} ) {
       if ( $self->{_lazy_conn_st} ) {
         $self->{_lazy_conn_st} = 0;
       }
@@ -721,14 +720,14 @@ sub _push_write {
     unless ( defined $token ) {
       $token = '';
     }
-    elsif ( defined $self->{encoding} and is_utf8( $token ) ) {
+    elsif ( defined $self->{encoding} && is_utf8( $token ) ) {
       $token = $self->{encoding}->encode( $token );
     }
     $cmd_str .= '$' . length( $token ) . EOL . $token . EOL;
   }
   $cmd_str = '*' . ( scalar( @{$cmd->{args}} ) + 1 ) . EOL . $cmd_str;
 
-  if ( defined $self->{read_timeout} and !@{$self->{_process_queue}} ) {
+  if ( defined $self->{read_timeout} && !@{$self->{_process_queue}} ) {
     $self->{_handle}->rtimeout_reset();
     $self->{_handle}->rtimeout( $self->{read_timeout} );
   }
@@ -829,8 +828,8 @@ sub _process_reply {
         $data ) : $data, $err_code );
   }
   elsif (
-    $self->{_subs_num} > 0 and ref( $data )
-      and exists $MSG_TYPES{ $data->[0] }
+    $self->{_subs_num} > 0 && ref( $data )
+      && exists $MSG_TYPES{ $data->[0] }
       ) {
     unless ( exists $self->{_subs}{ $data->[1] } ) {
       $self->_disconnect( 'Don\'t known how process published message.'
@@ -851,7 +850,7 @@ sub _process_reply {
       return;
     }
 
-    if ( !defined $cmd->{replies_left} or --$cmd->{replies_left} <= 0 ) {
+    if ( !defined $cmd->{replies_left} || --$cmd->{replies_left} <= 0 ) {
       shift( @{$self->{_process_queue}} );
     }
     $self->_process_cmd_success( $cmd, $data );
@@ -862,10 +861,13 @@ sub _process_reply {
 
 ####
 sub _process_cmd_failure {
-  my $self = shift;
-  my $cmd  = shift;
+  my $self     = shift;
+  my $cmd      = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
+  my $data     = shift;
 
-  if ( $_[1] == E_NO_SCRIPT and exists $cmd->{code} ) {
+  if ( $err_code == E_NO_SCRIPT && exists $cmd->{code} ) {
     $cmd->{keyword} = 'eval';
     $cmd->{args}[0] = $cmd->{code};
     $self->_push_write( $cmd );
@@ -874,13 +876,13 @@ sub _process_cmd_failure {
   }
 
   if ( defined $cmd->{on_error} ) {
-    $cmd->{on_error}->( @_ );
+    $cmd->{on_error}->( $err_msg, $err_code, defined $data ? $data : () );
   }
   elsif ( defined $cmd->{on_reply} ) {
-    $cmd->{on_reply}->( @_[ 2, 0, 1 ] );
+    $cmd->{on_reply}->( $data, $err_msg, $err_code );
   }
   else {
-    $self->{on_error}->( @_ );
+    $self->{on_error}->( $err_msg, $err_code, defined $data ? $data : () );
   }
 
   return;
@@ -889,9 +891,10 @@ sub _process_cmd_failure {
 ####
 sub _process_message {
   my $self = shift;
+  my $data = shift;
 
-  $self->{_subs}{ $_[0][1] }->( $_[0][0] eq 'pmessage'
-      ? @{$_[0]}[ 2, 3, 1 ] : @{$_[0]}[ 1, 2 ] );
+  $self->{_subs}{ $data->[1] }->( $data->[0] eq 'pmessage'
+      ? @{$data}[ 2, 3, 1 ] : @{$data}[ 1, 2 ] );
 
   return;
 }
@@ -900,18 +903,19 @@ sub _process_message {
 sub _process_cmd_success {
   my $self = shift;
   my $cmd  = shift;
+  my $data = shift;
 
   if ( exists $NEED_POSTPROC{ $cmd->{keyword} } ) {
     if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
-      shift( @{$_[0]} );
+      shift( @{$data} );
 
       if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
-        $self->{_subs}{ $_[0][0] } = $cmd->{on_message};
+        $self->{_subs}{ $data->[0] } = $cmd->{on_message};
       }
       else {
-        delete( $self->{_subs}{ $_[0][0] } );
+        delete( $self->{_subs}{ $data->[0] } );
       }
-      $self->{_subs_num} = $_[0][1];
+      $self->{_subs_num} = $data->[1];
     }
     elsif ( $cmd->{keyword} eq 'select' ) {
       $self->{database} = $cmd->{args}[0];
@@ -922,10 +926,10 @@ sub _process_cmd_success {
   }
 
   if ( defined $cmd->{on_done} ) {
-    $cmd->{on_done}->( @_ );
+    $cmd->{on_done}->( $data );
   }
   elsif ( defined $cmd->{on_reply} ) {
-    $cmd->{on_reply}->( @_ );
+    $cmd->{on_reply}->( $data );
   }
 
   return;
@@ -951,7 +955,7 @@ sub _disconnect {
 
   $self->_abort_all( $err_msg, $err_code );
 
-  if ( $was_connected and defined $self->{on_disconnect} ) {
+  if ( $was_connected && defined $self->{on_disconnect} ) {
     $self->{on_disconnect}->();
   }
 
@@ -976,12 +980,12 @@ sub _abort_all {
   $self->{_subs}          = {};
   $self->{_subs_num}      = 0;
 
-  if ( !defined $err_msg and @unfin_cmds ) {
+  if ( !defined $err_msg && @unfin_cmds ) {
     $err_msg  = 'Connection closed by client prematurely.';
     $err_code = E_CONN_CLOSED_BY_CLIENT;
   }
   if ( defined $err_msg ) {
-    if ( $err_code == E_CANT_CONN and defined $self->{on_connect_error} ) {
+    if ( $err_code == E_CANT_CONN && defined $self->{on_connect_error} ) {
       $self->{on_connect_error}->( $err_msg );
     }
     else {
@@ -1291,6 +1295,30 @@ The C<on_connect> callback is called, when the connection is successfully
 established.
 
 Not set by default.
+
+=item linger
+
+DEPRECATED. Use C<handle_params> instead.
+
+This option is in effect when, for example, code terminates connection by calling
+C<disconnect> but there are ongoing operations. In this case destructor of
+underlying L<AnyEvent::Handle> object will keep the write buffer in memory for
+long time (see default value) causing temporal 'memory leak'. See
+L<AnyEvent::Handle> for more info.
+
+By default is applied default setting of L<AnyEvent::Handle> (i.e. 3600 seconds).
+
+=item autocork
+
+DEPRECATED. Use C<handle_params> instead.
+
+When enabled, writes to socket will always be queued till the next event loop
+iteration. This is efficient when you execute many operations per iteration, but
+less efficient when you execute a single operation only per iteration (or when
+the write buffer often is full). It also increases operation latency. See
+L<AnyEvent::Handle> for more info.
+
+Disabled by default.
 
 =item on_disconnect => $cb->()
 

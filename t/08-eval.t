@@ -20,7 +20,7 @@ my $ver = get_redis_version( $REDIS );
 if ( $ver < 2.00600 ) {
   plan skip_all => 'redis-server 2.6 or higher is required for this test';
 }
-plan tests => 27;
+plan tests => 29;
 
 can_ok( $REDIS, 'eval_cached' );
 
@@ -29,10 +29,11 @@ t_no_script( $REDIS );
 t_eval_cached_mth1( $REDIS );
 t_eval_cached_mth2( $REDIS );
 
+t_eval_cached_mbulk_mth1( $REDIS );
+t_eval_cached_mbulk_mth2( $REDIS );
+
 t_error_reply_mth1( $REDIS );
 t_error_reply_mth2( $REDIS );
-
-# TODO протестировать многомерную вложенность
 
 t_errors_in_mbulk_reply_mth1( $REDIS );
 t_errors_in_mbulk_reply_mth2( $REDIS );
@@ -173,6 +174,93 @@ LUA
   );
 
   is_deeply( \@t_data_buf, [ qw( 42 57 ) ], 'eval_cached; \'on_reply\' used' );
+
+  return;
+}
+
+####
+sub t_eval_cached_mbulk_mth1 {
+  my $redis = shift;
+
+  my $script = <<LUA
+return
+  { ARGV[1], ARGV[2],
+    { ARGV[3],
+      { ARGV[5], ARGV[6] },
+      ARGV[4],
+      { ARGV[7], ARGV[8] }
+    }
+  }
+LUA
+;
+  my $t_data;
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $redis->eval_cached( $script, 0, qw( foo bar coo dar moo nar loo zar ),
+        { on_done => sub {
+            $t_data = shift;
+
+            $cv->send();
+          },
+        }
+      );
+    }
+  );
+
+  is_deeply( $t_data,
+    [ qw( foo bar ),
+      [ 'coo',
+        [ qw( moo nar ) ],
+        'dar',
+        [ qw( loo zar ) ]
+      ]
+    ], 'eval_cached; multi-bulk; \'on_done\' used' );
+
+  return;
+}
+
+####
+sub t_eval_cached_mbulk_mth2 {
+  my $redis = shift;
+
+  my $script = <<LUA
+return
+  { ARGV[1], ARGV[2],
+    { ARGV[3],
+      { ARGV[5], ARGV[6] },
+      ARGV[4],
+      { ARGV[7], ARGV[8] }
+    }
+  }
+LUA
+;
+  my $t_data;
+
+  ev_loop(
+    sub {
+      my $cv = shift;
+
+      $redis->eval_cached( $script, 0, qw( foo bar coo dar moo nar loo zar ),
+        sub {
+          $t_data = shift;
+
+          $cv->send();
+        }
+      );
+    }
+  );
+
+  is_deeply( $t_data,
+    [ qw( foo bar ),
+      [ 'coo',
+        [ qw( moo nar ) ],
+        'dar',
+        [ qw( loo zar ) ]
+      ]
+    ], 'eval_cached; multi-bulk; \'on_reply\' used' );
 
   return;
 }
