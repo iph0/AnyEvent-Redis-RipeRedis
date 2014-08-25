@@ -213,7 +213,6 @@ sub eval_cached {
     $EVAL_CACHE{ $cmd->{code} } = sha1_hex( $cmd->{code} );
   }
   $cmd->{args}[0] = $EVAL_CACHE{ $cmd->{code} };
-
   $self->_execute_cmd( $cmd );
 
   return;
@@ -644,7 +643,7 @@ sub _subunsub {
   if ( $self->{_multi_lock} ) {
     AE::postpone(
       sub {
-        $self->_process_cmd_failure( $cmd,
+        $self->_process_cmd_error( $cmd,
             "Command '$cmd->{keyword}' not allowed after 'multi' command."
             . ' First, the transaction must be finalized.', E_OPRN_ERROR );
       }
@@ -692,7 +691,7 @@ sub _execute_cmd {
     else {
       AE::postpone(
         sub {
-          $self->_process_cmd_failure( $cmd, "Operation '$cmd->{keyword}'"
+          $self->_process_cmd_error( $cmd, "Operation '$cmd->{keyword}'"
               . ' aborted: No connection to the server.', E_NO_CONN );
         }
       );
@@ -823,7 +822,7 @@ sub _process_reply {
       return;
     }
 
-    $self->_process_cmd_failure( $cmd, ref( $data )
+    $self->_process_cmd_error( $cmd, ref( $data )
         ? ( "Operation '$cmd->{keyword}' completed with errors.", $err_code,
         $data ) : $data, $err_code );
   }
@@ -838,7 +837,7 @@ sub _process_reply {
       return;
     }
 
-    $self->_process_message( $data );
+    $self->_process_pub_message( $data );
   }
   else {
     my $cmd = $self->{_process_queue}[0];
@@ -860,7 +859,7 @@ sub _process_reply {
 }
 
 ####
-sub _process_cmd_failure {
+sub _process_cmd_error {
   my $self     = shift;
   my $cmd      = shift;
   my $err_msg  = shift;
@@ -889,7 +888,7 @@ sub _process_cmd_failure {
 }
 
 ####
-sub _process_message {
+sub _process_pub_message {
   my $self = shift;
   my $data = shift;
 
@@ -912,7 +911,7 @@ sub _process_cmd_success {
       if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
         $self->{_subs}{ $data->[0] } = $cmd->{on_message};
       }
-      else {
+      else { # unsubscribe, punsubscribe
         delete( $self->{_subs}{ $data->[0] } );
       }
       $self->{_subs_num} = $data->[1];
@@ -993,7 +992,7 @@ sub _abort_all {
     }
 
     foreach my $cmd ( @unfin_cmds ) {
-      $self->_process_cmd_failure( $cmd,
+      $self->_process_cmd_error( $cmd,
           "Operation '$cmd->{keyword}' aborted: $err_msg", $err_code );
     }
   }
