@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.41_01';
+our $VERSION = '1.41_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -97,7 +97,7 @@ my %MSG_TYPES = (
   pmessage => 1,
 );
 
-my %NEED_POSTPROC = (
+my %NEED_POST_PROCESS = (
   %SUBUNSUB_CMDS,
   select => 1,
   quit   => 1,
@@ -904,14 +904,14 @@ sub _process_cmd_success {
   my $cmd  = shift;
   my $data = shift;
 
-  if ( exists $NEED_POSTPROC{ $cmd->{keyword} } ) {
+  if ( exists $NEED_POST_PROCESS{ $cmd->{keyword} } ) {
     if ( exists $SUBUNSUB_CMDS{ $cmd->{keyword} } ) {
       shift( @{$data} );
 
       if ( exists $SUB_CMDS{ $cmd->{keyword} } ) {
         $self->{_subs}{ $data->[0] } = $cmd->{on_message};
       }
-      else { # unsubscribe, punsubscribe
+      else { # unsubscribe or punsubscribe
         delete( $self->{_subs}{ $data->[0] } );
       }
       $self->{_subs_num} = $data->[1];
@@ -1288,16 +1288,9 @@ constructor.
     autocork => 1,
   },
 
-=item on_connect => $cb->()
-
-The C<on_connect> callback is called, when the connection is successfully
-established.
-
-Not set by default.
-
 =item linger
 
-DEPRECATED. Use C<handle_params> instead.
+Parameter is DEPRECATED. Use parameter C<handle_params> instead.
 
 This option is in effect when, for example, code terminates connection by calling
 C<disconnect> but there are ongoing operations. In this case destructor of
@@ -1309,7 +1302,7 @@ By default is applied default setting of L<AnyEvent::Handle> (i.e. 3600 seconds)
 
 =item autocork
 
-DEPRECATED. Use C<handle_params> instead.
+Parameter is DEPRECATED. Use parameter C<handle_params> instead.
 
 When enabled, writes to socket will always be queued till the next event loop
 iteration. This is efficient when you execute many operations per iteration, but
@@ -1318,6 +1311,13 @@ the write buffer often is full). It also increases operation latency. See
 L<AnyEvent::Handle> for more info.
 
 Disabled by default.
+
+=item on_connect => $cb->()
+
+The C<on_connect> callback is called, when the connection is successfully
+established.
+
+Not set by default.
 
 =item on_disconnect => $cb->()
 
