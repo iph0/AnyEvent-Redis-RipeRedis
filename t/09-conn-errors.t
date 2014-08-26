@@ -394,7 +394,7 @@ sub t_premature_conn_close_mth2 {
 
   undef $redis;
 
-  my $t_npref = 'premature connection close; undef() used;';
+  my $t_npref = 'premature connection close; undef() used';
   ok( !$on_error_was_called, "$t_npref; \'on_error\' callback ignored" );
   is( $t_cmd_err_msg,
       'Operation \'ping\' aborted: Client object destroyed prematurely.',

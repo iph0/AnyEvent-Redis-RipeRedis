@@ -10,7 +10,10 @@ require 't/test_helper.pl';
 BEGIN {
   eval "use Test::LeakTrace 0.14";
   if ( $@ ) {
-    plan skip_all => "Test::LeakTrace 0.14 required for this test";
+    plan skip_all => 'Test::LeakTrace 0.14 required for this test';
+  }
+  elsif ( $^O eq 'MSWin32' ) {
+    plan skip_all => 'This test does not support MSWin32 platform';
   }
 }
 
