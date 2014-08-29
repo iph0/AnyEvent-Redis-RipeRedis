@@ -13,7 +13,7 @@ BEGIN {
     plan skip_all => 'Test::LeakTrace 0.14 required for this test';
   }
   elsif ( $^O eq 'MSWin32' ) {
-    plan skip_all => 'the test don\'t support MSWin32 platform';
+    plan skip_all => 'can\'t correctly run on MSWin32 platform';
   }
 }
 
