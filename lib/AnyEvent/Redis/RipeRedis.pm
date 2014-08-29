@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.41_02';
+our $VERSION = '1.41_03';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1088,7 +1088,7 @@ feature
 =head1 SYNOPSIS
 
   use AnyEvent;
-  use AnyEvent::Redis::RipeRedis qw( :err_codes );
+  use AnyEvent::Redis::RipeRedis;
 
   my $cv = AE::cv();
 
@@ -1098,19 +1098,40 @@ feature
     password => 'yourpass',
   );
 
-  $redis->set( 'foo', 'string',
+  $redis->incr( 'foo',
+    sub {
+      my $data    = shift;
+      my $err_msg = shift;
+
+      if ( defined $err_msg ) {
+        my $err_code = shift;
+
+        # error handling...
+
+        warn "$err_msg\n";
+        $cv->send();
+
+        return;
+      }
+
+      print "$data\n";
+    }
+  );
+
+  $redis->set( 'bar', 'string',
     { on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
 
         # error handling...
 
-        $cv->croak( $err_msg );
-      },
+        warn "$err_msg\n";
+        $cv->send();
+      }
     }
   );
 
-  $redis->get( 'foo',
+  $redis->get( 'bar',
     { on_done => sub {
         my $data = shift;
 
@@ -1123,28 +1144,10 @@ feature
 
         # error handling...
 
-        $cv->croak( $err_msg );
-      }
+        warn "$err_msg\n";
+        $cv->send();
+      },
     }
-  );
-
-  $redis->incr( 'bar',
-    sub {
-      my $data    = shift;
-      my $err_msg = shift;
-
-      if ( defined $err_msg ) {
-        my $err_code = shift;
-
-        # error handling...
-
-        $cv->croak( $err_msg );
-
-        return;
-      }
-
-      print "$data\n";
-    },
   );
 
   $redis->quit(
@@ -1165,7 +1168,7 @@ Requires Redis 1.2 or higher, and any supported event loop.
 
 =head1 CONSTRUCTOR
 
-=head2 new()
+=head2 new( %params )
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host               => 'localhost',
@@ -1202,20 +1205,20 @@ Requires Redis 1.2 or higher, and any supported event loop.
 
 =over
 
-=item host
+=item host => $host
 
 Server hostname (default: 127.0.0.1)
 
-=item port
+=item port => $port
 
 Server port (default: 6379)
 
-=item password
+=item password => $password
 
 If the password is specified, then the C<AUTH> command is sent to the server
 after connection.
 
-=item database
+=item database => $index
 
 Database index. If the index is specified, then the client is switched to
 the specified database after connection. You can also switch to another database
@@ -1224,13 +1227,13 @@ database after reconnection.
 
 The default database index is C<0>.
 
-=item encoding
+=item encoding => $encoding_name
 
 Used for encode/decode strings at time of input/output operations.
 
 Not set by default.
 
-=item connection_timeout
+=item connection_timeout => $fractional_seconds
 
 Timeout, within which the client will be wait the connection establishment to
 the Redis server. If the client could not connect to the server after specified
@@ -1239,13 +1242,11 @@ when C<on_error> callback is called, C<E_CANT_CONN> error code is passed to
 callback in the second argument. The timeout specifies in seconds and can
 contain a fractional part.
 
-  my $redis = AnyEvent::Redis::RipeRedis->new(
-    connection_timeout => 10.5,
-  );
+  connection_timeout => 10.5,
 
 By default the client use kernel's connection timeout.
 
-=item read_timeout
+=item read_timeout => $fractional_seconds
 
 Timeout, within which the client will be wait a response on a command from the
 Redis server. If the client could not receive a response from the server after
@@ -1253,13 +1254,11 @@ specified timeout, then the client close connection and call C<on_error> callbac
 with the C<E_READ_TIMEDOUT> error code. The timeout is specifies in seconds
 and can contain a fractional part.
 
-  my $redis = AnyEvent::Redis::RipeRedis->new(
-    read_timeout => 3.5,
-  );
+  read_timeout => 3.5,
 
 Not set by default.
 
-=item lazy
+=item lazy => $boolean
 
 If enabled, the connection establishes at time, when you will send the first
 command to the server. By default the connection establishes after calling of
@@ -1267,7 +1266,7 @@ the C<new> method.
 
 Disabled by default.
 
-=item reconnect
+=item reconnect => $boolean
 
 If the connection to the Redis server was lost and the parameter C<reconnect> is
 TRUE, then the client try to restore the connection on a next command executuion.
@@ -1278,19 +1277,18 @@ feature made the client more responsive.
 
 Enabled by default.
 
-=item handle_params
+=item handle_params => \%params
 
-The hash reference with parameters, that will be passed to L<AnyEvent::Handle>
-constructor.
+Parameters, which will be passed to L<AnyEvent::Handle> constructor.
 
   handle_params => {
     linger   => 60,
     autocork => 1,
-  },
+  }
 
-=item linger
+=item linger => $fractional_seconds
 
-Parameter is DEPRECATED. Use parameter C<handle_params> instead.
+Parameter is DEPRECATED. Use C<handle_params> parameter instead.
 
 This option is in effect when, for example, code terminates connection by calling
 C<disconnect> but there are ongoing operations. In this case destructor of
@@ -1300,9 +1298,9 @@ L<AnyEvent::Handle> for more info.
 
 By default is applied default setting of L<AnyEvent::Handle> (i.e. 3600 seconds).
 
-=item autocork
+=item autocork => $boolean
 
-Parameter is DEPRECATED. Use parameter C<handle_params> instead.
+Parameter is DEPRECATED. Use C<handle_params> parameter instead.
 
 When enabled, writes to socket will always be queued till the next event loop
 iteration. This is efficient when you execute many operations per iteration, but
@@ -1346,13 +1344,48 @@ the client just print an error messages to C<STDERR>.
 
 =head1 COMMAND EXECUTION
 
-=head2 <command>( [ @args, ][ $cb | \%callbacks ] )
+=head2 <command>( [ @args ] [, $cb | \%cbs ] )
 
 The full list of the Redis commands can be found here: L<http://redis.io/commands>.
 
-  $redis->set( 'foo', 'string' );
+  $redis->incr( 'foo',
+    sub {
+      my $data    = shift;
+      my $err_msg = shift;
 
-  $redis->get( 'foo',
+      if ( defined $err_msg ) {
+        my $err_code = shift;
+
+        # error handling...
+
+        return;
+      }
+
+      print "$data\n";
+    },
+  );
+
+  $redis->incr( 'foo',
+    { on_reply => sub {
+        my $data    = shift;
+        my $err_msg = shift;
+
+        if ( defined $err_msg ) {
+          my $err_code = shift;
+
+          # error handling...
+
+          return;
+        }
+
+        print "$data\n";
+      },
+    }
+  );
+
+  $redis->set( 'bar', 'string' );
+
+  $redis->get( 'bar',
     { on_done => sub {
         my $data = shift;
 
@@ -1386,41 +1419,6 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
     }
   );
 
-  $redis->incr( 'bar',
-    sub {
-      my $data    = shift;
-      my $err_msg = shift;
-
-      if ( defined $err_msg ) {
-        my $err_code = shift;
-
-        # error handling...
-
-        return;
-      }
-
-      print "$data\n";
-    },
-  );
-
-  $redis->incr( 'bar',
-    { on_reply => sub {
-        my $data    = shift;
-        my $err_msg = shift;
-
-        if ( defined $err_msg ) {
-          my $err_code = shift;
-
-          # error handling...
-
-          return;
-        }
-
-        print "$data\n";
-      },
-    }
-  );
-
 =over
 
 =item on_done => $cb->( [ $data ] )
@@ -1432,7 +1430,7 @@ successfully.
 
 The C<on_error> callback is called, when some error occurred.
 
-=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
@@ -1448,25 +1446,25 @@ with error objects (see below), error message and error code.
 The detailed information abount the Redis transactions can be found here:
 L<http://redis.io/topics/transactions>.
 
-=head2 multi( [ $cb | \%callbacks ] )
+=head2 multi( [ $cb | \%cbs ] )
 
 Marks the start of a transaction block. Subsequent commands will be queued for
 atomic execution using C<EXEC>.
 
-=head2 exec( [ $cb | \%callbacks ] )
+=head2 exec( [ $cb | \%cbs ] )
 
 Executes all previously queued commands in a transaction and restores the
 connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
 only if the watched keys were not modified.
 
 If after execution of C<EXEC> command at least one operation fails, then
-either C<on_error> or C<on_reply> callback is called with C<E_OPRN_ERROR> error
-code. Additionally, to callbacks is passed reply data, which contain usual data
-and error objects for each failed operation. To C<on_error> callback reply data
-is passed in third argument and to C<on_reply> callback in first argument.
-Error object is an instance of class C<AnyEvent::Redis::RipeRedis::Error> and
-has two methods: C<message()> to get error message and C<code()> to get error
-code.
+either C<on_error> or C<on_reply> callback is called and in addition to error
+message and error code to callback is passed reply data, which contain replies
+of successful operations and error objects for each failed operation. To
+C<on_error> callback reply data is passed in third argument and to C<on_reply>
+callback in first argument. Error object is an instance of class
+C<AnyEvent::Redis::RipeRedis::Error> and has two methods: C<message()> to get
+error message and C<code()> to get error code.
 
   $redis->multi();
   $redis->set( 'foo', 'string' );
@@ -1512,18 +1510,18 @@ code.
     },
   );
 
-=head2 discard( [ $cb | \%callbacks ] )
+=head2 discard( [ $cb | \%cbs ] )
 
 Flushes all previously queued commands in a transaction and restores the
 connection state to normal.
 
 If C<WATCH> was used, C<DISCARD> unwatches all keys.
 
-=head2 watch( @keys, [ $cb | \%callbacks ] )
+=head2 watch( @keys [, $cb | \%cbs ] )
 
 Marks the given keys to be watched for conditional execution of a transaction.
 
-=head2 unwatch( [ $cb | \%callbacks ] )
+=head2 unwatch( [ $cb | \%cbs ] )
 
 Forget about all watched keys.
 
@@ -1532,7 +1530,7 @@ Forget about all watched keys.
 The detailed information about Redis Pub/Sub can be found here:
 L<http://redis.io/topics/pubsub>
 
-=head2 subscribe( @channels, ( $cb | \%callbacks ) )
+=head2 subscribe( @channels, ( $cb | \%cbs ) )
 
 Subscribes the client to the specified channels.
 
@@ -1616,7 +1614,7 @@ The C<on_message> callback is called, when a published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription operation
 was completed successfully and when subscription operation fails. In first case
@@ -1626,7 +1624,7 @@ an array reference.
 
 =back
 
-=head2 psubscribe( @patterns, ( $cb | \%callbacks ) )
+=head2 psubscribe( @patterns, ( $cb | \%cbs ) )
 
 Subscribes the client to the given patterns.
 
@@ -1709,7 +1707,7 @@ The C<on_message> callback is called, when published message was received.
 
 The C<on_error> callback is called, if the subscription operation fails.
 
-=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription
 operation was completed successfully and when subscription operation fails.
@@ -1719,11 +1717,11 @@ in first argument as an array reference.
 
 =back
 
-=head2 publish( $channel, $message, [ $cb | \%callbacks ] )
+=head2 publish( $channel, $message [, $cb | \%cbs ] )
 
 Posts a message to the given channel.
 
-=head2 unsubscribe( [ @channels, ][ $cb | \%callbacks ] )
+=head2 unsubscribe( [ @channels ] [, $cb | \%cbs ] )
 
 Unsubscribes the client from the given channels, or from all of them if none
 is given.
@@ -1773,7 +1771,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1783,7 +1781,7 @@ to callback in first argument as an array reference.
 
 =back
 
-=head2 punsubscribe( [ @patterns, ][ $cb | \%callbacks ] )
+=head2 punsubscribe( [ @patterns ] [, $cb | \%cbs ] )
 
 Unsubscribes the client from the given patterns, or from all of them if none
 is given.
@@ -1833,7 +1831,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called, if the unsubscription operation fails.
 
-=item on_reply => $cb->( [ $data, ][ $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully and when unsubscription operation fails.
@@ -1861,9 +1859,10 @@ To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
 or you can use the special method C<eval_cached()>.
 
 If Lua script returns multi-bulk reply with at least one error reply, then
-either C<on_error> or C<on_reply> callback is called with C<E_OPRN_ERROR> error
-code. Additionally, to callbacks is passed reply data, which contain usual data
-and error objects for each error reply, as well as described for C<EXEC> command.
+either C<on_error> or C<on_reply> callback is called and in addition to error
+message and error code to callback is passed reply data, which contain successful
+replies and error objects for each error reply, as well as described for C<EXEC>
+command.
 
   $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     { on_error => sub {
@@ -1903,7 +1902,7 @@ and error objects for each error reply, as well as described for C<EXEC> command
     }
   );
 
-=head2 eval_cached( $script, $numkeys, [ @keys, ][ @args, ][ $cb | \%callbacks ] );
+=head2 eval_cached( $script, $numkeys [, @keys ] [, @args ] [, $cb | \%cbs ] );
 
 When you call the C<eval_cached()> method, the client first generate a SHA1
 hash for a Lua script and cache it in memory. Then the client optimistically
