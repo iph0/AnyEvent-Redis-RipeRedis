@@ -1501,6 +1501,7 @@ error message and C<code()> to get error code.
 
         # handling...
       },
+
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
@@ -1936,6 +1937,7 @@ command.
 
          # handling...
       },
+
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
