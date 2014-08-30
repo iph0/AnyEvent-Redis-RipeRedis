@@ -173,11 +173,13 @@ sub t_sub_unsub_mth2 {
 
       $r_consum->subscribe( qw( ch_events ch_signals ),
         { on_reply => sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
+
               return;
             }
 
@@ -250,11 +252,13 @@ sub t_sub_unsub_mth2 {
 
       $r_consum->unsubscribe( qw( ch_foo ch_bar ch_events ch_signals ),
         sub {
-          my $data    = shift;
-          my $err_msg = shift;
+          my $data = shift;
 
-          if ( defined $err_msg ) {
+          if ( defined $_[0] ) {
+            my $err_msg = shift;
+
             diag( $err_msg );
+
             return;
           }
 
@@ -440,11 +444,13 @@ sub t_psub_punsub_mth2 {
 
       $r_consum->psubscribe( qw( events_* signals_* ),
         { on_reply => sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
+
               return;
             }
 
@@ -524,11 +530,13 @@ sub t_psub_punsub_mth2 {
 
       $r_consum->punsubscribe( qw( foo_* bar_* events_* signals_* ),
         sub {
-          my $data    = shift;
-          my $err_msg = shift;
+          my $data = shift;
 
-          if ( defined $err_msg ) {
+          if ( defined $_[0] ) {
+            my $err_msg = shift;
+
             diag( $err_msg );
+
             return;
           }
 

@@ -30,10 +30,11 @@ $timer = AE::timer( 0, 1,
   sub {
     $redis->incr( 'foo',
       sub {
-        my $data    = shift;
-        my $err_msg = shift;
+        my $data = shift;
 
-        if ( defined $err_msg ) {
+        if ( defined $_[0] ) {
+          my $err_msg = shift;
+
           warn $err_msg;
 
           return;
@@ -50,7 +51,7 @@ my $on_signal = sub {
   $cv->send();
 };
 
-my $int_w = AE::signal( INT => $on_signal );
+my $int_w  = AE::signal( INT  => $on_signal );
 my $term_w = AE::signal( TERM => $on_signal );
 
 $cv->recv();

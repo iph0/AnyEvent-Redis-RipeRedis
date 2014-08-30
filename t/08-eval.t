@@ -141,11 +141,13 @@ LUA
 
       $redis->eval_cached( $script, 0, 42,
         sub {
-          my $data    = shift;
-          my $err_msg = shift;
+          my $data = shift;
 
-          if ( defined $err_msg ) {
+          if ( defined $_[0] ) {
+            my $err_msg = shift;
+
             diag( $err_msg );
+
             return;
           }
 
@@ -155,11 +157,13 @@ LUA
 
           $redis->eval_cached( $script, 0, 57,
             sub {
-              my $data    = shift;
-              my $err_msg = shift;
+              my $data = shift;
 
-              if ( defined $err_msg ) {
+              if ( defined $_[0] ) {
+                my $err_msg = shift;
+
                 diag( $err_msg );
+
                 return;
               }
 
@@ -316,10 +320,10 @@ LUA
 
       $redis->eval_cached( $script, 0,
         sub {
-          my $data   = shift;
-          $t_err_msg = shift;
+          my $data = shift;
 
-          if ( defined $t_err_msg ) {
+          if ( defined $_[0] ) {
+            $t_err_msg  = shift;
             $t_err_code = shift;
           }
 
@@ -405,10 +409,10 @@ LUA
 
       $redis->eval( $script, 0, 42,
         sub {
-          $t_data    = shift;
-          $t_err_msg = shift;
+          $t_data = shift;
 
-          if ( defined $t_err_msg ) {
+          if ( defined $_[0] ) {
+            $t_err_msg  = shift;
             $t_err_code = shift;
           }
 

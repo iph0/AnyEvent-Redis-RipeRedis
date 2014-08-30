@@ -94,10 +94,11 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->set( 'foo', "some\r\nstring",
           sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
             }
           }
@@ -105,9 +106,9 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->del( 'foo',
           sub {
-            my $err_msg = $_[1];
+            if ( defined $_[1] ) {
+              my $err_msg = $_[1];
 
-            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -165,10 +166,11 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->get( 'foo',
           sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
             }
           }
@@ -176,9 +178,9 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->del( 'foo',
           sub {
-            my $err_msg = $_[1];
+            if ( defined $_[1] ) {
+              my $err_msg = $_[1];
 
-            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -240,10 +242,11 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->lrange( 'list', 0, -1,
           sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
             }
           }
@@ -251,9 +254,9 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->del( 'list',
           sub {
-            my $err_msg = $_[1];
+            if ( defined $_[1] ) {
+              my $err_msg = $_[1];
 
-            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -331,10 +334,11 @@ sub t_leaks_nested_mbulk_reply_mth2 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
             }
           },
@@ -342,9 +346,9 @@ sub t_leaks_nested_mbulk_reply_mth2 {
 
         $redis->del( qw( foo list bar ),
           sub {
-            my $err_msg = $_[1];
+            if ( defined $_[1] ) {
+              my $err_msg = $_[1];
 
-            if ( defined $err_msg ) {
               diag( $err_msg );
             }
 
@@ -414,20 +418,23 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           sub {
-            my $data    = shift;
-            my $err_msg = shift;
+            my $data = shift;
 
-            if ( defined $err_msg ) {
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
               diag( $err_msg );
+
               return;
             }
 
             $redis->eval_cached( $script, 0, 57,
               sub {
-                my $data    = shift;
-                my $err_msg = shift;
+                my $data = shift;
 
-                if ( defined $err_msg ) {
+                if ( defined $_[0] ) {
+                  my $err_msg = shift;
+
                   diag( $err_msg );
                 }
 

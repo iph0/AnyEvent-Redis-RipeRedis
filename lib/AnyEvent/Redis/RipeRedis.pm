@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.41_04';
+our $VERSION = '1.41_05';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1100,16 +1100,13 @@ feature
 
   $redis->incr( 'foo',
     sub {
-      my $data    = shift;
-      my $err_msg = shift;
+      my $data = shift;
 
-      if ( defined $err_msg ) {
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling...
-
-        warn "$err_msg\n";
-        $cv->send();
+        warn "[$err_code] $err_msg\n";
 
         return;
       }
@@ -1123,10 +1120,7 @@ feature
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling...
-
-        warn "$err_msg\n";
-        $cv->send();
+        warn "[$err_code] $err_msg\n";
       }
     }
   );
@@ -1142,16 +1136,20 @@ feature
         my $err_msg  = shift;
         my $err_code = shift;
 
-        # error handling...
-
-        warn "$err_msg\n";
-        $cv->send();
+        warn "[$err_code] $err_msg\n";
       },
     }
   );
 
   $redis->quit(
     sub {
+      if ( defined $_[1] ) {
+        my $err_msg  = $_[1];
+        my $err_code = $_[2];
+
+        warn "[$err_code] $err_msg\n";
+      }
+
       $cv->send();
     }
   );
@@ -1350,10 +1348,10 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->incr( 'foo',
     sub {
-      my $data    = shift;
-      my $err_msg = shift;
+      my $data = shift;
 
-      if ( defined $err_msg ) {
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
         my $err_code = shift;
 
         # error handling...
@@ -1367,10 +1365,10 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->incr( 'foo',
     { on_reply => sub {
-        my $data    = shift;
-        my $err_msg = shift;
+        my $data = shift;
 
-        if ( defined $err_msg ) {
+        if ( defined $_[0] ) {
+          my $err_msg  = shift;
           my $err_code = shift;
 
           # error handling...
@@ -1470,7 +1468,40 @@ error message and C<code()> to get error code.
   $redis->set( 'foo', 'string' );
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
-    { on_error => sub {
+    sub {
+      my $data = shift;
+
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        foreach my $chunk ( @{$data} ) {
+          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $oprn_err_msg  = $chunk->message();
+            my $oprn_err_code = $chunk->code();
+
+            # error handling...
+          }
+        }
+
+        return;
+      }
+
+      # handling...
+    },
+  );
+
+
+  $redis->multi();
+  $redis->set( 'foo', 'string' );
+  $redis->incr( 'foo' ); # causes an error
+  $redis->exec(
+    { on_done => sub {
+        my $data = shift;
+
+        # handling...
+      },
+      on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
         my $data     = shift;
@@ -1485,29 +1516,6 @@ error message and C<code()> to get error code.
         }
       },
     }
-  );
-
-  $redis->multi();
-  $redis->set( 'foo', 'string' );
-  $redis->incr( 'foo' ); # causes an error
-  $redis->exec(
-    sub {
-      my $data   = shift;
-      my $err_msg = shift;
-
-      if ( defined $err_msg ) {
-        my $err_code = shift;
-
-        foreach my $chunk ( @{$data} ) {
-          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg  = $chunk->message();
-            my $oprn_err_code = $chunk->code();
-
-            # error handling...
-          }
-        }
-      }
-    },
   );
 
 =head2 discard( [ $cb | \%cbs ] )
@@ -1539,44 +1547,11 @@ other commands, except for additional C<SUBSCRIBE>, C<PSUBSCRIBE>, C<UNSUBSCRIBE
 and C<PUNSUBSCRIBE> commands.
 
   $redis->subscribe( qw( ch_foo ch_bar ),
-    { on_done =>  sub {
-        my $ch_name  = shift;
-        my $subs_num = shift;
-
-        # handling...
-      },
-
-      on_message => sub {
-        my $ch_name = shift;
-        my $msg     = shift;
-
-        # handling...
-      },
-
-      on_error => sub {
-        my $err_msg  = shift;
-        my $err_code = shift;
-
-        # error handling...
-      },
-    }
-  );
-
-  $redis->subscribe( qw( ch_foo ch_bar ),
-    sub {
-      my $ch_name = shift;
-      my $msg     = shift;
-
-      # handling...
-    }
-  );
-
-  $redis->subscribe( qw( ch_foo ch_bar ),
     { on_reply => sub {
-        my $data    = shift;
-        my $err_msg = shift;
+        my $data = shift;
 
-        if ( defined $err_msg ) {
+        if ( defined $_[0] ) {
+          my $err_msg  = shift;
           my $err_code = shift;
 
           # error handling...
@@ -1594,7 +1569,40 @@ and C<PUNSUBSCRIBE> commands.
         my $ch_name = shift;
         my $msg     = shift;
 
+        # message handling...
+      },
+    }
+  );
+
+  $redis->subscribe( qw( ch_foo ch_bar ),
+    sub {
+      my $ch_name = shift;
+      my $msg     = shift;
+
+      # message handling...
+    }
+  );
+
+  $redis->subscribe( qw( ch_foo ch_bar ),
+    { on_done =>  sub {
+        my $ch_name  = shift;
+        my $subs_num = shift;
+
         # handling...
+      },
+
+      on_message => sub {
+        my $ch_name = shift;
+        my $msg     = shift;
+
+        # message handling...
+      },
+
+      on_error => sub {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        # error handling...
       },
     }
   );
@@ -1629,46 +1637,11 @@ an array reference.
 Subscribes the client to the given patterns.
 
   $redis->psubscribe( qw( foo_* bar_* ),
-    { on_done =>  sub {
-        my $ch_pattern = shift;
-        my $subs_num   = shift;
-
-        # handling...
-      },
-
-      on_message => sub {
-        my $ch_name    = shift;
-        my $msg        = shift;
-        my $ch_pattern = shift;
-
-        # handling...
-      },
-
-      on_error => sub {
-        my $err_msg  = shift;
-        my $err_code = shift;
-
-        # error handling...
-      },
-    }
-  );
-
-  $redis->psubscribe( qw( foo_* bar_* ),
-    sub {
-      my $ch_name    = shift;
-      my $msg        = shift;
-      my $ch_pattern = shift;
-
-      # handling...
-    }
-  );
-
-  $redis->psubscribe( qw( foo_* bar_* ),
     { on_reply => sub {
-        my $data    = shift;
-        my $err_msg = shift;
+        my $data = shift;
 
-        if ( defined $err_msg ) {
+        if ( defined $_[0] ) {
+          my $err_msg  = shift;
           my $err_code = shift;
 
           # error handling...
@@ -1687,7 +1660,42 @@ Subscribes the client to the given patterns.
         my $msg        = shift;
         my $ch_pattern = shift;
 
+        # message handling...
+      },
+    }
+  );
+
+  $redis->psubscribe( qw( foo_* bar_* ),
+    sub {
+      my $ch_name    = shift;
+      my $msg        = shift;
+      my $ch_pattern = shift;
+
+      # message handling...
+    }
+  );
+
+  $redis->psubscribe( qw( foo_* bar_* ),
+    { on_done =>  sub {
+        my $ch_pattern = shift;
+        my $subs_num   = shift;
+
         # handling...
+      },
+
+      on_message => sub {
+        my $ch_name    = shift;
+        my $msg        = shift;
+        my $ch_pattern = shift;
+
+        # message handling...
+      },
+
+      on_error => sub {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        # error handling...
       },
     }
   );
@@ -1731,21 +1739,11 @@ previously subscribed channels. In this case, a message for every unsubscribed
 channel will be sent to the client.
 
   $redis->unsubscribe( qw( ch_foo ch_bar ),
-    { on_done => sub {
-        my $ch_name  = shift;
-        my $subs_num = shift;
-
-        # handling...
-      },
-    }
-  );
-
-  $redis->unsubscribe( qw( ch_foo ch_bar ),
     sub {
-      my $data    = shift;
-      my $err_msg = shift;
+      my $data = shift;
 
-      if ( defined $err_msg ) {
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
         my $err_code = shift;
 
         # error handling...
@@ -1757,6 +1755,16 @@ channel will be sent to the client.
       my $subs_num = $data->[1];
 
       # handling...
+    }
+  );
+
+  $redis->unsubscribe( qw( ch_foo ch_bar ),
+    { on_done => sub {
+        my $ch_name  = shift;
+        my $subs_num = shift;
+
+        # handling...
+      },
     }
   );
 
@@ -1791,21 +1799,11 @@ previously subscribed patterns. In this case, a message for every unsubscribed
 pattern will be sent to the client.
 
   $redis->punsubscribe( qw( foo_* bar_* ),
-    { on_done => sub {
-        my $ch_pattern = shift;
-        my $subs_num   = shift;
-
-        # handling...
-      },
-    }
-  );
-
-  $redis->punsubscribe( qw( foo_* bar_* ),
     sub {
-      my $data    = shift;
-      my $err_msg = shift;
+      my $data = shift;
 
-      if ( defined $err_msg ) {
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
         my $err_code = shift;
 
         # error handling...
@@ -1817,6 +1815,16 @@ pattern will be sent to the client.
       my $subs_num   = $data->[1];
 
       # handling...
+    }
+  );
+
+  $redis->punsubscribe( qw( foo_* bar_* ),
+    { on_done => sub {
+        my $ch_pattern = shift;
+        my $subs_num   = shift;
+
+        # handling...
+      },
     }
   );
 
@@ -1855,8 +1863,42 @@ the parameter C<port> you have to specify the path to the socket.
 =head1 LUA SCRIPTS EXECUTION
 
 Redis 2.6 and higher support execution of Lua scripts on the server side.
-To execute a Lua script you can use one of the commands C<EVAL> or C<EVALSHA>,
-or you can use the special method C<eval_cached()>.
+To execute a Lua script you can send one of the commands C<EVAL> or C<EVALSHA>,
+or use the special method C<eval_cached()>.
+
+=head2 eval_cached( $script, $numkeys [, @keys ] [, @args ] [, $cb | \%cbs ] );
+
+When you call the C<eval_cached()> method, the client first generate a SHA1
+hash for a Lua script and cache it in memory. Then the client optimistically
+send the C<EVALSHA> command under the hood. If the C<E_NO_SCRIPT> error will be
+returned, the client send the C<EVAL> command.
+
+If you call the C<eval_cached()> method with the same Lua script, client don not
+generate a SHA1 hash for this script repeatedly, it gets a hash from the cache
+instead.
+
+  $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
+      2, 'key1', 'key2', 'first', 'second',
+    sub {
+      my $data = shift;
+
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        # error handling...
+
+        return;
+      }
+
+      foreach my $val ( @{$data}  ) {
+        print "$val\n";
+      }
+    }
+  );
+
+Be care, passing a different Lua scripts to C<eval_cached()> method every time
+cause memory leaks.
 
 If Lua script returns multi-bulk reply with at least one error reply, then
 either C<on_error> or C<on_reply> callback is called and in addition to error
@@ -1864,8 +1906,37 @@ message and error code to callback is passed reply data, which contain successfu
 replies and error objects for each error reply, as well as described for C<EXEC>
 command.
 
-  $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
-    { on_error => sub {
+  $redis->eval_cached( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
+    sub {
+      my $data = shift;
+
+      if ( defined $_[0] ) {
+        my $err_msg  = shift;
+        my $err_code = shift;
+
+        foreach my $chunk ( @{$data} ) {
+          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+            my $nested_err_msg  = $chunk->message();
+            my $nested_err_code = $chunk->code();
+
+            # error handling...
+          }
+        }
+
+        return;
+      }
+
+      # handling...
+    }
+  );
+
+  $redis->eval_cached( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
+    { on_done => sub {
+         my $data = shift;
+
+         # handling...
+      },
+      on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
         my $data     = shift;
@@ -1881,52 +1952,6 @@ command.
       }
     }
   );
-
-  $redis->eval( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
-    sub {
-      my $data    = shift;
-      my $err_msg = shift;
-
-      if ( defined $err_msg ) {
-        my $err_code = shift;
-
-        foreach my $chunk ( @{$data} ) {
-          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $nested_err_msg  = $chunk->message();
-            my $nested_err_code = $chunk->code();
-
-            # error handling...
-          }
-        }
-      }
-    }
-  );
-
-=head2 eval_cached( $script, $numkeys [, @keys ] [, @args ] [, $cb | \%cbs ] );
-
-When you call the C<eval_cached()> method, the client first generate a SHA1
-hash for a Lua script and cache it in memory. Then the client optimistically
-send the C<EVALSHA> command under the hood. If the C<E_NO_SCRIPT> error will be
-returned, the client send the C<EVAL> command.
-
-If you call the C<eval_cached()> method with the same Lua script, client don not
-generate a SHA1 hash for this script repeatedly, it gets a hash from the cache
-instead.
-
-  $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
-      2, 'key1', 'key2', 'first', 'second',
-    { on_done => sub {
-        my $data = shift;
-
-        foreach my $val ( @{$data}  ) {
-          print "$val\n";
-        }
-      }
-    }
-  );
-
-Be care, passing a different Lua scripts to C<eval_cached()> method every time
-cause memory leaks.
 
 =head1 ERROR CODES
 
@@ -2054,20 +2079,13 @@ aborted.
 
 =head2 quit()
 
-The method for asynchronous disconnection. Uncompleted operations which was
-started before C<QUIT> will be completed correctly.
+The method for asynchronous disconnection.
 
-  my $cv = AE::cv();
-
-  $redis->set( 'foo', 'string' );
-  $redis->incr( 'bar' );
   $redis->quit(
     sub {
-      $cv->send();
+      # handling...
     }
   );
-
-  $cv->recv();
 
 =head1 OTHER METHODS
 
