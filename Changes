@@ -1,5 +1,13 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.42 Tue Sep 9 18:30:00 MSK 2014
+  - FEATURE: added constructor parameter 'handle_params'.
+  - Constructor parameters 'autocork' and 'linger' now are deprecated.
+  - Changed parsing logic of replies from redis-server.
+  - Large refactoring.
+  - Improved POD.
+  - Improved unit tests.
+
 1.40 Mon May 19 10:45:00 MSK 2014
   - FEATURE: added constructor parameter 'linger'. Thanks to Ivan Kruglov.
   - Slight internal changes.

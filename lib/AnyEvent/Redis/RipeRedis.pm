@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.41_05';
+our $VERSION = '1.42';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -750,6 +750,7 @@ sub _auth {
       args    => [ $self->{password} ],
       on_done => sub {
         $self->{_auth_st} = S_IS_DONE;
+
         if ( $self->{_select_db_st} == S_NEED_PERFORM ) {
           $self->_select;
         }
@@ -775,6 +776,7 @@ sub _select {
   weaken( $self );
 
   $self->{_select_db_st} = S_IN_PROGRESS;
+
   $self->_push_write(
     { keyword => 'select',
       args    => [ $self->{database} ],
