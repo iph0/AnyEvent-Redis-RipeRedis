@@ -22,15 +22,15 @@ my $R_TRANSM = AnyEvent::Redis::RipeRedis->new(
 );
 
 t_sub_unsub_mth1( $R_CONSUM, $R_TRANSM );
-t_sub_unsub_mth2( $R_CONSUM, $R_TRANSM );
-
-t_psub_punsub_mth1( $R_CONSUM, $R_TRANSM );
-t_psub_punsub_mth2( $R_CONSUM, $R_TRANSM );
+#t_sub_unsub_mth2( $R_CONSUM, $R_TRANSM );
+#
+#t_psub_punsub_mth1( $R_CONSUM, $R_TRANSM );
+#t_psub_punsub_mth2( $R_CONSUM, $R_TRANSM );
 
 $R_CONSUM->disconnect();
 $R_TRANSM->disconnect();
 
-t_sub_after_multi( $SERVER_INFO );
+#t_sub_after_multi( $SERVER_INFO );
 
 
 ####

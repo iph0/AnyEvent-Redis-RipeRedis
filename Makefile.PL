@@ -21,6 +21,7 @@ WriteMakefile(
     'Test::RedisServer' => 0.14,
     'Test::TCP'         => 2.02,
     'Test::Fatal'       => 0.013,
+    version             => 0.77,
   },
   META_MERGE => {
     resources => {

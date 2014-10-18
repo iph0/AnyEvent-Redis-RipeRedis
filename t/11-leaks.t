@@ -5,15 +5,13 @@ use warnings;
 use Test::More;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 use Scalar::Util qw( weaken );
+use version 0.77;
 require 't/test_helper.pl';
 
 BEGIN {
   eval "use Test::LeakTrace 0.14";
   if ( $@ ) {
     plan skip_all => 'Test::LeakTrace 0.14 required for this test';
-  }
-  elsif ( $^O eq 'MSWin32' ) {
-    plan skip_all => 'can\'t correctly run on MSWin32 platform';
   }
 }
 
@@ -43,7 +41,7 @@ t_leaks_nested_mbulk_reply_mth2( $REDIS );
 my $ver = get_redis_version( $REDIS );
 
 SKIP: {
-  if ( $ver < 2.00600 ) {
+  if ( $ver < version->parse( 'v2.6' ) ) {
     skip 'redis-server 2.6 or higher is required for this test', 2;
   }
 

@@ -6,6 +6,7 @@ use Test::More;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 use Digest::SHA qw( sha1_hex );
 use Scalar::Util qw( weaken );
+use version 0.77;
 require 't/test_helper.pl';
 
 my $SERVER_INFO = run_redis_instance();
@@ -17,7 +18,7 @@ my $REDIS = AnyEvent::Redis::RipeRedis->new(
   port => $SERVER_INFO->{port},
 );
 my $ver = get_redis_version( $REDIS );
-if ( $ver < 2.00600 ) {
+if ( $ver < version->parse( 'v2.6' ) ) {
   plan skip_all => 'redis-server 2.6 or higher is required for this test';
 }
 plan tests => 29;

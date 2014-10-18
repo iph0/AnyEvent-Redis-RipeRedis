@@ -5,6 +5,7 @@ use warnings;
 use Test::More;
 use Test::RedisServer;
 use AnyEvent;
+use version 0.77;
 
 ####
 sub run_redis_instance {
@@ -75,22 +76,8 @@ sub get_redis_version {
         { on_done => sub {
             my $data = shift;
 
-            if ( $data =~ m/^redis_version:([0-9]+)\.([0-9]+)\.([0-9]+)/m ) {
-              my $prod_ver = 0;
-              if ( defined $1 && $1 ne '' ) {
-                $prod_ver = $1;
-              }
-              my $major_ver = 0;
-              if ( defined $2 && $2 ne '' ) {
-                $major_ver = $2;
-              }
-              my $minor_ver = 0;
-              if ( defined $3 && $3 ne '' ) {
-                $minor_ver = $3;
-              }
-              $ver = $prod_ver + ( $major_ver * 10 ** -3 )
-                  + ( $minor_ver * 10 ** -6 );
-            }
+            $ver = version->parse( 'v' . $data->{redis_version} );
+
             $cv->send();
           },
         }

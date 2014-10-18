@@ -588,6 +588,7 @@ sub t_get_non_existent_mth1 {
       $redis->get( 'non_existent',
         { on_done => sub {
             $t_data = shift;
+
             $cv->send();
           },
         }
@@ -742,6 +743,7 @@ sub t_mbulk_reply_empty_list_mth1 {
       $redis->lrange( 'non_existent', 0, -1,
         { on_done => sub {
             $t_data = shift;
+
             $cv->send();
           },
         }
@@ -798,6 +800,7 @@ sub t_mbulk_reply_undef_mth1 {
       $redis->brpop( 'non_existent', '1',
         { on_done => sub {
             $t_data = shift;
+
             $cv->send();
           },
         }
@@ -1051,6 +1054,7 @@ sub t_default_on_error {
     $t_err_msg = shift;
 
     chomp( $t_err_msg );
+
     $cv->send();
   };
 
@@ -1168,6 +1172,7 @@ sub t_quit {
       $redis->quit(
         { on_done => sub {
             $t_data = shift;
+
             $cv->send();
           },
         }
