@@ -376,7 +376,7 @@ sub _connect {
     on_connect_error => $self->_get_on_connect_error(),
     on_rtimeout      => $self->_get_on_rtimeout(),
     on_eof           => $self->_get_on_eof(),
-    on_error         => $self->_get_on_handle_error(),
+    on_error         => $self->_get_handle_on_error(),
     on_read          => $self->_get_on_read(),
   );
 
@@ -474,7 +474,7 @@ sub _get_on_eof {
 }
 
 ####
-sub _get_on_handle_error {
+sub _get_handle_on_error {
   my $self = shift;
 
   weaken( $self );
