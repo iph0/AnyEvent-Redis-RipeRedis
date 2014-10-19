@@ -21,11 +21,11 @@ my $R_TRANSM = AnyEvent::Redis::RipeRedis->new(
   port => $SERVER_INFO->{port},
 );
 
-t_sub_unsub_mth1( $R_CONSUM, $R_TRANSM );
-t_sub_unsub_mth2( $R_CONSUM, $R_TRANSM );
+t_subunsub_mth1( $R_CONSUM, $R_TRANSM );
+t_subunsub_mth2( $R_CONSUM, $R_TRANSM );
 
-t_psub_punsub_mth1( $R_CONSUM, $R_TRANSM );
-t_psub_punsub_mth2( $R_CONSUM, $R_TRANSM );
+t_psubunsub_mth1( $R_CONSUM, $R_TRANSM );
+t_psubunsub_mth2( $R_CONSUM, $R_TRANSM );
 
 $R_CONSUM->disconnect();
 $R_TRANSM->disconnect();
@@ -34,7 +34,7 @@ t_sub_after_multi( $SERVER_INFO );
 
 
 ####
-sub t_sub_unsub_mth1 {
+sub t_subunsub_mth1 {
   my $r_consum = shift;
   my $r_transm = shift;
 
@@ -143,7 +143,7 @@ sub t_sub_unsub_mth1 {
 }
 
 ####
-sub t_sub_unsub_mth2 {
+sub t_subunsub_mth2 {
   my $r_consum = shift;
   my $r_transm = shift;
 
@@ -297,7 +297,7 @@ sub t_sub_unsub_mth2 {
 }
 
 ####
-sub t_psub_punsub_mth1 {
+sub t_psubunsub_mth1 {
   my $r_consum = shift;
   my $r_transm = shift;
 
@@ -412,7 +412,7 @@ sub t_psub_punsub_mth1 {
 }
 
 ####
-sub t_psub_punsub_mth2 {
+sub t_psubunsub_mth2 {
   my $r_consum = shift;
   my $r_transm = shift;
 
@@ -613,8 +613,8 @@ sub t_sub_after_multi {
   $redis->disconnect();
 
   my $t_pname = 'subscription after MULTI command';
-  is( $t_err_msg, 'Command \'subscribe\' not allowed'
-      . ' after \'multi\' command. First, the transaction must be finalized.',
+  is( $t_err_msg, "Command 'subscribe' not allowed"
+      . " after 'multi' command. First, the transaction must be finalized.",
       "$t_pname; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_pname; error code" );
 

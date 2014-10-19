@@ -114,7 +114,7 @@ sub t_status_reply_mth1 {
     }
   );
 
-  is( $t_data, 'OK', 'SET; \'on_done\' used; status reply' );
+  is( $t_data, 'OK', "SET; 'on_done' used; status reply" );
 
   return;
 }
@@ -160,7 +160,7 @@ sub t_status_reply_mth2 {
     }
   );
 
-  is( $t_data, 'OK', 'SET; \'on_reply\' used; status reply' );
+  is( $t_data, 'OK', "SET; 'on_reply' used; status reply" );
 
   return;
 }
@@ -191,7 +191,7 @@ sub t_numeric_reply_mth1 {
     }
   );
 
-  is( $t_data, 1, 'INCR; \'on_done\' used; numeric reply' );
+  is( $t_data, 1, "INCR; 'on_done' used; numeric reply" );
 
   return;
 }
@@ -232,7 +232,7 @@ sub t_numeric_reply_mth2 {
     }
   );
 
-  is( $t_data, 1, 'INCR; \'on_reply\' used; numeric reply' );
+  is( $t_data, 1, "INCR; 'on_reply' used; numeric reply" );
 
   return;
 }
@@ -265,7 +265,7 @@ sub t_bulk_reply_mth1 {
     }
   );
 
-  is( $t_data, "some\r\nstring", 'GET; \'on_done\' used; bulk reply' );
+  is( $t_data, "some\r\nstring", "GET; 'on_done' used; bulk reply" );
 
   return;
 }
@@ -308,7 +308,7 @@ sub t_bulk_reply_mth2 {
     }
   );
 
-  is( $t_data, "some\r\nstring", 'GET; \'on_reply\' used; bulk reply' );
+  is( $t_data, "some\r\nstring", "GET; 'on_reply' used; bulk reply" );
 
   return;
 }
@@ -334,7 +334,7 @@ sub t_set_undef_mth1 {
     }
   );
 
-  is( $t_data, 'OK', 'SET; \'on_done\' used; undef' );
+  is( $t_data, 'OK', "SET; 'on_done' used; undef" );
 
   return;
 }
@@ -365,7 +365,7 @@ sub t_set_undef_mth2 {
     }
   );
 
-  is( $t_data, 'OK', 'SET; \'on_reply\' used; undef' );
+  is( $t_data, 'OK', "SET; 'on_reply' used; undef" );
 
   return;
 }
@@ -391,7 +391,7 @@ sub t_get_undef_mth1 {
     }
   );
 
-  is( $t_data, '', 'GET; \'on_done\' used; undef' );
+  is( $t_data, '', "GET; 'on_done' used; undef" );
 
   return;
 }
@@ -422,7 +422,7 @@ sub t_get_undef_mth2 {
     }
   );
 
-  is( $t_data, '', 'GET; \'on_reply\' used; undef' );
+  is( $t_data, '', "GET; 'on_reply' used; undef" );
 
   return;
 }
@@ -453,7 +453,7 @@ sub t_set_utf8_string_mth1 {
     }
   );
 
-  is( $t_data, 'OK', 'SET; \'on_done\' used; UTF-8 string' );
+  is( $t_data, 'OK', "SET; 'on_done' used; UTF-8 string" );
 
   return;
 }
@@ -494,7 +494,7 @@ sub t_set_utf8_string_mth2 {
     }
   );
 
-  is( $t_data, 'OK', 'SET; \'on_reply\' used; UTF-8 string' );
+  is( $t_data, 'OK', "SET; 'on_reply' used; UTF-8 string" );
 
   return;
 }
@@ -527,7 +527,7 @@ sub t_get_utf8_string_mth1 {
     }
   );
 
-  is( $t_data, 'Значение', 'GET; \'on_done\' used; UTF-8 string' );
+  is( $t_data, 'Значение', "GET; 'on_done' used; UTF-8 string" );
 
   return;
 }
@@ -570,7 +570,7 @@ sub t_get_utf8_string_mth2 {
     }
   );
 
-  is( $t_data, 'Значение', 'GET; \'on_reply\' used; UTF-8 string' );
+  is( $t_data, 'Значение', "GET; 'on_reply' used; UTF-8 string" );
 
   return;
 }
@@ -596,7 +596,7 @@ sub t_get_non_existent_mth1 {
     }
   );
 
-  is( $t_data, undef, 'GET; \'on_done\' used; non existent key' );
+  is( $t_data, undef, "GET; 'on_done' used; non existent key" );
 
   return;
 }
@@ -629,7 +629,7 @@ sub t_get_non_existent_mth2 {
   );
 
   ok( !defined $t_data && !defined $t_err_msg,
-      'GET; \'on_reply\' used; non existent key' );
+      "GET; 'on_reply' used; non existent key" );
 
   return;
 }
@@ -671,7 +671,7 @@ sub t_mbulk_reply_mth1 {
         element_3
       )
     ],
-    'LRANGE; \'on_done\' used; multi-bulk reply'
+    "LRANGE; 'on_done' used; multi-bulk reply"
   );
 
   return;
@@ -724,7 +724,7 @@ sub t_mbulk_reply_mth2 {
         element_3
       )
     ],
-    'LRANGE; \'on_reply\' used; multi-bulk reply'
+    "LRANGE; 'on_reply' used; multi-bulk reply"
   );
 
   return;
@@ -751,7 +751,7 @@ sub t_mbulk_reply_empty_list_mth1 {
     },
   );
 
-  is_deeply( $t_data, [], 'LRANGE; \'on_done\' used; empty list' );
+  is_deeply( $t_data, [], "LRANGE; 'on_done' used; empty list" );
 
   return;
 }
@@ -782,7 +782,7 @@ sub t_mbulk_reply_empty_list_mth2 {
     },
   );
 
-  is_deeply( $t_data, [], 'LRANGE; \'on_reply\' used; empty list' );
+  is_deeply( $t_data, [], "LRANGE; 'on_reply' used; empty list" );
 
   return;
 }
@@ -808,7 +808,7 @@ sub t_mbulk_reply_undef_mth1 {
     }
   );
 
-  is( $t_data, undef, 'BRPOP; \'on_done\' used; multi-bulk undef' );
+  is( $t_data, undef, "BRPOP; 'on_done' used; multi-bulk undef" );
 
   return;
 }
@@ -841,7 +841,7 @@ sub t_mbulk_reply_undef_mth2 {
   );
 
   ok( !defined $t_data && !defined $t_err_msg,
-      'BRPOP; \'on_reply\' used; multi-bulk undef' );
+      "BRPOP; 'on_reply' used; multi-bulk undef" );
 
   return;
 }
@@ -901,7 +901,7 @@ sub t_nested_mbulk_reply_mth1 {
         )
       ],
     ],
-    'EXEC; \'on_done\' used; nested multi-bulk reply'
+    "EXEC; 'on_done' used; nested multi-bulk reply"
   );
 
   return;
@@ -972,7 +972,7 @@ sub t_nested_mbulk_reply_mth2 {
         )
       ],
     ],
-    'EXEC; \'on_reply\' used; nested multi-bulk reply'
+    "EXEC; 'on_reply' used; nested multi-bulk reply"
   );
 
   return;
@@ -1002,7 +1002,7 @@ sub t_oprn_error_mth1 {
     }
   );
 
-  my $t_npref = 'operation error; \'on_error\' used';
+  my $t_npref = "operation error; 'on_error' used";
   ok( defined $t_err_msg, "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
@@ -1036,7 +1036,7 @@ sub t_oprn_error_mth2 {
     }
   );
 
-  my $t_npref = 'operation error; \'on_reply\' used';
+  my $t_npref = "operation error; 'on_reply' used";
   ok( defined $t_err_msg, "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
@@ -1099,8 +1099,8 @@ sub t_error_after_exec_mth1 {
     }
   );
 
-  my $t_npref = 'error after EXEC; \'on_error\' used';
-  is( $t_err_msg, 'Operation \'exec\' completed with errors.',
+  my $t_npref = "error after EXEC; 'on_error' used";
+  is( $t_err_msg, "Operation 'exec' completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
   is( $t_data->[0], 'OK', "$t_npref; status reply" );
@@ -1144,8 +1144,8 @@ sub t_error_after_exec_mth2 {
     }
   );
 
-  my $t_npref = 'error after EXEC; \'on_reply\' used';
-  is( $t_err_msg, 'Operation \'exec\' completed with errors.',
+  my $t_npref = "error after EXEC; 'on_reply' used";
+  is( $t_err_msg, "Operation 'exec' completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
   is( $t_data->[0], 'OK', "$t_npref; status reply" );

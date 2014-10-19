@@ -19,7 +19,7 @@ my $SERVER_INFO = run_redis_instance();
 if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
-plan tests => 10;
+plan tests => 12;
 
 my $REDIS = AnyEvent::Redis::RipeRedis->new(
   host => $SERVER_INFO->{host},
@@ -37,6 +37,9 @@ t_leaks_mbulk_reply_mth2( $REDIS );
 
 t_leaks_nested_mbulk_reply_mth1( $REDIS );
 t_leaks_nested_mbulk_reply_mth2( $REDIS );
+
+t_leaks_subunsub_mth1( $REDIS );
+t_leaks_subunsub_mth2( $REDIS );
 
 my $ver = get_redis_version( $REDIS );
 
@@ -76,7 +79,7 @@ sub t_leaks_status_reply_mth1 {
         );
       }
     );
-  } 'leaks; \'on_done\' used; status reply';
+  } "leaks; 'on_done' used; status reply";
 
   return;
 }
@@ -115,7 +118,7 @@ sub t_leaks_status_reply_mth2 {
         );
       }
     );
-  } 'leaks; \'on_reply\' used; status reply';
+  } "leaks; 'on_reply' used; status reply";
 
   return;
 }
@@ -146,7 +149,7 @@ sub t_leaks_bulk_reply_mth1 {
         );
       }
     );
-  } 'leaks; \'on_done\' used; bulk reply';
+  } "leaks; 'on_done' used; bulk reply";
 
   return;
 }
@@ -187,7 +190,7 @@ sub t_leaks_bulk_reply_mth2 {
         );
       }
     );
-  } 'leaks; \'on_reply\' used; bulk reply';
+  } "leaks; 'on_reply' used; bulk reply";
 
   return;
 }
@@ -220,7 +223,7 @@ sub t_leaks_mbulk_reply_mth1 {
         );
       }
     );
-  } 'leaks; \'on_done\' used; multi-bulk reply';
+  } "leaks; 'on_done' used; multi-bulk reply";
 
   return;
 }
@@ -263,7 +266,7 @@ sub t_leaks_mbulk_reply_mth2 {
         );
       }
     );
-  } 'leaks; \'on_reply\' used; multi-bulk reply';
+  } "leaks; 'on_reply' used; multi-bulk reply";
 
   return;
 }
@@ -304,7 +307,7 @@ sub t_leaks_nested_mbulk_reply_mth1 {
         );
       }
     );
-  } 'leaks; \'on_done\' used; nested multi-bulk reply';
+  } "leaks; 'on_done' used; nested multi-bulk reply";
 
   return;
 }
@@ -355,7 +358,98 @@ sub t_leaks_nested_mbulk_reply_mth2 {
         );
       }
     );
-  } 'leaks; \'on_reply\' used; nested multi-bulk reply';
+  } "leaks; 'on_reply' used; nested multi-bulk reply";
+
+  return;
+}
+
+####
+sub t_leaks_subunsub_mth1 {
+  my $redis = shift;
+
+  no_leaks_ok {
+    ev_loop(
+      sub {
+        my $cv = shift;
+
+        $redis->subscribe( qw( ch_foo ch_bar ),
+          { on_done => sub {
+              my $ch_name  = shift;
+              my $subs_num = shift;
+            },
+
+            on_message => sub {
+              my $ch_name = shift;
+              my $msg     = shift;
+            },
+          }
+        );
+
+        $redis->unsubscribe( qw( ch_foo ch_bar ),
+          { on_done => sub {
+              my $ch_name  = shift;
+              my $subs_num = shift;
+
+              if ( $subs_num == 0 ) {
+                $cv->send();
+              }
+            },
+          }
+        );
+      }
+    );
+  } "leaks; sub/unsub; 'on_done' used";
+
+  return;
+}
+
+####
+sub t_leaks_subunsub_mth2 {
+  my $redis = shift;
+
+  no_leaks_ok {
+    ev_loop(
+      sub {
+        my $cv = shift;
+
+        $redis->subscribe( qw( ch_foo ch_bar ),
+          { on_reply => sub {
+              my $data = shift;
+
+              if ( defined $_[0] ) {
+                my $err_msg = shift;
+
+                diag( $err_msg );
+              }
+            },
+
+            on_message => sub {
+              my $ch_name = shift;
+              my $msg     = shift;
+            },
+          }
+        );
+
+        $redis->unsubscribe( qw( ch_foo ch_bar ),
+          sub {
+            my $data = shift;
+
+            if ( defined $_[0] ) {
+              my $err_msg = shift;
+
+              diag( $err_msg );
+
+              return;
+            }
+
+            if ( $data->[1] == 0 ) {
+              $cv->send();
+            }
+          }
+        );
+      }
+    );
+  } "leaks; sub/unsub; 'on_reply' used";
 
   return;
 }
@@ -393,7 +487,7 @@ LUA
         );
       }
     );
-  } 'leaks; eval_cached; \'on_done\' used';
+  } "leaks; eval_cached; 'on_done' used";
 
   return;
 }
@@ -443,7 +537,7 @@ LUA
         );
       }
     );
-  } 'leaks; eval_cached; \'on_reply\' used';
+  } "leaks; eval_cached; 'on_reply' used";
 
   return;
 }

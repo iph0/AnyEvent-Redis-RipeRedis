@@ -209,7 +209,7 @@ sub subscribe {
 
   my $cmd = $self->_prepare_cmd( 'subscribe', [ @_ ] );
 
-  $self->_execute_subun( $cmd );
+  $self->_subunsub( $cmd );
 
   return;
 }
@@ -220,7 +220,7 @@ sub psubscribe {
 
   my $cmd = $self->_prepare_cmd( 'psubscribe', [ @_ ] );
 
-  $self->_execute_subun( $cmd );
+  $self->_subunsub( $cmd );
 
   return;
 }
@@ -231,7 +231,7 @@ sub unsubscribe {
 
   my $cmd = $self->_prepare_cmd( 'unsubscribe', [ @_ ] );
 
-  $self->_execute_subun( $cmd );
+  $self->_subunsub( $cmd );
 
   return;
 }
@@ -242,7 +242,7 @@ sub punsubscribe {
 
   my $cmd = $self->_prepare_cmd( 'punsubscribe', [ @_ ] );
 
-  $self->_execute_subun( $cmd );
+  $self->_subunsub( $cmd );
 
   return;
 }
@@ -608,17 +608,20 @@ sub _prepare_cmd {
   my $kwd  = shift;
   my $args = shift;
 
-  my $cmd = {};
-  if ( ref( $args->[-1] ) eq 'CODE' ) {
-    if ( exists $SUB_CMDS{ $kwd } ) {
-      $cmd->{on_message} = pop( @{$args} );
-    }
-    else {
-      $cmd->{on_reply} = pop( @{$args} );
-    }
-  }
-  elsif ( ref( $args->[-1] ) eq 'HASH' ) {
+  my $cmd;
+  if ( ref( $args->[-1] ) eq 'HASH' ) {
     $cmd = pop( @{$args} );
+  }
+  else {
+    $cmd = {};
+    if ( ref( $args->[-1] ) eq 'CODE' ) {
+      if ( exists $SUB_CMDS{ $kwd } ) {
+        $cmd->{on_message} = pop( @{$args} );
+      }
+      else {
+        $cmd->{on_reply} = pop( @{$args} );
+      }
+    }
   }
   $cmd->{kwd}  = $kwd;
   $cmd->{args} = $args;
@@ -627,7 +630,7 @@ sub _prepare_cmd {
 }
 
 ####
-sub _execute_subun {
+sub _subunsub {
   my $self = shift;
   my $cmd  = shift;
 
@@ -648,6 +651,8 @@ sub _execute_subun {
     return;
   }
 
+  $cmd->{repls_left} = scalar( @{$cmd->{args}} );
+
   if ( defined $cmd->{on_done} ) {
     my $on_done = $cmd->{on_done};
 
@@ -655,7 +660,6 @@ sub _execute_subun {
       $on_done->( @{$_[0]} );
     }
   }
-  $cmd->{repls_left} = scalar( @{$cmd->{args}} );
 
   $self->_execute_cmd( $cmd );
 
@@ -827,7 +831,8 @@ sub _process_reply {
     }
 
     $self->_process_cmd_error( $cmd, ref( $_[0] )
-        ? ( "Operation '$cmd->{kwd}' completed with errors.", @_[ 1, 0 ] ) : @_ );
+        ? ( "Operation '$cmd->{kwd}' completed with errors.", @_[ 1, 0 ] )
+        : @_ );
   }
   elsif (
     $self->{_subs_num} > 0 && ref( $_[0] )
@@ -843,7 +848,8 @@ sub _process_reply {
       return;
     }
 
-    $on_msg->( $msg->[0] eq 'pmessage' ? @{$msg}[ 2, 3, 1 ] : @{$msg}[ 1, 2 ] );
+    $on_msg->( $msg->[0] eq 'pmessage' ? @{$msg}[ 2, 3, 1 ]
+        : @{$msg}[ 1, 2 ] );
   }
   else {
     my $cmd = $self->{_process_queue}[0];
@@ -873,6 +879,7 @@ sub _process_cmd_error {
   if ( $_[1] == E_NO_SCRIPT && defined $cmd->{script} ) {
     $cmd->{kwd}     = 'eval';
     $cmd->{args}[0] = $cmd->{script};
+
     $self->_push_write( $cmd );
 
     return;

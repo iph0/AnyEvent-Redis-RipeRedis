@@ -55,7 +55,7 @@ sub t_cant_connect_mth1 {
     0
   );
 
-  my $t_npref = 'can\'t connect; \'on_connect_error\' used';
+  my $t_npref = "can't connect; 'on_connect_error' used";
   like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
       "$t_npref; client error message" );
   like( $t_cmd_err_msg,
@@ -105,7 +105,7 @@ sub t_cant_connect_mth2 {
     0
   );
 
-  my $t_npref = 'can\'t connect; \'on_error\' used';
+  my $t_npref = "can't connect; 'on_error' used";
   like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
       "$t_npref; client error message" );
   is( $t_cli_err_code, E_CANT_CONN, "$t_npref; client error code" );
@@ -182,7 +182,7 @@ sub t_no_connection {
   );
 
   is( $t_cmd_err_msg_1,
-      'Operation \'ping\' aborted: No connection to the server.',
+      "Operation 'ping' aborted: No connection to the server.",
       "$t_npref; second command error message" );
   is( $t_cmd_err_code_1, E_NO_CONN, "$t_npref; second command error code" );
 
@@ -328,7 +328,7 @@ sub t_read_timeout {
     my $t_npref = 'read timeout';
     is( $t_cli_err_msg, 'Read timed out.', "$t_npref; client error message" );
     is( $t_cli_err_code, E_READ_TIMEDOUT, "$t_npref; client error code" );
-    is( $t_cmd_err_msg, 'Operation \'brpop\' aborted: Read timed out.',
+    is( $t_cmd_err_msg, "Operation 'brpop' aborted: Read timed out.",
         "$t_npref; command error message" );
     is( $t_cmd_err_code, E_READ_TIMEDOUT, "$t_npref; command error code" );
   }
@@ -365,7 +365,7 @@ sub t_premature_conn_close_mth1 {
       "$t_npref; client error message" );
   is( $t_cli_err_code, E_CONN_CLOSED_BY_CLIENT, "$t_npref; client error message" );
   is( $t_cmd_err_msg,
-      'Operation \'ping\' aborted: Connection closed by client prematurely.',
+      "Operation 'ping' aborted: Connection closed by client prematurely.",
       "$t_npref; command error message" );
   is( $t_cmd_err_code, E_CONN_CLOSED_BY_CLIENT, "$t_npref; command error message" );
 
@@ -395,9 +395,9 @@ sub t_premature_conn_close_mth2 {
   undef $redis;
 
   my $t_npref = 'premature connection close; undef() used';
-  ok( !$on_error_was_called, "$t_npref; \'on_error\' callback ignored" );
+  ok( !$on_error_was_called, "$t_npref; 'on_error' callback ignored" );
   is( $t_cmd_err_msg,
-      'Operation \'ping\' aborted: Client object destroyed prematurely.',
+      "Operation 'ping' aborted: Client object destroyed prematurely.",
       "$t_npref; command error message" );
 
   return;

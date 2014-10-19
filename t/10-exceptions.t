@@ -132,7 +132,7 @@ sub t_on_message {
       $redis->subscribe( 'channel' );
     },
     qr/'on_message' callback must be specified/,
-    '\'on_message\' callback not specified',
+    "'on_message' callback not specified",
   );
 
   return;
