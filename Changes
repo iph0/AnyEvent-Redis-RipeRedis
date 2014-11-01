@@ -1,5 +1,12 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.44 Sat Nov 1 19:35:00 MSK 2014
+  - FEATURE: Method info() now parsing information and statistics about the
+    server. The result is passed to 'on_done' or 'on_reply' callback as a hash
+    reference.
+  - Minor internal changes.
+  - Improved unit tests.
+
 1.42 Tue Sep 9 18:30:00 MSK 2014
   - FEATURE: added constructor parameter 'handle_params'.
   - Constructor parameters 'autocork' and 'linger' now are deprecated.
