@@ -144,7 +144,7 @@ LUA
         sub {
           my $data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -160,7 +160,7 @@ LUA
             sub {
               my $data = shift;
 
-              if ( defined $_[0] ) {
+              if ( @_ ) {
                 my $err_msg = shift;
 
                 diag( $err_msg );
@@ -323,7 +323,7 @@ LUA
         sub {
           my $data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             $t_err_msg  = shift;
             $t_err_code = shift;
           }
@@ -412,7 +412,7 @@ LUA
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             $t_err_msg  = shift;
             $t_err_code = shift;
           }

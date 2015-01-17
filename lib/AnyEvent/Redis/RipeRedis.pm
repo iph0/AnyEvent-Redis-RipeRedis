@@ -7,14 +7,14 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.44';
+our $VERSION = '1.45_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
 use Encode qw( find_encoding is_utf8 );
 use Scalar::Util qw( looks_like_number weaken );
 use Digest::SHA qw( sha1_hex );
-use Carp qw( confess );
+use Carp qw( croak );
 
 BEGIN {
   our @EXPORT_OK = qw(
@@ -283,7 +283,7 @@ sub encoding {
     if ( defined $enc ) {
       $self->{encoding} = find_encoding( $enc );
       unless ( defined $self->{encoding} ) {
-        confess "Encoding '$enc' not found";
+        croak "Encoding '$enc' not found";
       }
     }
     else {
@@ -340,7 +340,7 @@ sub selected_database {
           defined $timeout
             && ( !looks_like_number( $timeout ) || $timeout < 0 )
             ) {
-          confess ucfirst( $attr_pref ) . ' timeout must be a positive number';
+          croak ucfirst( $attr_pref ) . ' timeout must be a positive number';
         }
         $self->{ $attr_name } = $timeout;
       }
@@ -635,7 +635,7 @@ sub _subunsub {
   my $cmd  = shift;
 
   if ( exists $SUB_CMDS{ $cmd->{kwd} } && !defined $cmd->{on_message} ) {
-    confess "'on_message' callback must be specified";
+    croak "'on_message' callback must be specified";
   }
 
   if ( $self->{_multi_lock} ) {
@@ -1111,7 +1111,7 @@ feature
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1359,7 +1359,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1376,7 +1376,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
     { on_reply => sub {
         my $data = shift;
 
-        if ( defined $_[0] ) {
+        if ( @_ ) {
           my $err_msg  = shift;
           my $err_code = shift;
 
@@ -1480,18 +1480,24 @@ error message and C<code()> to get error code.
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        foreach my $chunk ( @{$data} ) {
-          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg  = $chunk->message();
-            my $oprn_err_code = $chunk->code();
+        if ( defined $data ) {
+          foreach my $chunk ( @{$data} ) {
+            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $oprn_err_msg  = $chunk->message();
+              my $oprn_err_code = $chunk->code();
 
-            # error handling...
+              # error handling...
+            }
           }
+
+          return;
         }
+
+        # error handling...
 
         return;
       }
@@ -1516,14 +1522,18 @@ error message and C<code()> to get error code.
         my $err_code = shift;
         my $data     = shift;
 
-        foreach my $chunk ( @{$data} ) {
-          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $oprn_err_msg  = $chunk->message();
-            my $oprn_err_code = $chunk->code();
+        if ( defined $data ) {
+          foreach my $chunk ( @{$data} ) {
+            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $oprn_err_msg  = $chunk->message();
+              my $oprn_err_code = $chunk->code();
 
-            # error handling...
+              # error handling...
+            }
           }
         }
+
+        # error handling...
       },
     }
   );
@@ -1560,7 +1570,7 @@ and C<PUNSUBSCRIBE> commands.
     { on_reply => sub {
         my $data = shift;
 
-        if ( defined $_[0] ) {
+        if ( @_ ) {
           my $err_msg  = shift;
           my $err_code = shift;
 
@@ -1650,7 +1660,7 @@ Subscribes the client to the given patterns.
     { on_reply => sub {
         my $data = shift;
 
-        if ( defined $_[0] ) {
+        if ( @_ ) {
           my $err_msg  = shift;
           my $err_code = shift;
 
@@ -1752,7 +1762,7 @@ channel will be sent to the client.
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1812,7 +1822,7 @@ pattern will be sent to the client.
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1892,7 +1902,7 @@ instead.
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1920,18 +1930,22 @@ command.
     sub {
       my $data = shift;
 
-      if ( defined $_[0] ) {
+      if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        foreach my $chunk ( @{$data} ) {
-          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $nested_err_msg  = $chunk->message();
-            my $nested_err_code = $chunk->code();
+        if ( defined $data ) {
+          foreach my $chunk ( @{$data} ) {
+            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $nested_err_msg  = $chunk->message();
+              my $nested_err_code = $chunk->code();
 
-            # error handling...
+              # error handling...
+            }
           }
         }
+
+        # error handling...
 
         return;
       }
@@ -1952,14 +1966,18 @@ command.
         my $err_code = shift;
         my $data     = shift;
 
-        foreach my $chunk ( @{$data} ) {
-          if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-            my $nested_err_msg  = $chunk->message();
-            my $nested_err_code = $chunk->code();
+        if ( defined $data ) {
+          foreach my $chunk ( @{$data} ) {
+            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $nested_err_msg  = $chunk->message();
+              my $nested_err_code = $chunk->code();
 
-            # error handling...
+              # error handling...
+            }
           }
         }
+
+        # error handling...
       }
     }
   );

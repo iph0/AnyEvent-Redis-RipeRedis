@@ -97,7 +97,7 @@ sub t_leaks_status_reply_mth2 {
           sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -169,7 +169,7 @@ sub t_leaks_bulk_reply_mth2 {
           sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -245,7 +245,7 @@ sub t_leaks_mbulk_reply_mth2 {
           sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -337,7 +337,7 @@ sub t_leaks_nested_mbulk_reply_mth2 {
           sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -416,7 +416,7 @@ sub t_leaks_subunsub_mth2 {
           { on_reply => sub {
               my $data = shift;
 
-              if ( defined $_[0] ) {
+              if ( @_ ) {
                 my $err_msg = shift;
 
                 diag( $err_msg );
@@ -434,7 +434,7 @@ sub t_leaks_subunsub_mth2 {
           sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -512,7 +512,7 @@ LUA
           sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -524,7 +524,7 @@ LUA
               sub {
                 my $data = shift;
 
-                if ( defined $_[0] ) {
+                if ( @_ ) {
                   my $err_msg = shift;
 
                   diag( $err_msg );

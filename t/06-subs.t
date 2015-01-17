@@ -175,7 +175,7 @@ sub t_subunsub_mth2 {
         { on_reply => sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -254,7 +254,7 @@ sub t_subunsub_mth2 {
         sub {
           my $data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -446,7 +446,7 @@ sub t_psubunsub_mth2 {
         { on_reply => sub {
             my $data = shift;
 
-            if ( defined $_[0] ) {
+            if ( @_ ) {
               my $err_msg = shift;
 
               diag( $err_msg );
@@ -532,7 +532,7 @@ sub t_psubunsub_mth2 {
         sub {
           my $data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );

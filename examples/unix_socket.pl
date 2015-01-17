@@ -32,7 +32,7 @@ $timer = AE::timer( 0, 1,
       sub {
         my $data = shift;
 
-        if ( defined $_[0] ) {
+        if ( @_ ) {
           my $err_msg = shift;
 
           warn $err_msg;

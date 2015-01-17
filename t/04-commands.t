@@ -133,7 +133,7 @@ sub t_status_reply_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -141,7 +141,7 @@ sub t_status_reply_mth2 {
         }
       );
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -210,7 +210,7 @@ sub t_numeric_reply_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -286,7 +286,7 @@ sub t_bulk_reply_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -353,7 +353,7 @@ sub t_set_undef_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -410,7 +410,7 @@ sub t_get_undef_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -472,7 +472,7 @@ sub t_set_utf8_string_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -548,7 +548,7 @@ sub t_get_utf8_string_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -616,7 +616,7 @@ sub t_get_non_existent_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             $t_err_msg = shift;
 
             diag( $t_err_msg );
@@ -695,7 +695,7 @@ sub t_mbulk_reply_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -770,7 +770,7 @@ sub t_mbulk_reply_empty_list_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -828,7 +828,7 @@ sub t_mbulk_reply_undef_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             $t_err_msg = shift;
 
             diag( $t_err_msg );
@@ -933,7 +933,7 @@ sub t_nested_mbulk_reply_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             my $err_msg = shift;
 
             diag( $err_msg );
@@ -1025,7 +1025,7 @@ sub t_oprn_error_mth2 {
         sub {
           my $data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             $t_err_msg  = shift;
             $t_err_code = shift;
           }
@@ -1133,7 +1133,7 @@ sub t_error_after_exec_mth2 {
         sub {
           $t_data = shift;
 
-          if ( defined $_[0] ) {
+          if ( @_ ) {
             $t_err_msg  = shift;
             $t_err_code = shift;
           }
