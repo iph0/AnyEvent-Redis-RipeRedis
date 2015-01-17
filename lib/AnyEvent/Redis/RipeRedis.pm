@@ -1152,9 +1152,11 @@ feature
 
   $redis->quit(
     sub {
-      if ( defined $_[1] ) {
-        my $err_msg  = $_[1];
-        my $err_code = $_[2];
+      shift;
+
+      if ( @_ ) {
+        my $err_msg  = shift;
+        my $err_code = shift;
 
         warn "[$err_code] $err_msg\n";
       }
