@@ -132,8 +132,10 @@ $redis->del( qw( foo bar list ),
 # Disconnect
 $redis->quit(
   sub {
-    if ( defined $_[1] ) {
-      my $err_msg = $_[1];
+    shift;
+
+    if ( @_ ) {
+      my $err_msg = shift;
 
       warn "$err_msg\n";
     }

@@ -107,8 +107,10 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->del( 'foo',
           sub {
-            if ( defined $_[1] ) {
-              my $err_msg = $_[1];
+            shift;
+
+            if ( @_ ) {
+              my $err_msg = shift;
 
               diag( $err_msg );
             }
@@ -179,8 +181,10 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->del( 'foo',
           sub {
-            if ( defined $_[1] ) {
-              my $err_msg = $_[1];
+            shift;
+
+            if ( @_ ) {
+              my $err_msg = shift;
 
               diag( $err_msg );
             }
@@ -255,8 +259,10 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->del( 'list',
           sub {
-            if ( defined $_[1] ) {
-              my $err_msg = $_[1];
+            shift;
+
+            if ( @_ ) {
+              my $err_msg = shift;
 
               diag( $err_msg );
             }
@@ -347,8 +353,10 @@ sub t_leaks_nested_mbulk_reply_mth2 {
 
         $redis->del( qw( foo list bar ),
           sub {
-            if ( defined $_[1] ) {
-              my $err_msg = $_[1];
+            shift;
+
+            if ( @_ ) {
+              my $err_msg = shift;
 
               diag( $err_msg );
             }
