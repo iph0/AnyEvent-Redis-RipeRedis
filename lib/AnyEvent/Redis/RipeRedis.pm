@@ -129,28 +129,19 @@ sub new {
   $self->{host}     = $params->{host} || D_HOST;
   $self->{port}     = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
-  unless ( defined $params->{database} ) {
-    $params->{database} = D_DB_INDEX;
-  }
-  $self->{database} = $params->{database};
+  $self->{database} = defined $params->{database} ? $params->{database} : D_DB_INDEX;
   $self->encoding( $params->{encoding} );
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
-  unless ( exists $params->{reconnect} ) {
-    $params->{reconnect} = 1;
-  }
-  $self->{reconnect} = $params->{reconnect};
+  $self->{reconnect} = exists $params->{reconnect} ? $params->{reconnect} : 1;
 
-  my $handle_params = $params->{handle_params};
-  if ( !defined $params->{handle_params} ) {
-    $handle_params = {};
-  }
-  foreach my $p_name ( qw( linger autocork ) ) {
-    if ( !exists $handle_params->{ $p_name } && defined $params->{ $p_name } ) {
-      $handle_params->{ $p_name } = $params->{ $p_name };
+  my $hdl_params = defined $params->{handle_params} ? $params->{handle_params} : {};
+  foreach my $name ( qw( linger autocork ) ) {
+    if ( !exists $hdl_params->{$name} && defined $params->{$name} ) {
+      $hdl_params->{$name} = $params->{$name};
     }
   }
-  $self->{handle_params} = $handle_params;
+  $self->{handle_params} = $hdl_params;
 
   $self->{on_connect}       = $params->{on_connect};
   $self->{on_disconnect}    = $params->{on_disconnect};
@@ -184,7 +175,6 @@ sub multi {
   my $cmd = $self->_prepare_cmd( 'multi', [ @_ ] );
 
   $self->{_multi_lock} = 1;
-
   $self->_execute_cmd( $cmd );
 
   return;
@@ -197,7 +187,6 @@ sub exec {
   my $cmd = $self->_prepare_cmd( 'exec', [ @_ ] );
 
   $self->{_multi_lock} = 0;
-
   $self->_execute_cmd( $cmd );
 
   return;
@@ -327,10 +316,10 @@ sub selected_database {
 {
   no strict 'refs';
 
-  foreach my $attr_pref ( qw( connection read ) ) {
-    my $attr_name = $attr_pref . '_timeout';
+  foreach my $pref ( qw( connection read ) ) {
+    my $name = $pref . '_timeout';
 
-    *{$attr_name} = sub {
+    *{$name} = sub {
       my $self = shift;
 
       if ( @_ ) {
@@ -340,26 +329,26 @@ sub selected_database {
           defined $timeout
             && ( !looks_like_number( $timeout ) || $timeout < 0 )
             ) {
-          croak ucfirst( $attr_pref ) . ' timeout must be a positive number';
+          croak ucfirst( $pref ) . ' timeout must be a positive number';
         }
-        $self->{ $attr_name } = $timeout;
+        $self->{$name} = $timeout;
       }
 
-      return $self->{ $attr_name };
+      return $self->{$name};
     }
   }
 
-  foreach my $attr_name (
+  foreach my $name (
     qw( reconnect on_connect on_disconnect on_connect_error )
       ) {
-    *{$attr_name} = sub {
+    *{$name} = sub {
       my $self = shift;
 
       if ( @_ ) {
-        $self->{ $attr_name } = shift;
+        $self->{$name} = shift;
       }
 
-      return $self->{ $attr_name };
+      return $self->{$name};
     }
   }
 }
@@ -615,7 +604,7 @@ sub _prepare_cmd {
   else {
     $cmd = {};
     if ( ref( $args->[-1] ) eq 'CODE' ) {
-      if ( exists $SUB_CMDS{ $kwd } ) {
+      if ( exists $SUB_CMDS{$kwd} ) {
         $cmd->{on_message} = pop( @{$args} );
       }
       else {
@@ -818,9 +807,11 @@ sub _flush_input_queue {
 
 ####
 sub _process_reply {
-  my $self = shift;
+  my $self     = shift;
+  my $data     = shift;
+  my $err_code = shift;
 
-  if ( defined $_[1] ) {
+  if ( defined $err_code ) {
     my $cmd = shift( @{$self->{_process_queue}} );
 
     unless ( defined $cmd ) {
@@ -830,26 +821,24 @@ sub _process_reply {
       return;
     }
 
-    $self->_process_cmd_error( $cmd, ref( $_[0] )
-        ? ( "Operation '$cmd->{kwd}' completed with errors.", @_[ 1, 0 ] )
-        : @_ );
+    $self->_process_cmd_error( $cmd, ref( $data )
+        ? ( "Operation '$cmd->{kwd}' completed with errors.", $err_code, $data )
+        : $data, $err_code );
   }
   elsif (
-    $self->{_subs_num} > 0 && ref( $_[0] )
-      && exists $MSG_TYPES{ $_[0][0] }
+    $self->{_subs_num} > 0 && ref( $data )
+      && exists $MSG_TYPES{ $data->[0] }
       ) {
-    my $msg    = $_[0];
-    my $on_msg = $self->{_subs}{ $msg->[1] };
+    my $on_msg = $self->{_subs}{ $data->[1] };
 
     unless ( defined $on_msg ) {
       $self->_disconnect( "Don't known how process published message."
-          . " Unknown channel or pattern '$msg->[1]'.", E_UNEXPECTED_DATA );
+          . " Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
 
       return;
     }
 
-    $on_msg->( $msg->[0] eq 'pmessage' ? @{$msg}[ 2, 3, 1 ]
-        : @{$msg}[ 1, 2 ] );
+    $on_msg->( $data->[0] eq 'pmessage' ? @{$data}[ 2, 3, 1 ] : @{$data}[ 1, 2 ] );
   }
   else {
     my $cmd = $self->{_process_queue}[0];
@@ -864,8 +853,7 @@ sub _process_reply {
     if ( !defined $cmd->{repls_left} || --$cmd->{repls_left} <= 0 ) {
       shift( @{$self->{_process_queue}} );
     }
-
-    $self->_process_cmd_success( $cmd, $_[0] );
+    $self->_process_cmd_success( $cmd, $data );
   }
 
   return;
@@ -907,10 +895,10 @@ sub _process_cmd_success {
   if ( exists $NEED_SPECPROC{ $cmd->{kwd} } ) {
     my $kwd = $cmd->{kwd};
 
-    if ( exists $SUBUNSUB_CMDS{ $kwd } ) {
+    if ( exists $SUBUNSUB_CMDS{$kwd} ) {
       shift( @{$data} );
 
-      if ( exists $SUB_CMDS{ $kwd } ) {
+      if ( exists $SUB_CMDS{$kwd} ) {
         $self->{_subs}{ $data->[0] } = $cmd->{on_message};
       }
       else { # unsubscribe or punsubscribe
@@ -942,8 +930,7 @@ sub _process_cmd_success {
 
 ####
 sub _parse_info {
-  return { map { split( m/:/, $_, 2 ) } grep( m/^[^#]/ ,
-      split( EOL, $_[1] ) ) };
+  return { map { split( m/:/, $_, 2 ) } grep( m/^[^#]/, split( EOL, $_[1] ) ) };
 }
 
 ####
