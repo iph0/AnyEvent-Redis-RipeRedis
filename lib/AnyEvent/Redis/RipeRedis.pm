@@ -126,16 +126,17 @@ sub new {
 
   my $self = ref( $proto ) ? $proto : bless {}, $proto;
 
-  $self->{host}     = $params->{host} || D_HOST;
-  $self->{port}     = $params->{port} || D_PORT;
+  $self->{host} = $params->{host} || D_HOST;
+  $self->{port} = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
-  $self->{database} = defined $params->{database} ? $params->{database} : D_DB_INDEX;
+  $self->{database} = defined $params->{database} ? $params->{database}
+      : D_DB_INDEX;
   $self->encoding( $params->{encoding} );
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
   $self->{reconnect} = exists $params->{reconnect} ? $params->{reconnect} : 1;
 
-  my $hdl_params = defined $params->{handle_params} ? $params->{handle_params} : {};
+  my $hdl_params = $params->{handle_params} || {};
   foreach my $name ( qw( linger autocork ) ) {
     if ( !exists $hdl_params->{$name} && defined $params->{$name} ) {
       $hdl_params->{$name} = $params->{$name};
@@ -175,6 +176,7 @@ sub multi {
   my $cmd = $self->_prepare_cmd( 'multi', [ @_ ] );
 
   $self->{_multi_lock} = 1;
+
   $self->_execute_cmd( $cmd );
 
   return;
@@ -187,51 +189,8 @@ sub exec {
   my $cmd = $self->_prepare_cmd( 'exec', [ @_ ] );
 
   $self->{_multi_lock} = 0;
+
   $self->_execute_cmd( $cmd );
-
-  return;
-}
-
-####
-sub subscribe {
-  my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'subscribe', [ @_ ] );
-
-  $self->_subunsub( $cmd );
-
-  return;
-}
-
-####
-sub psubscribe {
-  my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'psubscribe', [ @_ ] );
-
-  $self->_subunsub( $cmd );
-
-  return;
-}
-
-####
-sub unsubscribe {
-  my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'unsubscribe', [ @_ ] );
-
-  $self->_subunsub( $cmd );
-
-  return;
-}
-
-####
-sub punsubscribe {
-  my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'punsubscribe', [ @_ ] );
-
-  $self->_subunsub( $cmd );
 
   return;
 }
@@ -271,6 +230,7 @@ sub encoding {
 
     if ( defined $enc ) {
       $self->{encoding} = find_encoding( $enc );
+
       unless ( defined $self->{encoding} ) {
         croak "Encoding '$enc' not found";
       }
@@ -312,43 +272,50 @@ sub selected_database {
   return $self->{database};
 }
 
-# Create more accessors
+# Generate methods and accessors
 {
   no strict 'refs';
 
-  foreach my $pref ( qw( connection read ) ) {
-    my $name = $pref . '_timeout';
+  foreach my $kwd ( qw( subscribe psubscribe unsubscribe punsubscribe ) ) {
+    *{$kwd} = sub {
+      my $self = shift;
 
-    *{$name} = sub {
+      my $cmd = $self->_prepare_cmd( $kwd, [ @_ ] );
+
+      $self->_subunsub( $cmd );
+
+      return;
+    },
+  }
+
+  foreach my $kwd ( qw( connection read ) ) {
+    my $attr = $kwd . '_timeout';
+
+    *{$attr} = sub {
       my $self = shift;
 
       if ( @_ ) {
         my $timeout = shift;
 
-        if (
-          defined $timeout
-            && ( !looks_like_number( $timeout ) || $timeout < 0 )
-            ) {
-          croak ucfirst( $pref ) . ' timeout must be a positive number';
+        if ( defined $timeout && ( !looks_like_number( $timeout ) || $timeout < 0 ) ) {
+          croak ucfirst( $kwd ) . ' timeout must be a positive number';
         }
-        $self->{$name} = $timeout;
+        $self->{$attr} = $timeout;
       }
 
-      return $self->{$name};
+      return $self->{$attr};
     }
   }
 
-  foreach my $name (
-    qw( reconnect on_connect on_disconnect on_connect_error )
-      ) {
-    *{$name} = sub {
+  foreach my $attr ( qw( reconnect on_connect on_disconnect on_connect_error ) ) {
+    *{$attr} = sub {
       my $self = shift;
 
       if ( @_ ) {
-        $self->{$name} = shift;
+        $self->{$attr} = shift;
       }
 
-      return $self->{$name};
+      return $self->{$attr};
     }
   }
 }
@@ -599,16 +566,16 @@ sub _prepare_cmd {
 
   my $cmd;
   if ( ref( $args->[-1] ) eq 'HASH' ) {
-    $cmd = pop( @{$args} );
+    $cmd = pop @{$args};
   }
   else {
     $cmd = {};
     if ( ref( $args->[-1] ) eq 'CODE' ) {
       if ( exists $SUB_CMDS{$kwd} ) {
-        $cmd->{on_message} = pop( @{$args} );
+        $cmd->{on_message} = pop @{$args};
       }
       else {
-        $cmd->{on_reply} = pop( @{$args} );
+        $cmd->{on_reply} = pop @{$args};
       }
     }
   }
@@ -640,13 +607,13 @@ sub _subunsub {
     return;
   }
 
-  $cmd->{repls_left} = scalar( @{$cmd->{args}} );
+  $cmd->{repls_left} = scalar @{ $cmd->{args} };
 
   if ( defined $cmd->{on_done} ) {
     my $on_done = $cmd->{on_done};
 
     $cmd->{on_done} = sub {
-      $on_done->( @{$_[0]} );
+      $on_done->( @{ $_[0] } );
     }
   }
 
@@ -796,9 +763,10 @@ sub _select_db {
 sub _flush_input_queue {
   my $self = shift;
 
-  $self->{_tmp_queue} = $self->{_input_queue};
+  $self->{_tmp_queue}   = $self->{_input_queue};
   $self->{_input_queue} = [];
-  while ( my $cmd = shift( @{$self->{_tmp_queue}} ) ) {
+
+  while ( my $cmd = shift @{ $self->{_tmp_queue} } ) {
     $self->_push_write( $cmd );
   }
 
@@ -812,7 +780,7 @@ sub _process_reply {
   my $err_code = shift;
 
   if ( defined $err_code ) {
-    my $cmd = shift( @{$self->{_process_queue}} );
+    my $cmd = shift @{$self->{_process_queue}};
 
     unless ( defined $cmd ) {
       $self->_disconnect( "Don't known how process error."
@@ -825,10 +793,7 @@ sub _process_reply {
         ? ( "Operation '$cmd->{kwd}' completed with errors.", $err_code, $data )
         : $data, $err_code );
   }
-  elsif (
-    $self->{_subs_num} > 0 && ref( $data )
-      && exists $MSG_TYPES{ $data->[0] }
-      ) {
+  elsif ( $self->{_subs_num} > 0 && ref( $data ) && exists $MSG_TYPES{ $data->[0] } ) {
     my $on_msg = $self->{_subs}{ $data->[1] };
 
     unless ( defined $on_msg ) {
@@ -851,7 +816,7 @@ sub _process_reply {
     }
 
     if ( !defined $cmd->{repls_left} || --$cmd->{repls_left} <= 0 ) {
-      shift( @{$self->{_process_queue}} );
+      shift @{$self->{_process_queue}};
     }
     $self->_process_cmd_success( $cmd, $data );
   }
@@ -865,7 +830,7 @@ sub _process_cmd_error {
   my $cmd  = shift;
 
   if ( $_[1] == E_NO_SCRIPT && defined $cmd->{script} ) {
-    $cmd->{kwd}     = 'eval';
+    $cmd->{kwd} = 'eval';
     $cmd->{args}[0] = $cmd->{script};
 
     $self->_push_write( $cmd );
@@ -896,13 +861,13 @@ sub _process_cmd_success {
     my $kwd = $cmd->{kwd};
 
     if ( exists $SUBUNSUB_CMDS{$kwd} ) {
-      shift( @{$data} );
+      shift @{$data};
 
       if ( exists $SUB_CMDS{$kwd} ) {
         $self->{_subs}{ $data->[0] } = $cmd->{on_message};
       }
       else { # unsubscribe or punsubscribe
-        delete( $self->{_subs}{ $data->[0] } );
+        delete $self->{_subs}{ $data->[0] };
       }
 
       $self->{_subs_num} = $data->[1];
@@ -930,7 +895,10 @@ sub _process_cmd_success {
 
 ####
 sub _parse_info {
-  return { map { split( m/:/, $_, 2 ) } grep( m/^[^#]/, split( EOL, $_[1] ) ) };
+  return {
+    map { split( m/:/, $_, 2 ) }
+    grep { m/^[^#]/ } split( EOL, $_[1] )
+  };
 }
 
 ####
@@ -989,8 +957,8 @@ sub _abort_all {
     }
 
     foreach my $cmd ( @unfin_cmds ) {
-      $self->_process_cmd_error( $cmd,
-          "Operation '$cmd->{kwd}' aborted: $err_msg", $err_code );
+      $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted: $err_msg",
+          $err_code );
     }
   }
 
