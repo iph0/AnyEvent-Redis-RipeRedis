@@ -37,6 +37,7 @@ BEGIN {
     E_NO_AUTH
     E_WRONG_TYPE
     E_NO_REPLICAS
+    E_BUSY_KEY
   );
 
   our %EXPORT_TAGS = (
@@ -70,6 +71,7 @@ use constant {
   E_NO_AUTH                    => 19,
   E_WRONG_TYPE                 => 20,
   E_NO_REPLICAS                => 21,
+  E_BUSY_KEY                   => 22,
 
   # Operation status
   S_NEED_PERFORM => 1,
@@ -172,8 +174,7 @@ sub new {
 ####
 sub multi {
   my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'multi', [ @_ ] );
+  my $cmd  = $self->_prepare_cmd( 'multi', [ @_ ] );
 
   $self->{_multi_lock} = 1;
 
@@ -185,8 +186,7 @@ sub multi {
 ####
 sub exec {
   my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'exec', [ @_ ] );
+  my $cmd  = $self->_prepare_cmd( 'exec', [ @_ ] );
 
   $self->{_multi_lock} = 0;
 
@@ -198,8 +198,7 @@ sub exec {
 ####
 sub eval_cached {
   my $self = shift;
-
-  my $cmd = $self->_prepare_cmd( 'evalsha', [ @_ ] );
+  my $cmd  = $self->_prepare_cmd( 'evalsha', [ @_ ] );
 
   $cmd->{script} = $cmd->{args}[0];
   unless ( exists $EVAL_CACHE{ $cmd->{script} } ) {
@@ -276,11 +275,10 @@ sub selected_database {
 {
   no strict 'refs';
 
-  foreach my $kwd ( qw( subscribe psubscribe unsubscribe punsubscribe ) ) {
+  foreach my $kwd ( keys %SUBUNSUB_CMDS ) {
     *{$kwd} = sub {
       my $self = shift;
-
-      my $cmd = $self->_prepare_cmd( $kwd, [ @_ ] );
+      my $cmd  = $self->_prepare_cmd( $kwd, [ @_ ] );
 
       $self->_subunsub( $cmd );
 
@@ -288,8 +286,8 @@ sub selected_database {
     },
   }
 
-  foreach my $kwd ( qw( connection read ) ) {
-    my $attr = $kwd . '_timeout';
+  foreach my $attr_pref ( qw( connection read ) ) {
+    my $attr = $attr_pref . '_timeout';
 
     *{$attr} = sub {
       my $self = shift;
@@ -298,7 +296,7 @@ sub selected_database {
         my $timeout = shift;
 
         if ( defined $timeout && ( !looks_like_number( $timeout ) || $timeout < 0 ) ) {
-          croak ucfirst( $kwd ) . ' timeout must be a positive number';
+          croak ucfirst( $attr_pref ) . ' timeout must be a positive number';
         }
         $self->{$attr} = $timeout;
       }
@@ -692,6 +690,7 @@ sub _push_write {
     $handle->rtimeout( $self->{read_timeout} );
   }
   push( @{$self->{_process_queue}}, $cmd );
+
   $handle->push_write( $cmd_str );
 
   return;
@@ -974,8 +973,7 @@ sub AUTOLOAD {
 
   my $sub = sub {
     my $self = shift;
-
-    my $cmd = $self->_prepare_cmd( $kwd, [ @_ ] );
+    my $cmd  = $self->_prepare_cmd( $kwd, [ @_ ] );
 
     $self->_execute_cmd( $cmd );
 
@@ -2055,6 +2053,10 @@ Operation against a key holding the wrong kind of value.
 =item E_NO_REPLICAS
 
 Not enough good slaves to write.
+
+=item E_BUSY_KEY
+
+Target key name already exists.
 
 =back
 
