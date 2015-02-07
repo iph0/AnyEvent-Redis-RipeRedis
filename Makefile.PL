@@ -18,9 +18,11 @@ WriteMakefile(
   },
   BUILD_REQUIRES => {
     'Test::More'        => 0.98,
-    'Test::RedisServer' => 0.14,
     'Test::TCP'         => 2.02,
     'Test::Fatal'       => 0.013,
+    'Time::HiRes'       => 0,
+    'File::Temp'        => 0,
+    'POSIX'             => 0,
     version             => 0.77,
   },
   META_MERGE => {
