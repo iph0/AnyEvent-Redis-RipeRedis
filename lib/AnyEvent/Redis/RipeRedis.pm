@@ -128,11 +128,10 @@ sub new {
 
   my $self = ref( $proto ) ? $proto : bless {}, $proto;
 
-  $self->{host} = $params->{host} || D_HOST;
-  $self->{port} = $params->{port} || D_PORT;
+  $self->{host}     = $params->{host} || D_HOST;
+  $self->{port}     = $params->{port} || D_PORT;
   $self->{password} = $params->{password};
-  $self->{database} = defined $params->{database} ? $params->{database}
-      : D_DB_INDEX;
+  $self->{database} = defined $params->{database} ? $params->{database} : D_DB_INDEX;
   $self->encoding( $params->{encoding} );
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
