@@ -5,7 +5,7 @@ use warnings;
 use lib 't/tlib';
 
 use Test::More;
-use Test::RedisServer::Summoner;
+use Test::RedisRunner;
 use AnyEvent;
 use version 0.77;
 
@@ -14,7 +14,7 @@ sub run_redis_instance {
   my %params = @_;
 
   my $redis_server = eval {
-    return Test::RedisServer::Summoner->new(
+    return Test::RedisRunner->new(
       conf => \%params,
     );
   };

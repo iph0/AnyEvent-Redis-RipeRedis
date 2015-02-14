@@ -128,14 +128,21 @@ sub new {
 
   my $self = ref( $proto ) ? $proto : bless {}, $proto;
 
-  $self->{host}     = $params->{host} || D_HOST;
-  $self->{port}     = $params->{port} || D_PORT;
-  $self->{password} = $params->{password};
-  $self->{database} = defined $params->{database} ? $params->{database} : D_DB_INDEX;
+  $self->{host}             = $params->{host} || D_HOST;
+  $self->{port}             = $params->{port} || D_PORT;
+  $self->{password}         = $params->{password};
+  $self->{on_connect}       = $params->{on_connect};
+  $self->{on_disconnect}    = $params->{on_disconnect};
+  $self->{on_connect_error} = $params->{on_connect_error};
+  $self->{database}         = defined $params->{database}
+      ? $params->{database} : D_DB_INDEX;
+  $self->{reconnect}        = exists $params->{reconnect}
+      ? $params->{reconnect} : 1;
+
   $self->encoding( $params->{encoding} );
   $self->connection_timeout( $params->{connection_timeout} );
   $self->read_timeout( $params->{read_timeout} );
-  $self->{reconnect} = exists $params->{reconnect} ? $params->{reconnect} : 1;
+  $self->on_error( $params->{on_error} );
 
   my $hdl_params = $params->{handle_params} || {};
   foreach my $name ( qw( linger autocork ) ) {
@@ -144,11 +151,6 @@ sub new {
     }
   }
   $self->{handle_params} = $hdl_params;
-
-  $self->{on_connect}       = $params->{on_connect};
-  $self->{on_disconnect}    = $params->{on_disconnect};
-  $self->{on_connect_error} = $params->{on_connect_error};
-  $self->on_error( $params->{on_error} );
 
   $self->{_handle}         = undef;
   $self->{_connected}      = 0;
@@ -176,7 +178,6 @@ sub multi {
   my $cmd  = $self->_prepare_cmd( 'multi', [ @_ ] );
 
   $self->{_multi_lock} = 1;
-
   $self->_execute_cmd( $cmd );
 
   return;
@@ -188,7 +189,6 @@ sub exec {
   my $cmd  = $self->_prepare_cmd( 'exec', [ @_ ] );
 
   $self->{_multi_lock} = 0;
-
   $self->_execute_cmd( $cmd );
 
   return;
@@ -270,7 +270,7 @@ sub selected_database {
   return $self->{database};
 }
 
-# Generate methods and accessors
+# Generate additional methods and accessors
 {
   no strict 'refs';
 
@@ -285,34 +285,34 @@ sub selected_database {
     },
   }
 
-  foreach my $attr_pref ( qw( connection read ) ) {
-    my $attr = $attr_pref . '_timeout';
+  foreach my $name_pref ( qw( connection read ) ) {
+    my $name = $name_pref . '_timeout';
 
-    *{$attr} = sub {
+    *{$name} = sub {
       my $self = shift;
 
       if ( @_ ) {
         my $timeout = shift;
 
         if ( defined $timeout && ( !looks_like_number( $timeout ) || $timeout < 0 ) ) {
-          croak ucfirst( $attr_pref ) . ' timeout must be a positive number';
+          croak ucfirst( $name_pref ) . ' timeout must be a positive number';
         }
-        $self->{$attr} = $timeout;
+        $self->{$name} = $timeout;
       }
 
-      return $self->{$attr};
+      return $self->{$name};
     }
   }
 
-  foreach my $attr ( qw( reconnect on_connect on_disconnect on_connect_error ) ) {
-    *{$attr} = sub {
+  foreach my $name ( qw( reconnect on_connect on_disconnect on_connect_error ) ) {
+    *{$name} = sub {
       my $self = shift;
 
       if ( @_ ) {
-        $self->{$attr} = shift;
+        $self->{$name} = shift;
       }
 
-      return $self->{$attr};
+      return $self->{$name};
     }
   }
 }
@@ -647,9 +647,8 @@ sub _execute_cmd {
     else {
       AE::postpone(
         sub {
-          $self->_process_cmd_error( $cmd,
-              "Operation '$cmd->{kwd}' aborted: No connection to the server.",
-              E_NO_CONN );
+          $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted:"
+              . ' No connection to the server.', E_NO_CONN );
         }
       );
 
@@ -828,8 +827,8 @@ sub _process_cmd_error {
   my $cmd  = shift;
 
   if ( $_[1] == E_NO_SCRIPT && defined $cmd->{script} ) {
-    $cmd->{kwd} = 'eval';
-    $cmd->{args}[0] = $cmd->{script};
+    $cmd->{kwd}     = 'eval';
+    $cmd->{args}[0] = delete $cmd->{script};
 
     $self->_push_write( $cmd );
 
@@ -955,8 +954,8 @@ sub _abort_all {
     }
 
     foreach my $cmd ( @unfin_cmds ) {
-      $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted: $err_msg",
-          $err_code );
+      $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted: "
+          . $err_msg, $err_code );
     }
   }
 
