@@ -2,7 +2,7 @@ use 5.008000;
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 20;
 use AnyEvent::Redis::RipeRedis qw( :err_codes );
 
 is( E_CANT_CONN, 1, 'E_CANT_CONN' );
@@ -24,3 +24,4 @@ is( E_EXEC_ABORT, 18, 'E_EXEC_ABORT' );
 is( E_NO_AUTH, 19, 'E_NO_AUTH' );
 is( E_WRONG_TYPE, 20, 'E_WRONG_TYPE' );
 is( E_NO_REPLICAS, 21, 'E_NO_REPLICAS' );
+is( E_BUSY_KEY, 22, 'E_BUSY_KEY' );
