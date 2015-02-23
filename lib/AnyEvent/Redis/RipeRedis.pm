@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.45_01';
+our $VERSION = '1.45_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -124,37 +124,35 @@ my %EVAL_CACHE;
 # Constructor
 sub new {
   my $proto  = shift;
-  my $params = { @_ };
+  my %params = @_;
 
   my $self = ref( $proto ) ? $proto : bless {}, $proto;
 
-  $self->{host}             = $params->{host} || D_HOST;
-  $self->{port}             = $params->{port} || D_PORT;
-  $self->{password}         = $params->{password};
-  $self->{on_connect}       = $params->{on_connect};
-  $self->{on_disconnect}    = $params->{on_disconnect};
-  $self->{on_connect_error} = $params->{on_connect_error};
-  $self->{database}         = defined $params->{database}
-      ? $params->{database} : D_DB_INDEX;
-  $self->{reconnect}        = exists $params->{reconnect}
-      ? $params->{reconnect} : 1;
+  $self->{host}      = $params{host} || D_HOST;
+  $self->{port}      = $params{port} || D_PORT;
+  $self->{password}  = $params{password};
+  $self->{database}  = defined $params{database} ? $params{database} : D_DB_INDEX;
+  $self->{reconnect} = exists $params{reconnect} ? $params{reconnect} : 1;
+  $self->{on_connect}       = $params{on_connect};
+  $self->{on_disconnect}    = $params{on_disconnect};
+  $self->{on_connect_error} = $params{on_connect_error};
 
-  $self->encoding( $params->{encoding} );
-  $self->connection_timeout( $params->{connection_timeout} );
-  $self->read_timeout( $params->{read_timeout} );
-  $self->on_error( $params->{on_error} );
+  $self->encoding( $params{encoding} );
+  $self->connection_timeout( $params{connection_timeout} );
+  $self->read_timeout( $params{read_timeout} );
+  $self->on_error( $params{on_error} );
 
-  my $hdl_params = $params->{handle_params} || {};
+  my $hdl_params = $params{handle_params} || {};
   foreach my $name ( qw( linger autocork ) ) {
-    if ( !exists $hdl_params->{$name} && defined $params->{$name} ) {
-      $hdl_params->{$name} = $params->{$name};
+    if ( !exists $hdl_params->{$name} && defined $params{$name} ) {
+      $hdl_params->{$name} = $params{$name};
     }
   }
   $self->{handle_params} = $hdl_params;
 
   $self->{_handle}         = undef;
   $self->{_connected}      = 0;
-  $self->{_lazy_conn_st}   = $params->{lazy};
+  $self->{_lazy_conn_st}   = $params{lazy};
   $self->{_auth_st}        = S_NEED_PERFORM;
   $self->{_select_db_st}   = S_NEED_PERFORM;
   $self->{_ready_to_write} = 0;

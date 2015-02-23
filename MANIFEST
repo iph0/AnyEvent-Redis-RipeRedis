@@ -5,7 +5,7 @@ examples/subs.pl
 examples/unix_socket.pl
 lib/AnyEvent/Redis/RipeRedis.pm
 Makefile.PL
-MANIFEST			This list of files
+MANIFEST
 README
 t/00-base.t
 t/01-accessors.t
@@ -22,3 +22,4 @@ t/11-leaks.t
 t/12-pod.t
 t/13-pod-coverage.t
 t/test_helper.pl
+t/tlib/Test/RedisRunner.pm
