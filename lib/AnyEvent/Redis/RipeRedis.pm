@@ -432,7 +432,7 @@ sub _get_on_rtimeout {
   weaken( $self );
 
   return sub {
-    if ( @{$self->{_process_queue}} ) {
+    if ( @{ $self->{_process_queue} } ) {
       $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
     }
     else {
@@ -542,8 +542,8 @@ sub _get_on_read {
           elsif ( $type eq '-' ) {
             $err_code = E_OPRN_ERROR;
             if ( $data =~ m/^([A-Z]{3,}) / ) {
-              if ( exists $ERR_PREFS_MAP{ $1 } ) {
-                $err_code = $ERR_PREFS_MAP{ $1 };
+              if ( exists $ERR_PREFS_MAP{$1} ) {
+                $err_code = $ERR_PREFS_MAP{$1};
               }
             }
           }
@@ -564,7 +564,7 @@ sub _get_on_read {
           }
           $curr_buf->{err_code} = E_OPRN_ERROR;
         }
-        push( @{$curr_buf->{data}}, $data );
+        push( @{ $curr_buf->{data} }, $data );
         if ( --$curr_buf->{chunks_cnt} > 0 ) {
           next MAIN;
         }
@@ -645,7 +645,7 @@ sub _execute_cmd {
       return;
     }
 
-    push( @{$self->{_input_queue}}, $cmd );
+    push( @{ $self->{_input_queue} }, $cmd );
 
     return;
   }
@@ -661,7 +661,7 @@ sub _push_write {
   my $cmd  = shift;
 
   my $cmd_str = '';
-  foreach my $token ( $cmd->{kwd}, @{$cmd->{args}} ) {
+  foreach my $token ( $cmd->{kwd}, @{ $cmd->{args} } ) {
     unless ( defined $token ) {
       $token = '';
     }
@@ -670,14 +670,14 @@ sub _push_write {
     }
     $cmd_str .= '$' . length( $token ) . EOL . $token . EOL;
   }
-  $cmd_str = '*' . ( scalar( @{$cmd->{args}} ) + 1 ) . EOL . $cmd_str;
+  $cmd_str = '*' . ( scalar( @{ $cmd->{args} } ) + 1 ) . EOL . $cmd_str;
 
   my $handle = $self->{_handle};
-  if ( defined $self->{read_timeout} && !@{$self->{_process_queue}} ) {
+  if ( defined $self->{read_timeout} && !@{ $self->{_process_queue} } ) {
     $handle->rtimeout_reset();
     $handle->rtimeout( $self->{read_timeout} );
   }
-  push( @{$self->{_process_queue}}, $cmd );
+  push( @{ $self->{_process_queue} }, $cmd );
 
   $handle->push_write( $cmd_str );
 
@@ -767,7 +767,7 @@ sub _process_reply {
   my $err_code = shift;
 
   if ( defined $err_code ) {
-    my $cmd = shift @{$self->{_process_queue}};
+    my $cmd = shift @{ $self->{_process_queue} };
 
     unless ( defined $cmd ) {
       $self->_disconnect( "Don't known how process error message."
@@ -803,7 +803,7 @@ sub _process_reply {
     }
 
     if ( !defined $cmd->{replies_cnt} || --$cmd->{replies_cnt} <= 0 ) {
-      shift @{$self->{_process_queue}};
+      shift @{ $self->{_process_queue} };
     }
     $self->_process_cmd_success( $cmd, $data );
   }
@@ -920,9 +920,9 @@ sub _abort_all {
   my $err_code = shift;
 
   my @unfin_cmds = (
-    @{$self->{_process_queue}},
-    @{$self->{_tmp_queue}},
-    @{$self->{_input_queue}},
+    @{ $self->{_process_queue} },
+    @{ $self->{_tmp_queue} },
+    @{ $self->{_input_queue} },
   );
 
   $self->{_input_queue}   = [];
@@ -982,9 +982,9 @@ sub DESTROY {
 
   if ( defined $self->{_handle} ) {
     my @unfin_cmds = (
-      @{$self->{_process_queue}},
-      @{$self->{_tmp_queue}},
-      @{$self->{_input_queue}},
+      @{ $self->{_process_queue} },
+      @{ $self->{_tmp_queue} },
+      @{ $self->{_input_queue} },
     );
 
     foreach my $cmd ( @unfin_cmds ) {
