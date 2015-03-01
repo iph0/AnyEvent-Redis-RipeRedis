@@ -296,7 +296,7 @@ sub selected_database {
         return;
       }
 
-      $cmd->{replies_left} = scalar @{ $cmd->{args} };
+      $cmd->{replies_cnt} = scalar @{ $cmd->{args} };
 
       if ( defined $cmd->{on_done} ) {
         my $on_done = $cmd->{on_done};
@@ -523,9 +523,9 @@ sub _get_on_read {
           elsif ( $type eq '*' ) {
             if ( $data > 0 ) {
               push( @bufs,
-                { data        => [],
-                  err_code    => undef,
-                  chunks_left => $data,
+                { data       => [],
+                  err_code   => undef,
+                  chunks_cnt => $data,
                 }
               );
               $bufs_num++;
@@ -565,7 +565,7 @@ sub _get_on_read {
           $curr_buf->{err_code} = E_OPRN_ERROR;
         }
         push( @{$curr_buf->{data}}, $data );
-        if ( --$curr_buf->{chunks_left} > 0 ) {
+        if ( --$curr_buf->{chunks_cnt} > 0 ) {
           next MAIN;
         }
 
@@ -802,7 +802,7 @@ sub _process_reply {
       return;
     }
 
-    if ( !defined $cmd->{replies_left} || --$cmd->{replies_left} <= 0 ) {
+    if ( !defined $cmd->{replies_cnt} || --$cmd->{replies_cnt} <= 0 ) {
       shift @{$self->{_process_queue}};
     }
     $self->_process_cmd_success( $cmd, $data );
