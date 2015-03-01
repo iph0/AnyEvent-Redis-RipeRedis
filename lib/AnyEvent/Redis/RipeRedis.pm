@@ -731,7 +731,7 @@ sub _select_db {
       args => [ $self->{database} ],
 
       on_done => sub {
-        $self->{_select_db_st} = S_IS_DONE;
+        $self->{_select_db_st}   = S_IS_DONE;
         $self->{_ready_to_write} = 1;
         $self->_flush_input_queue();
       },
