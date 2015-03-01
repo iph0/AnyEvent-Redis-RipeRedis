@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.45_02';
+our $VERSION = '1.45_03';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -92,7 +92,8 @@ my %SUBUNSUB_CMDS = (
   unsubscribe  => 1,
   punsubscribe => 1,
 );
-my %NEED_SPECPROC = (
+
+my %NEED_POSTPROCESS = (
   %SUBUNSUB_CMDS,
   info   => 1,
   select => 1,
@@ -116,6 +117,7 @@ my %ERR_PREFS_MAP = (
   NOAUTH     => E_NO_AUTH,
   WRONGTYPE  => E_WRONG_TYPE,
   NOREPLICAS => E_NO_REPLICAS,
+  BUSYKEY    => E_BUSY_KEY,
 );
 
 my %EVAL_CACHE;
@@ -159,7 +161,7 @@ sub new {
   $self->{_input_queue}    = [];
   $self->{_tmp_queue}      = [];
   $self->{_process_queue}  = [];
-  $self->{_multi_lock}     = 0;
+  $self->{_txn_lock}       = 0;
   $self->{_subs}           = {};
   $self->{_subs_num}       = 0;
 
@@ -175,7 +177,7 @@ sub multi {
   my $self = shift;
   my $cmd  = $self->_prepare_cmd( 'multi', [ @_ ] );
 
-  $self->{_multi_lock} = 1;
+  $self->{_txn_lock} = 1;
   $self->_execute_cmd( $cmd );
 
   return;
@@ -186,7 +188,7 @@ sub exec {
   my $self = shift;
   my $cmd  = $self->_prepare_cmd( 'exec', [ @_ ] );
 
-  $self->{_multi_lock} = 0;
+  $self->{_txn_lock} = 0;
   $self->_execute_cmd( $cmd );
 
   return;
@@ -277,7 +279,34 @@ sub selected_database {
       my $self = shift;
       my $cmd  = $self->_prepare_cmd( $kwd, [ @_ ] );
 
-      $self->_subunsub( $cmd );
+      if ( exists $SUB_CMDS{ $cmd->{kwd} } && !defined $cmd->{on_message} ) {
+        croak "'on_message' callback must be specified";
+      }
+
+      if ( $self->{_txn_lock} ) {
+        AE::postpone(
+          sub {
+            $self->_process_cmd_error( $cmd,
+                "Command '$cmd->{kwd}' not allowed after 'multi' command."
+                    . ' First, the transaction must be finalized.',
+                E_OPRN_ERROR );
+          }
+        );
+
+        return;
+      }
+
+      $cmd->{replies_left} = scalar @{ $cmd->{args} };
+
+      if ( defined $cmd->{on_done} ) {
+        my $on_done = $cmd->{on_done};
+
+        $cmd->{on_done} = sub {
+          $on_done->( @{ $_[0] } );
+        }
+      }
+
+      $self->_execute_cmd( $cmd );
 
       return;
     },
@@ -581,43 +610,6 @@ sub _prepare_cmd {
 }
 
 ####
-sub _subunsub {
-  my $self = shift;
-  my $cmd  = shift;
-
-  if ( exists $SUB_CMDS{ $cmd->{kwd} } && !defined $cmd->{on_message} ) {
-    croak "'on_message' callback must be specified";
-  }
-
-  if ( $self->{_multi_lock} ) {
-    AE::postpone(
-      sub {
-        $self->_process_cmd_error( $cmd,
-            "Command '$cmd->{kwd}' not allowed after 'multi' command."
-                . ' First, the transaction must be finalized.',
-            E_OPRN_ERROR );
-      }
-    );
-
-    return;
-  }
-
-  $cmd->{repls_left} = scalar @{ $cmd->{args} };
-
-  if ( defined $cmd->{on_done} ) {
-    my $on_done = $cmd->{on_done};
-
-    $cmd->{on_done} = sub {
-      $on_done->( @{ $_[0] } );
-    }
-  }
-
-  $self->_execute_cmd( $cmd );
-
-  return;
-}
-
-####
 sub _execute_cmd {
   my $self = shift;
   my $cmd  = shift;
@@ -778,7 +770,7 @@ sub _process_reply {
     my $cmd = shift @{$self->{_process_queue}};
 
     unless ( defined $cmd ) {
-      $self->_disconnect( "Don't known how process error."
+      $self->_disconnect( "Don't known how process error message."
           . ' Processing queue is empty.', E_UNEXPECTED_DATA );
 
       return;
@@ -810,7 +802,7 @@ sub _process_reply {
       return;
     }
 
-    if ( !defined $cmd->{repls_left} || --$cmd->{repls_left} <= 0 ) {
+    if ( !defined $cmd->{replies_left} || --$cmd->{replies_left} <= 0 ) {
       shift @{$self->{_process_queue}};
     }
     $self->_process_cmd_success( $cmd, $data );
@@ -852,7 +844,7 @@ sub _process_cmd_success {
   my $cmd  = shift;
   my $data = shift;
 
-  if ( exists $NEED_SPECPROC{ $cmd->{kwd} } ) {
+  if ( exists $NEED_POSTPROCESS{ $cmd->{kwd} } ) {
     my $kwd = $cmd->{kwd};
 
     if ( exists $SUBUNSUB_CMDS{$kwd} ) {
@@ -910,7 +902,7 @@ sub _disconnect {
   $self->{_auth_st}        = S_NEED_PERFORM;
   $self->{_select_db_st}   = S_NEED_PERFORM;
   $self->{_ready_to_write} = 0;
-  $self->{_multi_lock}     = 0;
+  $self->{_txn_lock}       = 0;
 
   $self->_abort_all( @_ );
 
