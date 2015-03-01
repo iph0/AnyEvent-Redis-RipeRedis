@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.45_03';
+our $VERSION = '1.45_04';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -770,7 +770,7 @@ sub _process_reply {
     my $cmd = shift @{ $self->{_process_queue} };
 
     unless ( defined $cmd ) {
-      $self->_disconnect( "Don't known how process error message."
+      $self->_disconnect( "Don't know how process error message."
           . ' Processing queue is empty.', E_UNEXPECTED_DATA );
 
       return;
@@ -784,7 +784,7 @@ sub _process_reply {
     my $on_msg = $self->{_subs}{ $data->[1] };
 
     unless ( defined $on_msg ) {
-      $self->_disconnect( "Don't known how process published message."
+      $self->_disconnect( "Don't know how process published message."
           . " Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
 
       return;
@@ -796,7 +796,7 @@ sub _process_reply {
     my $cmd = $self->{_process_queue}[0];
 
     unless ( defined $cmd ) {
-      $self->_disconnect( "Don't known how process reply."
+      $self->_disconnect( "Don't know how process reply."
           . ' Processing queue is empty.', E_UNEXPECTED_DATA );
 
       return;
