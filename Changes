@@ -1,5 +1,12 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.46 Sat Mar 7 15:37:54 MSK 2015
+  - FEATURE: Added new error code E_BUSY_KEY.
+  - Module Test::RedisServer was copied to testing environment and was refactored.
+    Now it has name Test::RedisRunner and doesn't require Any::Moose.
+  - Slight refactoring.
+  - Minor changes in POD.
+
 1.44 Sat Nov 1 19:35:00 MSK 2014
   - FEATURE: Method info() now parsing information and statistics about the
     server. The result is passed to 'on_done' or 'on_reply' callback as a hash

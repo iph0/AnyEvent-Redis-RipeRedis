@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.45_04';
+our $VERSION = '1.46';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -2144,7 +2144,7 @@ Ivan Kruglov
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012-2014, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
+Copyright (c) 2012-2015, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
 All rights reserved.
 
 This module is free software; you can redistribute it and/or modify it under

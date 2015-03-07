@@ -21,7 +21,7 @@ WriteMakefile(
     'Test::TCP'         => 2.02,
     'Test::Fatal'       => 0.013,
     'Time::HiRes'       => 0,
-    'File::Temp'        => 0,
+    'File::Temp'        => 0.19,
     'POSIX'             => 0,
     version             => 0.77,
   },
@@ -33,8 +33,7 @@ WriteMakefile(
       license    => 'http://dev.perl.org/licenses/',
     },
   },
-  ($] >= 5.005 ? ## Add these new keywords supported since 5.005
-    (ABSTRACT_FROM => 'lib/AnyEvent/Redis/RipeRedis.pm', # retrieve abstract from module
-     AUTHOR => 'Eugene Ponizovsky <ponizovsky@gmail.com>') : ()),
-  LICENSE => 'perl',
+  ABSTRACT_FROM => 'lib/AnyEvent/Redis/RipeRedis.pm',
+  AUTHOR        => 'Eugene Ponizovsky <ponizovsky@gmail.com>',
+  LICENSE       => 'perl',
 );
