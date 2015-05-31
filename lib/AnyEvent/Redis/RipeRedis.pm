@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.46';
+our $VERSION = '1.47_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -16,33 +16,36 @@ use Scalar::Util qw( looks_like_number weaken );
 use Digest::SHA qw( sha1_hex );
 use Carp qw( croak );
 
-BEGIN {
-  our @EXPORT_OK = qw(
-    E_CANT_CONN
-    E_LOADING_DATASET
-    E_IO
-    E_CONN_CLOSED_BY_REMOTE_HOST
-    E_CONN_CLOSED_BY_CLIENT
-    E_NO_CONN
-    E_OPRN_ERROR
-    E_UNEXPECTED_DATA
-    E_NO_SCRIPT
-    E_READ_TIMEDOUT
-    E_BUSY
-    E_MASTER_DOWN
-    E_MISCONF
-    E_READONLY
-    E_OOM
-    E_EXEC_ABORT
-    E_NO_AUTH
-    E_WRONG_TYPE
-    E_NO_REPLICAS
-    E_BUSY_KEY
-  );
+my %ERROR_CODES;
 
-  our %EXPORT_TAGS = (
-    err_codes => \@EXPORT_OK,
+BEGIN {
+  %ERROR_CODES = (
+    E_CANT_CONN                  => 1,
+    E_LOADING_DATASET            => 2,
+    E_IO                         => 3,
+    E_CONN_CLOSED_BY_REMOTE_HOST => 4,
+    E_CONN_CLOSED_BY_CLIENT      => 5,
+    E_NO_CONN                    => 6,
+    E_OPRN_ERROR                 => 9,
+    E_UNEXPECTED_DATA            => 10,
+    E_NO_SCRIPT                  => 11,
+    E_READ_TIMEDOUT              => 12,
+    E_BUSY                       => 13,
+    E_MASTER_DOWN                => 14,
+    E_MISCONF                    => 15,
+    E_READONLY                   => 16,
+    E_OOM                        => 17,
+    E_EXEC_ABORT                 => 18,
+    E_NO_AUTH                    => 19,
+    E_WRONG_TYPE                 => 20,
+    E_NO_REPLICAS                => 21,
+    E_BUSY_KEY                   => 22,
   );
+}
+
+BEGIN {
+  our @EXPORT_OK   = keys %ERROR_CODES;
+  our %EXPORT_TAGS = ( err_codes => \@EXPORT_OK, );
 }
 
 use constant {
@@ -51,27 +54,7 @@ use constant {
   D_PORT     => 6379,
   D_DB_INDEX => 0,
 
-  # Error codes
-  E_CANT_CONN                  => 1,
-  E_LOADING_DATASET            => 2,
-  E_IO                         => 3,
-  E_CONN_CLOSED_BY_REMOTE_HOST => 4,
-  E_CONN_CLOSED_BY_CLIENT      => 5,
-  E_NO_CONN                    => 6,
-  E_OPRN_ERROR                 => 9,
-  E_UNEXPECTED_DATA            => 10,
-  E_NO_SCRIPT                  => 11,
-  E_READ_TIMEDOUT              => 12,
-  E_BUSY                       => 13,
-  E_MASTER_DOWN                => 14,
-  E_MISCONF                    => 15,
-  E_READONLY                   => 16,
-  E_OOM                        => 17,
-  E_EXEC_ABORT                 => 18,
-  E_NO_AUTH                    => 19,
-  E_WRONG_TYPE                 => 20,
-  E_NO_REPLICAS                => 21,
-  E_BUSY_KEY                   => 22,
+  %ERROR_CODES,
 
   # Operation status
   S_NEED_PERFORM => 1,
@@ -130,13 +113,14 @@ sub new {
 
   my $self = ref( $proto ) ? $proto : bless {}, $proto;
 
-  $self->{host}      = $params{host} || D_HOST;
-  $self->{port}      = $params{port} || D_PORT;
-  $self->{password}  = $params{password};
-  $self->{database}  = defined $params{database} ? $params{database} : D_DB_INDEX;
-  $self->{reconnect} = exists $params{reconnect} ? $params{reconnect} : 1;
-  $self->{on_connect}       = $params{on_connect};
-  $self->{on_disconnect}    = $params{on_disconnect};
+  $self->{host} = $params{host} || D_HOST;
+  $self->{port} = $params{port} || D_PORT;
+  $self->{password} = $params{password};
+  $self->{database}
+      = defined $params{database} ? $params{database} : D_DB_INDEX;
+  $self->{reconnect}     = exists $params{reconnect} ? $params{reconnect} : 1;
+  $self->{on_connect}    = $params{on_connect};
+  $self->{on_disconnect} = $params{on_disconnect};
   $self->{on_connect_error} = $params{on_connect_error};
 
   $self->encoding( $params{encoding} );
@@ -321,8 +305,10 @@ sub selected_database {
       if ( @_ ) {
         my $timeout = shift;
 
-        if ( defined $timeout && ( !looks_like_number( $timeout ) || $timeout < 0 ) ) {
-          croak ucfirst( $name_pref ) . ' timeout must be a positive number';
+        if ( defined $timeout
+          && ( !looks_like_number($timeout) || $timeout < 0 ) )
+        {
+          croak ucfirst($name_pref) . ' timeout must be a positive number';
         }
         $self->{$name} = $timeout;
       }
@@ -780,7 +766,9 @@ sub _process_reply {
         ? ( "Operation '$cmd->{kwd}' completed with errors.", $err_code, $data )
         : $data, $err_code );
   }
-  elsif ( $self->{_subs_num} > 0 && ref( $data ) && exists $MSG_TYPES{ $data->[0] } ) {
+  elsif ( $self->{_subs_num} > 0
+    && ref( $data ) && exists $MSG_TYPES{ $data->[0] } )
+  {
     my $on_msg = $self->{_subs}{ $data->[1] };
 
     unless ( defined $on_msg ) {
@@ -790,7 +778,8 @@ sub _process_reply {
       return;
     }
 
-    $on_msg->( $data->[0] eq 'pmessage' ? @{$data}[ 2, 3, 1 ] : @{$data}[ 1, 2 ] );
+    $on_msg->( $data->[0] eq 'pmessage'
+        ? @{$data}[ 2, 3, 1 ] : @{$data}[ 1, 2 ] );
   }
   else {
     my $cmd = $self->{_process_queue}[0];
