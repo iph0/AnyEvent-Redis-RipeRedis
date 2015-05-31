@@ -367,7 +367,9 @@ L<Test::Mock::Redis>, another approach for testing redis application.
 
 =head1 AUTHOR
 
-Daisuke Murase <typester@cpan.org>
+Daisuke Murase, E<lt>typester@cpan.orgE<gt>
+
+Refactored by Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
