@@ -1190,7 +1190,7 @@ Not set by default.
 
 Timeout, within which the client will be wait the connection establishment to
 the Redis server. If the client could not connect to the server after specified
-timeout, the C<on_error> or C<on_connect_error> callback is called. In case,
+timeout, the C<on_error> or C<on_connect_error> callback is called. In case
 when C<on_error> callback is called, C<E_CANT_CONN> error code is passed to
 callback in the second argument. The timeout specifies in seconds and can
 contain a fractional part.
@@ -1213,7 +1213,7 @@ Not set by default.
 
 =item lazy => $boolean
 
-If enabled, the connection establishes at time, when you will send the first
+If enabled, the connection establishes at time when you will send the first
 command to the server. By default the connection establishes after calling of
 the C<new> method.
 
@@ -1265,14 +1265,14 @@ Disabled by default.
 
 =item on_connect => $cb->()
 
-The C<on_connect> callback is called, when the connection is successfully
+The C<on_connect> callback is called when the connection is successfully
 established.
 
 Not set by default.
 
 =item on_disconnect => $cb->()
 
-The C<on_disconnect> callback is called, when the connection is closed by any
+The C<on_disconnect> callback is called when the connection is closed by any
 reason.
 
 Not set by default.
@@ -1376,12 +1376,12 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
 =item on_done => $cb->( [ $data ] )
 
-The C<on_done> callback is called, when the current operation was completed
+The C<on_done> callback is called when the current operation was completed
 successfully.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, when some error occurred.
+The C<on_error> callback is called when some error occurred.
 
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
@@ -1509,8 +1509,11 @@ L<http://redis.io/topics/pubsub>
 Subscribes the client to the specified channels.
 
 Once the client enters the subscribed state it is not supposed to issue any
-other commands, except for additional C<SUBSCRIBE>, C<PSUBSCRIBE>, C<UNSUBSCRIBE>
-and C<PUNSUBSCRIBE> commands.
+other commands, except for additional C<SUBSCRIBE>, C<PSUBSCRIBE>, C<UNSUBSCRIBE>,
+C<PUNSUBSCRIBE> and C<QUIT> commands.
+
+If the connection was lost when the client has active subscriptions, the C<on_error>
+or C<on_reply> callback in appropriate C<(p)subscribe> method is called.
 
   $redis->subscribe( qw( ch_foo ch_bar ),
     { on_reply => sub {
@@ -1577,16 +1580,16 @@ and C<PUNSUBSCRIBE> commands.
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
-The C<on_done> callback is called on every specified channel, when the
+The C<on_done> callback is called on every specified channel when the
 subscription operation was completed successfully.
 
 =item on_message => $cb->( $ch_name, $msg )
 
-The C<on_message> callback is called, when a published message was received.
+The C<on_message> callback is called when a published message was received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the subscription operation fails.
+The C<on_error> callback is called if the subscription operation fails.
 
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
@@ -1670,16 +1673,16 @@ Subscribes the client to the given patterns.
 
 =item on_done => $cb->( $ch_pattern, $sub_num )
 
-The C<on_done> callback is called on every specified pattern, when the
+The C<on_done> callback is called on every specified pattern when the
 subscription operation was completed successfully.
 
 =item on_message => $cb->( $ch_name, $msg, $ch_pattern )
 
-The C<on_message> callback is called, when published message was received.
+The C<on_message> callback is called when published message was received.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the subscription operation fails.
+The C<on_error> callback is called if the subscription operation fails.
 
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
@@ -1738,12 +1741,12 @@ channel will be sent to the client.
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
-The C<on_done> callback is called on every specified channel, when the
+The C<on_done> callback is called on every specified channel when the
 unsubscription operation was completed successfully.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the unsubscription operation fails.
+The C<on_error> callback is called if the unsubscription operation fails.
 
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
@@ -1798,12 +1801,12 @@ pattern will be sent to the client.
 
 =item on_done => $cb->( $ch_name, $sub_num )
 
-The C<on_done> callback is called on every specified pattern, when the
+The C<on_done> callback is called on every specified pattern when the
 unsubscription operation was completed successfully.
 
 =item on_error => $cb->( $err_msg, $err_code )
 
-The C<on_error> callback is called, if the unsubscription operation fails.
+The C<on_error> callback is called if the unsubscription operation fails.
 
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
