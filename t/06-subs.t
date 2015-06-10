@@ -595,9 +595,7 @@ sub t_sub_after_multi {
 
       $redis->multi();
       $redis->subscribe( 'channel',
-        { on_message => sub {
-            # empty callback
-          },
+        { on_message => sub {},
 
           on_error => sub {
             $t_err_msg  = shift;

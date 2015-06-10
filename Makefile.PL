@@ -18,7 +18,7 @@ WriteMakefile(
   },
   BUILD_REQUIRES => {
     'Test::More'        => 0.98,
-    'Test::TCP'         => 2.02,
+    'Test::TCP'         => 2.12,
     'Test::Fatal'       => 0.013,
     'Time::HiRes'       => 0,
     'File::Temp'        => 0.19,

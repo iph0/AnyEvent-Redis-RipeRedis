@@ -9,9 +9,9 @@ use version 0.77;
 require 't/test_helper.pl';
 
 BEGIN {
-  eval "use Test::LeakTrace 0.14";
+  eval "use Test::LeakTrace 0.15";
   if ( $@ ) {
-    plan skip_all => 'Test::LeakTrace 0.14 required for this test';
+    plan skip_all => 'Test::LeakTrace 0.15 required for this test';
   }
 }
 

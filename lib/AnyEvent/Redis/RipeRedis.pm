@@ -118,9 +118,9 @@ sub new {
   $self->{password} = $params{password};
   $self->{database}
       = defined $params{database} ? $params{database} : D_DB_INDEX;
-  $self->{reconnect}     = exists $params{reconnect} ? $params{reconnect} : 1;
-  $self->{on_connect}    = $params{on_connect};
-  $self->{on_disconnect} = $params{on_disconnect};
+  $self->{reconnect} = exists $params{reconnect} ? $params{reconnect} : 1;
+  $self->{on_connect}       = $params{on_connect};
+  $self->{on_disconnect}    = $params{on_disconnect};
   $self->{on_connect_error} = $params{on_connect_error};
 
   $self->encoding( $params{encoding} );
@@ -146,8 +146,8 @@ sub new {
   $self->{_tmp_queue}      = [];
   $self->{_process_queue}  = [];
   $self->{_txn_lock}       = 0;
-  $self->{_subs}           = {};
-  $self->{_subs_num}       = 0;
+  $self->{_sub_map}        = {};
+  $self->{_sub_cnt}        = 0;
 
   unless ( $self->{_lazy_conn_st} ) {
     $self->_connect();
@@ -766,19 +766,19 @@ sub _process_reply {
         ? ( "Operation '$cmd->{kwd}' completed with errors.", $err_code, $data )
         : $data, $err_code );
   }
-  elsif ( $self->{_subs_num} > 0
+  elsif ( $self->{_sub_cnt} > 0
     && ref( $data ) && exists $MSG_TYPES{ $data->[0] } )
   {
-    my $on_msg = $self->{_subs}{ $data->[1] };
+    my $cmd = $self->{_sub_map}{ $data->[1] };
 
-    unless ( defined $on_msg ) {
+    unless ( defined $cmd ) {
       $self->_disconnect( "Don't know how process published message."
           . " Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
 
       return;
     }
 
-    $on_msg->( $data->[0] eq 'pmessage'
+    $cmd->{on_message}->( $data->[0] eq 'pmessage'
         ? @{$data}[ 2, 3, 1 ] : @{$data}[ 1, 2 ] );
   }
   else {
@@ -840,13 +840,13 @@ sub _process_cmd_success {
       shift @{$data};
 
       if ( exists $SUB_CMDS{$kwd} ) {
-        $self->{_subs}{ $data->[0] } = $cmd->{on_message};
+        $self->{_sub_map}{ $data->[0] } = $cmd;
       }
       else { # unsubscribe or punsubscribe
-        delete $self->{_subs}{ $data->[0] };
+        delete $self->{_sub_map}{ $data->[0] };
       }
 
-      $self->{_subs_num} = $data->[1];
+      $self->{_sub_cnt} = $data->[1];
     }
     elsif ( $kwd eq 'info' ) {
       $data = $self->_parse_info( $data );
@@ -879,7 +879,9 @@ sub _parse_info {
 
 ####
 sub _disconnect {
-  my $self = shift;
+  my $self     = shift;
+  my $err_msg  = shift;
+  my $err_code = shift;
 
   my $was_connected = $self->{_connected};
 
@@ -893,7 +895,7 @@ sub _disconnect {
   $self->{_ready_to_write} = 0;
   $self->{_txn_lock}       = 0;
 
-  $self->_abort_all( @_ );
+  $self->_abort_all( $err_msg, $err_code );
 
   if ( $was_connected && defined $self->{on_disconnect} ) {
     $self->{on_disconnect}->();
@@ -914,22 +916,34 @@ sub _abort_all {
     @{ $self->{_input_queue} },
   );
 
+  my $sub_map = $self->{_sub_map};
+  my $sub_cnt = $self->{_sub_cnt};
+
   $self->{_input_queue}   = [];
   $self->{_tmp_queue}     = [];
   $self->{_process_queue} = [];
-  $self->{_subs}          = {};
-  $self->{_subs_num}      = 0;
+  $self->{_sub_map}       = {};
+  $self->{_sub_cnt}       = 0;
 
   if ( !defined $err_msg && @unfin_cmds ) {
     $err_msg  = 'Connection closed by client prematurely.';
     $err_code = E_CONN_CLOSED_BY_CLIENT;
   }
+
   if ( defined $err_msg ) {
-    if ( $err_code == E_CANT_CONN && defined $self->{on_connect_error} ) {
+    if ( defined $self->{on_connect_error} && $err_code == E_CANT_CONN ) {
       $self->{on_connect_error}->( $err_msg );
     }
     else {
       $self->{on_error}->( $err_msg, $err_code );
+    }
+
+    if ( $sub_cnt > 0 && $err_code != E_CONN_CLOSED_BY_CLIENT ) {
+      foreach my $sub_key ( keys %{$sub_map} ) {
+        my $cmd = $sub_map->{$sub_key};
+        $self->_process_cmd_error( $cmd, "Subscription '$sub_key' lost: "
+            . $err_msg, $err_code );
+      }
     }
 
     foreach my $cmd ( @unfin_cmds ) {
@@ -1154,12 +1168,12 @@ Server port (default: 6379)
 
 =item password => $password
 
-If the password is specified, then the C<AUTH> command is sent to the server
+If the password is specified, the C<AUTH> command is sent to the server
 after connection.
 
 =item database => $index
 
-Database index. If the index is specified, then the client is switched to
+Database index. If the index is specified, the client is switched to
 the specified database after connection. You can also switch to another database
 after connection by using C<SELECT> command. The client remembers last selected
 database after reconnection.
@@ -1176,7 +1190,7 @@ Not set by default.
 
 Timeout, within which the client will be wait the connection establishment to
 the Redis server. If the client could not connect to the server after specified
-timeout, then the C<on_error> or C<on_connect_error> callback is called. In case,
+timeout, the C<on_error> or C<on_connect_error> callback is called. In case,
 when C<on_error> callback is called, C<E_CANT_CONN> error code is passed to
 callback in the second argument. The timeout specifies in seconds and can
 contain a fractional part.
@@ -1189,7 +1203,7 @@ By default the client use kernel's connection timeout.
 
 Timeout, within which the client will be wait a response on a command from the
 Redis server. If the client could not receive a response from the server after
-specified timeout, then the client close connection and call C<on_error> callback
+specified timeout, the client close connection and call C<on_error> callback
 with the C<E_READ_TIMEDOUT> error code. The timeout is specifies in seconds
 and can contain a fractional part.
 
@@ -1208,8 +1222,8 @@ Disabled by default.
 =item reconnect => $boolean
 
 If the connection to the Redis server was lost and the parameter C<reconnect> is
-TRUE, then the client try to restore the connection on a next command executuion.
-The client try to reconnect only once and if it fails, then is called the
+TRUE, the client try to restore the connection on a next command executuion.
+The client try to reconnect only once and if it fails, is called the
 C<on_error> callback. If you need several attempts of the reconnection, just
 retry a command from the C<on_error> callback as many times, as you need. This
 feature made the client more responsive.
@@ -1266,8 +1280,8 @@ Not set by default.
 =item on_connect_error => $cb->( $err_msg )
 
 The C<on_connect_error> callback is called, when the connection could not be
-established. If this collback isn't specified, then the common C<on_error>
-callback is called with the C<E_CANT_CONN> error code.
+established. If this collback isn't specified, the common C<on_error> callback
+is called with the C<E_CANT_CONN> error code.
 
 Not set by default.
 
@@ -1373,7 +1387,7 @@ The C<on_error> callback is called, when some error occurred.
 
 Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
-is called in both cases: when operation was completed successfully and when some
+is called in both cases: when operation was completed successfully or when some
 error occurred. In first case to callback is passed only reply data. In second
 case to callback is passed three arguments: The C<undef> value or reply data
 with error objects (see below), error message and error code.
@@ -1396,7 +1410,7 @@ Executes all previously queued commands in a transaction and restores the
 connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
 only if the watched keys were not modified.
 
-If after execution of C<EXEC> command at least one operation fails, then
+If after execution of C<EXEC> command at least one operation fails,
 either C<on_error> or C<on_reply> callback is called and in addition to error
 message and error code to callback is passed reply data, which contain replies
 of successful operations and error objects for each failed operation. To
@@ -1577,7 +1591,7 @@ The C<on_error> callback is called, if the subscription operation fails.
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription operation
-was completed successfully and when subscription operation fails. In first case
+was completed successfully or when subscription operation fails. In first case
 C<on_reply> callback is called on every specified channel. Information about
 channel name and subscription number is passed to callback in first argument as
 an array reference.
@@ -1670,7 +1684,7 @@ The C<on_error> callback is called, if the subscription operation fails.
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription
-operation was completed successfully and when subscription operation fails.
+operation was completed successfully or when subscription operation fails.
 In first case C<on_reply> callback is called on every specified pattern.
 Information about channel pattern and subscription number is passed to callback
 in first argument as an array reference.
@@ -1734,7 +1748,7 @@ The C<on_error> callback is called, if the unsubscription operation fails.
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
-operation was completed successfully and when unsubscription operation fails.
+operation was completed successfully or when unsubscription operation fails.
 In first case C<on_reply> callback is called on every specified channel.
 Information about channel name and number of remaining subscriptions is passed
 to callback in first argument as an array reference.
@@ -1794,7 +1808,7 @@ The C<on_error> callback is called, if the unsubscription operation fails.
 =item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
-operation was completed successfully and when unsubscription operation fails.
+operation was completed successfully or when unsubscription operation fails.
 In first case C<on_reply> callback is called on every specified pattern.
 Information about channel pattern and number of remaining subscriptions is
 passed to callback in first argument as an array reference.
@@ -1852,9 +1866,9 @@ instead.
 Be care, passing a different Lua scripts to C<eval_cached()> method every time
 cause memory leaks.
 
-If Lua script returns multi-bulk reply with at least one error reply, then
-either C<on_error> or C<on_reply> callback is called and in addition to error
-message and error code to callback is passed reply data, which contain successful
+If Lua script returns multi-bulk reply with at least one error reply, either
+C<on_error> or C<on_reply> callback is called and in addition to error message
+and error code to callback is passed reply data, which contain successful
 replies and error objects for each error reply, as well as described for C<EXEC>
 command.
 
