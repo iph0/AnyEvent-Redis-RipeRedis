@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.47_01';
+our $VERSION = '1.47_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1503,16 +1503,16 @@ Forget about all watched keys.
 The detailed information about Redis Pub/Sub can be found here:
 L<http://redis.io/topics/pubsub>
 
-=head2 subscribe( @channels, ( $cb | \%cbs ) )
-
-Subscribes the client to the specified channels.
-
 Once the client enters the subscribed state it is not supposed to issue any
 other commands, except for additional C<SUBSCRIBE>, C<PSUBSCRIBE>, C<UNSUBSCRIBE>,
 C<PUNSUBSCRIBE> and C<QUIT> commands.
 
 If the connection was lost when the client has active subscriptions, the C<on_error>
 or C<on_reply> callback in appropriate C<(p)subscribe> method is called.
+
+=head2 subscribe( @channels, ( $cb | \%cbs ) )
+
+Subscribes the client to the specified channels.
 
   $redis->subscribe( qw( ch_foo ch_bar ),
     { on_reply => sub {
