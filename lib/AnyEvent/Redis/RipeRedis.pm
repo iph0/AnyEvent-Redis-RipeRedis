@@ -945,7 +945,6 @@ sub _abort_all {
             . $err_msg, $err_code );
       }
     }
-
     foreach my $cmd ( @unfin_cmds ) {
       $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted: "
           . $err_msg, $err_code );
@@ -1410,10 +1409,10 @@ Executes all previously queued commands in a transaction and restores the
 connection state to normal. When using C<WATCH>, C<EXEC> will execute commands
 only if the watched keys were not modified.
 
-If after execution of C<EXEC> command at least one operation fails,
-either C<on_error> or C<on_reply> callback is called and in addition to error
-message and error code to callback is passed reply data, which contain replies
-of successful operations and error objects for each failed operation. To
+If after execution of C<EXEC> command at least one operation fails, the
+C<on_error> or C<on_reply> callback is called and in addition to error message
+and error code to callback is passed reply data, which contain replies of
+successful operations and error objects for each failed operation. To
 C<on_error> callback reply data is passed in third argument and to C<on_reply>
 callback in first argument. Error object is an instance of class
 C<AnyEvent::Redis::RipeRedis::Error> and has two methods: C<message()> to get
@@ -1869,7 +1868,7 @@ instead.
 Be care, passing a different Lua scripts to C<eval_cached()> method every time
 cause memory leaks.
 
-If Lua script returns multi-bulk reply with at least one error reply, either
+If Lua script returns multi-bulk reply with at least one error reply, the
 C<on_error> or C<on_reply> callback is called and in addition to error message
 and error code to callback is passed reply data, which contain successful
 replies and error objects for each error reply, as well as described for C<EXEC>
