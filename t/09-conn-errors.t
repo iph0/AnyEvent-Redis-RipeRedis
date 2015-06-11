@@ -412,7 +412,7 @@ sub t_subscription_lost {
 
   SKIP: {
     if ( !defined $server_info ) {
-      skip 'redis-server is required for this test', 5;
+      skip 'redis-server is required for this test', 4;
     }
 
     my $redis;
