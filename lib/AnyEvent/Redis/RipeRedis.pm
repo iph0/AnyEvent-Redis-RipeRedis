@@ -1423,17 +1423,17 @@ error message and C<code()> to get error code.
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
     sub {
-      my $data = shift;
+      my $replies = shift;
 
       if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        if ( defined $data ) {
-          foreach my $chunk ( @{$data} ) {
-            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-              my $oprn_err_msg  = $chunk->message();
-              my $oprn_err_code = $chunk->code();
+        if ( defined $replies ) {
+          foreach my $reply ( @{$replies} ) {
+            if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $oprn_err_msg  = $reply->message();
+              my $oprn_err_code = $reply->code();
 
               # error handling...
             }
@@ -1451,13 +1451,12 @@ error message and C<code()> to get error code.
     },
   );
 
-
   $redis->multi();
   $redis->set( 'foo', 'string' );
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
     { on_done => sub {
-        my $data = shift;
+        my $replies = shift;
 
         # handling...
       },
@@ -1465,13 +1464,13 @@ error message and C<code()> to get error code.
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
-        my $data     = shift;
+        my $replies  = shift;
 
-        if ( defined $data ) {
-          foreach my $chunk ( @{$data} ) {
-            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-              my $oprn_err_msg  = $chunk->message();
-              my $oprn_err_code = $chunk->code();
+        if ( defined $replies ) {
+          foreach my $reply ( @{$replies} ) {
+            if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $oprn_err_msg  = $reply->message();
+              my $oprn_err_code = $reply->code();
 
               # error handling...
             }
