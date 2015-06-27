@@ -1,5 +1,12 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.48 Sat Jun  27 15:31:24 MSK 2015
+  - FEATURE Improved subscription mechanism. Now if connection was lost when
+    client has active subscriptions, the 'on_error' or 'on_reply' callback,
+    specified in appropriate '(p)subscribe' method, is called.
+  - Slight refactoring.
+  - Minor changes in POD.
+
 1.46 Sat Mar 7 15:37:54 MSK 2015
   - FEATURE: Added new error code E_BUSY_KEY.
   - Module Test::RedisServer was copied to testing environment and was refactored.
