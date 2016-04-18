@@ -7,7 +7,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.48';
+our $VERSION = '1.49_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -959,11 +959,11 @@ sub AUTOLOAD {
   our $AUTOLOAD;
   my $method = $AUTOLOAD;
   $method =~ s/^.+:://;
-  my $kwd = lc( $method );
+  my ( $kwd, @args ) = split( m/_/, lc( $method ) );
 
   my $sub = sub {
     my $self = shift;
-    my $cmd  = $self->_prepare_cmd( $kwd, [ @_ ] );
+    my $cmd  = $self->_prepare_cmd( $kwd, [ @args, @_ ] );
 
     $self->_execute_cmd( $cmd );
 
