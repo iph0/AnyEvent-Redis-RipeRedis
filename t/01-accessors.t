@@ -55,15 +55,15 @@ t_selected_database( $REDIS );
 sub t_conn_timeout {
   my $redis = shift;
 
-  my $t_conn_timeout = $redis->connection_timeout();
+  my $t_conn_timeout = $redis->connection_timeout;
   is( $t_conn_timeout, 10, "get 'connection_timeout'" );
 
   $redis->connection_timeout( undef );
-  is( $redis->{connection_timeout}, undef,
+  is( $redis->connection_timeout, undef,
       "reset to default 'connection_timeout'" );
 
   $redis->connection_timeout( 15 );
-  is( $redis->{connection_timeout}, 15, "set 'connection_timeout'" );
+  is( $redis->connection_timeout, 15, "set 'connection_timeout'" );
 
   return;
 }
@@ -72,14 +72,14 @@ sub t_conn_timeout {
 sub t_read_timeout {
   my $redis = shift;
 
-  my $t_read_timeout = $redis->read_timeout();
+  my $t_read_timeout = $redis->read_timeout;
   is( $t_read_timeout, 5, "get 'read_timeout'" );
 
   $redis->read_timeout( undef );
-  is( $redis->{read_timeout}, undef, "disable 'read_timeout'" );
+  is( $redis->read_timeout, undef, "disable 'read_timeout'" );
 
   $redis->read_timeout( 10 );
-  is( $redis->{read_timeout}, 10, "set 'read_timeout'" );
+  is( $redis->read_timeout, 10, "set 'read_timeout'" );
 
   return;
 }
@@ -88,14 +88,14 @@ sub t_read_timeout {
 sub t_reconnect {
   my $redis = shift;
 
-  my $reconn_state = $redis->reconnect();
+  my $reconn_state = $redis->reconnect;
   is( $reconn_state, 1, "get current reconnection mode state" );
 
   $redis->reconnect( undef );
-  is( $redis->{reconnect}, undef, "disable reconnection mode" );
+  is( $redis->reconnect, undef, "disable reconnection mode" );
 
   $redis->reconnect( 1 );
-  is( $redis->{reconnect}, 1, "enable reconnection mode" );
+  is( $redis->reconnect, 1, "enable reconnection mode" );
 
   return;
 }
@@ -104,14 +104,15 @@ sub t_reconnect {
 sub t_encoding {
   my $redis = shift;
 
-  my $t_enc = $redis->encoding();
-  is( $redis->{encoding}->name(), 'utf8', "get 'encoding'" );
+  my $t_enc = $redis->encoding;
+  is( $t_enc->name, 'utf8', "get 'encoding'" );
 
   $redis->encoding( undef );
-  is( $redis->{encoding}, undef, "disable 'encoding'" );
+  is( $redis->encoding, undef, "disable 'encoding'" );
 
   $redis->encoding( 'UTF-16' );
-  is( $redis->{encoding}->name(), 'UTF-16', "set 'encoding'" );
+  $t_enc = $redis->encoding;
+  is( $t_enc->name, 'UTF-16', "set 'encoding'" );
 
   return;
 }
@@ -120,18 +121,18 @@ sub t_encoding {
 sub t_on_connect {
   my $redis = shift;
 
-  my $on_conn = $redis->on_connect();
+  my $on_conn = $redis->on_connect;
   is( $on_conn->(), 1, "get 'on_connect' callback" );
 
   $redis->on_connect( undef );
-  is( $redis->{on_connect}, undef, "disable 'on_connect' callback" );
+  is( $redis->on_connect, undef, "disable 'on_connect' callback" );
 
   $redis->on_connect(
     sub {
       return 5;
     }
   );
-  is( $redis->{on_connect}->(), 5, "set 'on_connect' callback" );
+  is( $redis->on_connect->(), 5, "set 'on_connect' callback" );
 
   return;
 }
@@ -140,18 +141,18 @@ sub t_on_connect {
 sub t_on_disconnect {
   my $redis = shift;
 
-  my $on_disconn = $redis->on_disconnect();
+  my $on_disconn = $redis->on_disconnect;
   is( $on_disconn->(), 2, "get 'on_disconnect' callback" );
 
   $redis->on_disconnect( undef );
-  is( $redis->{on_disconnect}, undef, "disable 'on_disconnect' callback" );
+  is( $redis->on_disconnect, undef, "disable 'on_disconnect' callback" );
 
   $redis->on_disconnect(
     sub {
       return 6;
     }
   );
-  is( $redis->{on_disconnect}->(), 6, "set 'on_disconnect' callback" );
+  is( $redis->on_disconnect->(), 6, "set 'on_disconnect' callback" );
 
   return;
 }
@@ -160,18 +161,18 @@ sub t_on_disconnect {
 sub t_on_connect_error {
   my $redis = shift;
 
-  my $on_conn_error = $redis->on_connect_error();
+  my $on_conn_error = $redis->on_connect_error;
   is( $on_conn_error->(), 3, "get 'on_connect_error' callback" );
 
   $redis->on_connect_error( undef );
-  is( $redis->{on_connect_error}, undef, "disable 'on_connect_error' callback" );
+  is( $redis->on_connect_error, undef, "disable 'on_connect_error' callback" );
 
   $redis->on_connect_error(
     sub {
       return 7;
     }
   );
-  is( $redis->{on_connect_error}->(), 7, "set 'on_connect_error' callback" );
+  is( $redis->on_connect_error->(), 7, "set 'on_connect_error' callback" );
 
   return;
 }
@@ -190,7 +191,7 @@ sub t_on_error {
     chomp( $t_err );
   };
   $redis->on_error( undef );
-  $redis->{on_error}->( 'Some error', E_OPRN_ERROR );
+  $redis->on_error->( 'Some error', E_OPRN_ERROR );
   is( $t_err, 'Some error', "reset to default 'on_error' callback" );
 
   $redis->on_error(
@@ -198,7 +199,7 @@ sub t_on_error {
       return 8;
     }
   );
-  is( $redis->{on_error}->(), 8, "set 'on_error' callback" );
+  is( $redis->on_error->(), 8, "set 'on_error' callback" );
 
   return;
 }
