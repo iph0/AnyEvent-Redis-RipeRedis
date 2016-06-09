@@ -77,7 +77,7 @@ t_mbulk_reply_undef_mth2($REDIS);
 t_nested_mbulk_reply_mth1($REDIS);
 t_nested_mbulk_reply_mth2($REDIS);
 
-t_composite_command($REDIS);
+t_multi_word_command($REDIS);
 
 t_oprn_error_mth1($REDIS);
 t_oprn_error_mth2($REDIS);
@@ -970,7 +970,7 @@ sub t_nested_mbulk_reply_mth2 {
   return;
 }
 
-sub t_composite_command {
+sub t_multi_word_command {
   my $redis = shift;
 
   my $ver = get_redis_version( $REDIS );
@@ -996,7 +996,7 @@ sub t_composite_command {
       }
     );
 
-    is_deeply( $t_data, 'OK', 'CLIENT SETNAME; composite command' );
+    is_deeply( $t_data, 'OK', 'CLIENT SETNAME; multiple word command' );
 
     ev_loop(
       sub {
@@ -1012,7 +1012,7 @@ sub t_composite_command {
       }
     );
 
-    is_deeply( $t_data, 'test', 'CLIENT GETNAME; composite command' );
+    is_deeply( $t_data, 'test', 'CLIENT GETNAME; multiple word command' );
   }
 
   return;
