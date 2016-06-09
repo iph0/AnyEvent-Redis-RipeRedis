@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.49_01';
+our $VERSION = '1.49_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1217,7 +1217,7 @@ callback as many times, as you need. This feature made the client more responsiv
 
 Enabled by default.
 
-=item min_reconnect_interval
+=item min_reconnect_interval => $fractional_seconds
 
 If the parameter is specified, the client will try to reconnect not often than
 through this interval. Command executons between reconnections in this case
@@ -2105,12 +2105,12 @@ The method for asynchronous disconnection.
 
 =head1 OTHER METHODS
 
-=head2 connection_timeout( [ $seconds ] )
+=head2 connection_timeout( [ $fractional_seconds ] )
 
 Get or set the C<connection_timeout> of the client. The C<undef> value resets
 the C<connection_timeout> to default value.
 
-=head2 read_timeout( [ $seconds ] )
+=head2 read_timeout( [ $fractional_seconds ] )
 
 Get or set the C<read_timeout> of the client.
 
@@ -2118,7 +2118,7 @@ Get or set the C<read_timeout> of the client.
 
 Enables or disables reconnection mode of the client.
 
-=head2 min_reconnect_interval( [ $seconds ] )
+=head2 min_reconnect_interval( [ $fractional_seconds ] )
 
 Get or set C<min_reconnect_interval> of the client.
 
