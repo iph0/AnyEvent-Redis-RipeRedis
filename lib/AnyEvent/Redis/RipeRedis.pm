@@ -1219,8 +1219,9 @@ Enabled by default.
 
 =item min_reconnect_interval
 
-If the parameter is specified the client will try to reconnect not often,
-than this interval and command executons between reconnections will be suspended.
+If the parameter is specified, the client will try to reconnect not often than
+through this interval. Command executons between reconnections in this case
+will be suspended.
 
   min_reconnect_interval => 5,
 
