@@ -11,7 +11,6 @@ use Time::HiRes qw( sleep );
 use Carp;
 use Errno ();
 
-####
 sub new {
   my $class  = shift;
   my %params = @_;

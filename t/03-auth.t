@@ -18,7 +18,6 @@ t_successful_auth( $SERVER_INFO );
 t_invalid_password( $SERVER_INFO );
 
 
-####
 sub t_successful_auth {
   my $server_info = shift;
 
@@ -51,7 +50,6 @@ sub t_successful_auth {
   is( $t_reply, 'PONG', 'successful AUTH' );
 }
 
-####
 sub t_invalid_password {
   my $server_info = shift;
 
@@ -91,7 +89,7 @@ sub t_invalid_password {
   $redis->disconnect();
 
   my $t_name_prefix = 'invalid password';
-  like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
+  like( $t_cmd_err_msg, qr/^Operation "ping" aborted:/,
       "$t_name_prefix; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_name_prefix; command error code" );
   ok( defined $t_cli_err_msg, 'invalid password; client error message' );

@@ -11,7 +11,7 @@ my $SERVER_INFO = run_redis_instance();
 if ( !defined $SERVER_INFO ) {
   plan skip_all => 'redis-server is required for this test';
 }
-plan tests => 48;
+plan tests => 50;
 
 my $REDIS;
 my $T_IS_CONN = 0;
@@ -41,54 +41,55 @@ ev_loop(
 
 ok( $T_IS_CONN, 'on_connect' );
 
-t_status_reply_mth1( $REDIS );
-t_status_reply_mth2( $REDIS );
+t_status_reply_mth1($REDIS);
+t_status_reply_mth2($REDIS);
 
-t_numeric_reply_mth1( $REDIS );
-t_numeric_reply_mth2( $REDIS );
+t_numeric_reply_mth1($REDIS);
+t_numeric_reply_mth2($REDIS);
 
-t_bulk_reply_mth1( $REDIS );
-t_bulk_reply_mth2( $REDIS );
+t_bulk_reply_mth1($REDIS);
+t_bulk_reply_mth2($REDIS);
 
-t_set_undef_mth1( $REDIS );
-t_set_undef_mth2( $REDIS );
+t_set_undef_mth1($REDIS);
+t_set_undef_mth2($REDIS);
 
-t_get_undef_mth1( $REDIS );
-t_get_undef_mth2( $REDIS );
+t_get_undef_mth1($REDIS);
+t_get_undef_mth2($REDIS);
 
-t_set_utf8_string_mth1( $REDIS );
-t_set_utf8_string_mth2( $REDIS );
+t_set_utf8_string_mth1($REDIS);
+t_set_utf8_string_mth2($REDIS);
 
-t_get_utf8_string_mth1( $REDIS );
-t_get_utf8_string_mth2( $REDIS );
+t_get_utf8_string_mth1($REDIS);
+t_get_utf8_string_mth2($REDIS);
 
-t_get_non_existent_mth1( $REDIS );
-t_get_non_existent_mth2( $REDIS );
+t_get_non_existent_mth1($REDIS);
+t_get_non_existent_mth2($REDIS);
 
-t_mbulk_reply_mth1( $REDIS );
-t_mbulk_reply_mth2( $REDIS );
+t_mbulk_reply_mth1($REDIS);
+t_mbulk_reply_mth2($REDIS);
 
-t_mbulk_reply_empty_list_mth1( $REDIS );
-t_mbulk_reply_empty_list_mth2( $REDIS );
+t_mbulk_reply_empty_list_mth1($REDIS);
+t_mbulk_reply_empty_list_mth2($REDIS);
 
-t_mbulk_reply_undef_mth1( $REDIS );
-t_mbulk_reply_undef_mth2( $REDIS );
+t_mbulk_reply_undef_mth1($REDIS);
+t_mbulk_reply_undef_mth2($REDIS);
 
-t_nested_mbulk_reply_mth1( $REDIS );
-t_nested_mbulk_reply_mth2( $REDIS );
+t_nested_mbulk_reply_mth1($REDIS);
+t_nested_mbulk_reply_mth2($REDIS);
 
-t_oprn_error_mth1( $REDIS );
-t_oprn_error_mth2( $REDIS );
+t_composite_command($REDIS);
 
-t_default_on_error( $REDIS );
+t_oprn_error_mth1($REDIS);
+t_oprn_error_mth2($REDIS);
 
-t_error_after_exec_mth1( $REDIS );
-t_error_after_exec_mth2( $REDIS );
+t_default_on_error($REDIS);
 
-t_quit( $REDIS );
+t_error_after_exec_mth1($REDIS);
+t_error_after_exec_mth2($REDIS);
+
+t_quit($REDIS);
 
 
-####
 sub t_status_reply_mth1 {
   my $redis = shift;
 
@@ -119,7 +120,6 @@ sub t_status_reply_mth1 {
   return;
 }
 
-####
 sub t_status_reply_mth2 {
   my $redis = shift;
 
@@ -167,7 +167,6 @@ sub t_status_reply_mth2 {
   return;
 }
 
-####
 sub t_numeric_reply_mth1 {
   my $redis = shift;
 
@@ -198,7 +197,6 @@ sub t_numeric_reply_mth1 {
   return;
 }
 
-####
 sub t_numeric_reply_mth2 {
   my $redis = shift;
 
@@ -241,7 +239,6 @@ sub t_numeric_reply_mth2 {
   return;
 }
 
-####
 sub t_bulk_reply_mth1 {
   my $redis = shift;
 
@@ -274,7 +271,6 @@ sub t_bulk_reply_mth1 {
   return;
 }
 
-####
 sub t_bulk_reply_mth2 {
   my $redis = shift;
 
@@ -319,7 +315,6 @@ sub t_bulk_reply_mth2 {
   return;
 }
 
-####
 sub t_set_undef_mth1 {
   my $redis = shift;
 
@@ -345,7 +340,6 @@ sub t_set_undef_mth1 {
   return;
 }
 
-####
 sub t_set_undef_mth2 {
   my $redis = shift;
 
@@ -376,7 +370,6 @@ sub t_set_undef_mth2 {
   return;
 }
 
-####
 sub t_get_undef_mth1 {
   my $redis = shift;
 
@@ -402,7 +395,6 @@ sub t_get_undef_mth1 {
   return;
 }
 
-####
 sub t_get_undef_mth2 {
   my $redis = shift;
 
@@ -433,7 +425,6 @@ sub t_get_undef_mth2 {
   return;
 }
 
-####
 sub t_set_utf8_string_mth1 {
   my $redis = shift;
 
@@ -464,7 +455,6 @@ sub t_set_utf8_string_mth1 {
   return;
 }
 
-####
 sub t_set_utf8_string_mth2 {
   my $redis = shift;
 
@@ -507,7 +497,6 @@ sub t_set_utf8_string_mth2 {
   return;
 }
 
-####
 sub t_get_utf8_string_mth1 {
   my $redis = shift;
 
@@ -540,7 +529,6 @@ sub t_get_utf8_string_mth1 {
   return;
 }
 
-####
 sub t_get_utf8_string_mth2 {
   my $redis = shift;
 
@@ -585,7 +573,6 @@ sub t_get_utf8_string_mth2 {
   return;
 }
 
-####
 sub t_get_non_existent_mth1 {
   my $redis = shift;
 
@@ -611,7 +598,6 @@ sub t_get_non_existent_mth1 {
   return;
 }
 
-####
 sub t_get_non_existent_mth2 {
   my $redis = shift;
 
@@ -644,7 +630,6 @@ sub t_get_non_existent_mth2 {
   return;
 }
 
-####
 sub t_mbulk_reply_mth1 {
   my $redis = shift;
 
@@ -687,7 +672,6 @@ sub t_mbulk_reply_mth1 {
   return;
 }
 
-####
 sub t_mbulk_reply_mth2 {
   my $redis = shift;
 
@@ -742,7 +726,6 @@ sub t_mbulk_reply_mth2 {
   return;
 }
 
-####
 sub t_mbulk_reply_empty_list_mth1 {
   my $redis = shift;
 
@@ -768,7 +751,6 @@ sub t_mbulk_reply_empty_list_mth1 {
   return;
 }
 
-####
 sub t_mbulk_reply_empty_list_mth2 {
   my $redis = shift;
 
@@ -799,7 +781,6 @@ sub t_mbulk_reply_empty_list_mth2 {
   return;
 }
 
-####
 sub t_mbulk_reply_undef_mth1 {
   my $redis = shift;
 
@@ -825,7 +806,6 @@ sub t_mbulk_reply_undef_mth1 {
   return;
 }
 
-####
 sub t_mbulk_reply_undef_mth2 {
   my $redis = shift;
 
@@ -858,7 +838,6 @@ sub t_mbulk_reply_undef_mth2 {
   return;
 }
 
-####
 sub t_nested_mbulk_reply_mth1 {
   my $redis = shift;
 
@@ -919,7 +898,6 @@ sub t_nested_mbulk_reply_mth1 {
   return;
 }
 
-####
 sub t_nested_mbulk_reply_mth2 {
   my $redis = shift;
 
@@ -992,7 +970,54 @@ sub t_nested_mbulk_reply_mth2 {
   return;
 }
 
-####
+sub t_composite_command {
+  my $redis = shift;
+
+  my $ver = get_redis_version( $REDIS );
+
+  SKIP: {
+    if ( $ver < version->parse( 'v2.6.9' ) ) {
+      skip 'redis-server 2.6.9 or higher is required for this test';
+    }
+
+    my $t_data;
+
+    ev_loop(
+      sub {
+        my $cv = shift;
+
+        $redis->client_setname( 'test',
+          { on_done => sub {
+              $t_data = shift;
+              $cv->send();
+            },
+          }
+        );
+      }
+    );
+
+    is_deeply( $t_data, 'OK', 'CLIENT SETNAME; composite command' );
+
+    ev_loop(
+      sub {
+        my $cv = shift;
+
+        $redis->client_getname(
+          { on_done => sub {
+              $t_data = shift;
+              $cv->send();
+            },
+          }
+        );
+      }
+    );
+
+    is_deeply( $t_data, 'test', 'CLIENT GETNAME; composite command' );
+  }
+
+  return;
+}
+
 sub t_oprn_error_mth1 {
   my $redis = shift;
 
@@ -1023,7 +1048,6 @@ sub t_oprn_error_mth1 {
   return;
 }
 
-####
 sub t_oprn_error_mth2 {
   my $redis = shift;
 
@@ -1057,7 +1081,6 @@ sub t_oprn_error_mth2 {
   return;
 }
 
-####
 sub t_default_on_error {
   my $redis = shift;
 
@@ -1085,7 +1108,6 @@ sub t_default_on_error {
   return;
 }
 
-####
 sub t_error_after_exec_mth1 {
   my $redis = shift;
 
@@ -1114,7 +1136,7 @@ sub t_error_after_exec_mth1 {
   );
 
   my $t_npref = "error after EXEC; 'on_error' used";
-  is( $t_err_msg, "Operation 'exec' completed with errors.",
+  is( $t_err_msg, "Operation \"exec\" completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
   is( $t_data->[0], 'OK', "$t_npref; status reply" );
@@ -1128,7 +1150,6 @@ sub t_error_after_exec_mth1 {
   return;
 }
 
-####
 sub t_error_after_exec_mth2 {
   my $redis = shift;
 
@@ -1159,7 +1180,7 @@ sub t_error_after_exec_mth2 {
   );
 
   my $t_npref = "error after EXEC; 'on_reply' used";
-  is( $t_err_msg, "Operation 'exec' completed with errors.",
+  is( $t_err_msg, "Operation \"exec\" completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
   is( $t_data->[0], 'OK', "$t_npref; status reply" );
@@ -1173,7 +1194,6 @@ sub t_error_after_exec_mth2 {
   return;
 }
 
-####
 sub t_quit {
   my $redis = shift;
 

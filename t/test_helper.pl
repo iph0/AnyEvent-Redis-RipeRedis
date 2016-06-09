@@ -9,7 +9,6 @@ use Test::RedisRunner;
 use AnyEvent;
 use version 0.77;
 
-####
 sub run_redis_instance {
   my %params = @_;
 
@@ -32,7 +31,6 @@ sub run_redis_instance {
   };
 }
 
-####
 sub ev_loop {
   my $sub = shift;
 
@@ -52,7 +50,6 @@ sub ev_loop {
   return;
 }
 
-####
 sub get_redis_version {
   my $redis = shift;
 

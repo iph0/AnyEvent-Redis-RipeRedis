@@ -21,7 +21,6 @@ t_premature_conn_close_mth2();
 t_subscription_lost();
 
 
-####
 sub t_cant_connect_mth1 {
   my $redis;
   my $port = empty_port();
@@ -62,14 +61,13 @@ sub t_cant_connect_mth1 {
   like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
       "$t_npref; client error message" );
   like( $t_cmd_err_msg,
-      qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
+      qr/^Operation "ping" aborted: Can't connect to localhost:$port:/,
       "$t_npref; command error message" );
   is( $t_cmd_err_code, E_CANT_CONN, "$t_npref; command error code" );
 
   return;
 }
 
-####
 sub t_cant_connect_mth2 {
   my $redis;
   my $port = empty_port();
@@ -113,14 +111,13 @@ sub t_cant_connect_mth2 {
       "$t_npref; client error message" );
   is( $t_cli_err_code, E_CANT_CONN, "$t_npref; client error code" );
   like( $t_cmd_err_msg,
-      qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
+      qr/^Operation "ping" aborted: Can't connect to localhost:$port:/,
       "$t_npref; command error message" );
   is( $t_cmd_err_code, E_CANT_CONN, "$t_npref; command error code" );
 
   return;
 }
 
-####
 sub t_no_connection {
   my $redis;
   my $port = empty_port();
@@ -161,7 +158,7 @@ sub t_no_connection {
   like( $t_cli_err_msg, qr/^Can't connect to localhost:$port:/,
       "$t_npref; client error message" );
   like( $t_cmd_err_msg_0,
-      qr/^Operation 'ping' aborted: Can't connect to localhost:$port:/,
+      qr/^Operation "ping" aborted: Can't connect to localhost:$port:/,
       "$t_npref; first command error message" );
   is( $t_cmd_err_code_0, E_CANT_CONN, "$t_npref; first command error code" );
 
@@ -185,14 +182,13 @@ sub t_no_connection {
   );
 
   is( $t_cmd_err_msg_1,
-      "Operation 'ping' aborted: No connection to the server.",
+      "Operation \"ping\" aborted: No connection to the server.",
       "$t_npref; second command error message" );
   is( $t_cmd_err_code_1, E_NO_CONN, "$t_npref; second command error code" );
 
   return;
 }
 
-####
 sub t_reconnection {
   my $port = empty_port();
   my $server_info = run_redis_instance(
@@ -282,7 +278,6 @@ sub t_reconnection {
   return;
 }
 
-####
 sub t_read_timeout {
   my $server_info = run_redis_instance();
 
@@ -331,7 +326,7 @@ sub t_read_timeout {
     my $t_npref = 'read timeout';
     is( $t_cli_err_msg, 'Read timed out.', "$t_npref; client error message" );
     is( $t_cli_err_code, E_READ_TIMEDOUT, "$t_npref; client error code" );
-    is( $t_cmd_err_msg, "Operation 'brpop' aborted: Read timed out.",
+    is( $t_cmd_err_msg, "Operation \"brpop\" aborted: Read timed out.",
         "$t_npref; command error message" );
     is( $t_cmd_err_code, E_READ_TIMEDOUT, "$t_npref; command error code" );
   }
@@ -339,7 +334,6 @@ sub t_read_timeout {
   return;
 }
 
-####
 sub t_premature_conn_close_mth1 {
   my $t_cli_err_msg;
   my $t_cli_err_code;
@@ -368,14 +362,13 @@ sub t_premature_conn_close_mth1 {
       "$t_npref; client error message" );
   is( $t_cli_err_code, E_CONN_CLOSED_BY_CLIENT, "$t_npref; client error message" );
   is( $t_cmd_err_msg,
-      "Operation 'ping' aborted: Connection closed by client prematurely.",
+      "Operation \"ping\" aborted: Connection closed by client prematurely.",
       "$t_npref; command error message" );
   is( $t_cmd_err_code, E_CONN_CLOSED_BY_CLIENT, "$t_npref; command error message" );
 
   return;
 }
 
-####
 sub t_premature_conn_close_mth2 {
   my $on_error_was_called = 0;
   my $t_cmd_err_msg;
@@ -400,13 +393,12 @@ sub t_premature_conn_close_mth2 {
   my $t_npref = 'premature connection close; undef() used';
   ok( !$on_error_was_called, "$t_npref; 'on_error' callback ignored" );
   is( $t_cmd_err_msg,
-      "Operation 'ping' aborted: Client object destroyed prematurely.",
+      "Operation \"ping\" aborted: Client object destroyed prematurely.",
       "$t_npref; command error message" );
 
   return;
 }
 
-####
 sub t_subscription_lost {
   my $server_info = run_redis_instance();
 
@@ -460,7 +452,7 @@ sub t_subscription_lost {
     is( $t_cli_err_code, E_CONN_CLOSED_BY_REMOTE_HOST,
         "$t_npref; client error code" );
     is( $t_cmd_err_msg,
-        "Subscription 'ch_foo' lost: Connection closed by remote host.",
+        "Subscription \"ch_foo\" lost: Connection closed by remote host.",
         "$t_npref; command error message" );
     is( $t_cmd_err_code, E_CONN_CLOSED_BY_REMOTE_HOST,
         "$t_npref; command error code" );

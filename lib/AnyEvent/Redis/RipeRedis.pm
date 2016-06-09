@@ -2,7 +2,6 @@ use 5.008000;
 use strict;
 use warnings;
 
-####
 package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
@@ -40,6 +39,11 @@ BEGIN {
     E_WRONG_TYPE                 => 20,
     E_NO_REPLICAS                => 21,
     E_BUSY_KEY                   => 22,
+    E_CROSS_SLOT                 => 23,
+    E_TRY_AGAIN                  => 24,
+    E_ASK                        => 25,
+    E_MOVED                      => 26,
+    E_CLUSTER_DOWN               => 27,
   );
 }
 
@@ -126,6 +130,7 @@ sub new {
   $self->encoding( $params{encoding} );
   $self->connection_timeout( $params{connection_timeout} );
   $self->read_timeout( $params{read_timeout} );
+  $self->min_reconnect_interval( $params{min_reconnect_interval} );
   $self->on_error( $params{on_error} );
 
   my $hdl_params = $params{handle_params} || {};
@@ -136,18 +141,19 @@ sub new {
   }
   $self->{handle_params} = $hdl_params;
 
-  $self->{_handle}         = undef;
-  $self->{_connected}      = 0;
-  $self->{_lazy_conn_st}   = $params{lazy};
-  $self->{_auth_st}        = S_NEED_PERFORM;
-  $self->{_select_db_st}   = S_NEED_PERFORM;
-  $self->{_ready_to_write} = 0;
-  $self->{_input_queue}    = [];
-  $self->{_tmp_queue}      = [];
-  $self->{_process_queue}  = [];
-  $self->{_txn_lock}       = 0;
-  $self->{_sub_map}        = {};
-  $self->{_sub_cnt}        = 0;
+  $self->{_handle}          = undef;
+  $self->{_connected}       = 0;
+  $self->{_lazy_conn_st}    = $params{lazy};
+  $self->{_auth_st}         = S_NEED_PERFORM;
+  $self->{_select_db_st}    = S_NEED_PERFORM;
+  $self->{_ready_to_write}  = 0;
+  $self->{_input_queue}     = [];
+  $self->{_tmp_queue}       = [];
+  $self->{_process_queue}   = [];
+  $self->{_txn_lock}        = 0;
+  $self->{_sub_map}         = {};
+  $self->{_sub_cnt}         = 0;
+  $self->{_reconnect_timer} = undef;
 
   unless ( $self->{_lazy_conn_st} ) {
     $self->_connect();
@@ -156,7 +162,6 @@ sub new {
   return $self;
 }
 
-####
 sub multi {
   my $self = shift;
   my $cmd  = $self->_prepare_cmd( 'multi', [ @_ ] );
@@ -167,7 +172,6 @@ sub multi {
   return;
 }
 
-####
 sub exec {
   my $self = shift;
   my $cmd  = $self->_prepare_cmd( 'exec', [ @_ ] );
@@ -178,7 +182,6 @@ sub exec {
   return;
 }
 
-####
 sub eval_cached {
   my $self = shift;
   my $cmd  = $self->_prepare_cmd( 'evalsha', [ @_ ] );
@@ -194,7 +197,6 @@ sub eval_cached {
   return;
 }
 
-####
 sub disconnect {
   my $self = shift;
 
@@ -203,7 +205,6 @@ sub disconnect {
   return;
 }
 
-####
 sub encoding {
   my $self = shift;
 
@@ -214,7 +215,7 @@ sub encoding {
       $self->{encoding} = find_encoding( $enc );
 
       unless ( defined $self->{encoding} ) {
-        croak "Encoding '$enc' not found";
+        croak "Encoding \"$enc\" not found";
       }
     }
     else {
@@ -225,7 +226,6 @@ sub encoding {
   return $self->{encoding};
 }
 
-####
 sub on_error {
   my $self = shift;
 
@@ -247,7 +247,6 @@ sub on_error {
   return $self->{on_error};
 }
 
-####
 sub selected_database {
   my $self = shift;
 
@@ -264,14 +263,14 @@ sub selected_database {
       my $cmd  = $self->_prepare_cmd( $kwd, [ @_ ] );
 
       if ( exists $SUB_CMDS{ $cmd->{kwd} } && !defined $cmd->{on_message} ) {
-        croak "'on_message' callback must be specified";
+        croak "\"on_message\" callback must be specified";
       }
 
       if ( $self->{_txn_lock} ) {
         AE::postpone(
           sub {
             $self->_process_cmd_error( $cmd,
-                "Command '$cmd->{kwd}' not allowed after 'multi' command."
+                "Command \"$cmd->{kwd}\" not allowed after \"multi\" command."
                     . ' First, the transaction must be finalized.',
                 E_OPRN_ERROR );
           }
@@ -296,21 +295,19 @@ sub selected_database {
     },
   }
 
-  foreach my $name_pref ( qw( connection read ) ) {
-    my $name = $name_pref . '_timeout';
-
+  foreach my $name ( qw( connection_timeout read_timeout min_reconnect_interval ) ) {
     *{$name} = sub {
       my $self = shift;
 
       if ( @_ ) {
-        my $timeout = shift;
+        my $seconds = shift;
 
-        if ( defined $timeout
-          && ( !looks_like_number($timeout) || $timeout < 0 ) )
+        if ( defined $seconds
+          && ( !looks_like_number($seconds) || $seconds < 0 ) )
         {
-          croak ucfirst($name_pref) . ' timeout must be a positive number';
+          croak "\"$name\" must be a positive number";
         }
-        $self->{$name} = $timeout;
+        $self->{$name} = $seconds;
       }
 
       return $self->{$name};
@@ -330,7 +327,6 @@ sub selected_database {
   }
 }
 
-####
 sub _connect {
   my $self = shift;
 
@@ -349,7 +345,6 @@ sub _connect {
   return;
 }
 
-####
 sub _get_on_prepare {
   my $self = shift;
 
@@ -364,7 +359,6 @@ sub _get_on_prepare {
   };
 }
 
-####
 sub _get_on_connect {
   my $self = shift;
 
@@ -397,7 +391,6 @@ sub _get_on_connect {
   };
 }
 
-####
 sub _get_on_connect_error {
   my $self = shift;
 
@@ -411,7 +404,6 @@ sub _get_on_connect_error {
   };
 }
 
-####
 sub _get_on_rtimeout {
   my $self = shift;
 
@@ -427,7 +419,6 @@ sub _get_on_rtimeout {
   };
 }
 
-####
 sub _get_on_eof {
   my $self = shift;
 
@@ -439,7 +430,6 @@ sub _get_on_eof {
   };
 }
 
-####
 sub _get_handle_on_error {
   my $self = shift;
 
@@ -452,7 +442,6 @@ sub _get_handle_on_error {
   };
 }
 
-####
 sub _get_on_read {
   my $self = shift;
 
@@ -568,7 +557,6 @@ sub _get_on_read {
   };
 }
 
-####
 sub _prepare_cmd {
   my $self = shift;
   my $kwd  = shift;
@@ -595,7 +583,6 @@ sub _prepare_cmd {
   return $cmd;
 }
 
-####
 sub _execute_cmd {
   my $self = shift;
   my $cmd  = shift;
@@ -618,12 +605,26 @@ sub _execute_cmd {
       $self->_connect();
     }
     elsif ( $self->{reconnect} ) {
-      $self->_connect();
+      if ( defined $self->{min_reconnect_interval}
+        && $self->{min_reconnect_interval} > 0 )
+      {
+        unless ( defined $self->{_reconnect_timer} ) {
+          $self->{_reconnect_timer} = AE::timer( $self->{min_reconnect_interval}, 0,
+            sub {
+              undef $self->{_reconnect_timer};
+              $self->_connect();
+            }
+          );
+        }
+      }
+      else {
+        $self->_connect();
+      }
     }
     else {
       AE::postpone(
         sub {
-          $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted:"
+          $self->_process_cmd_error( $cmd, "Operation \"$cmd->{kwd}\" aborted:"
               . ' No connection to the server.', E_NO_CONN );
         }
       );
@@ -641,7 +642,6 @@ sub _execute_cmd {
   return;
 }
 
-####
 sub _push_write {
   my $self = shift;
   my $cmd  = shift;
@@ -670,7 +670,6 @@ sub _push_write {
   return;
 }
 
-####
 sub _auth {
   my $self = shift;
 
@@ -704,7 +703,6 @@ sub _auth {
   return;
 }
 
-####
 sub _select_db {
   my $self = shift;
 
@@ -732,7 +730,6 @@ sub _select_db {
   return;
 }
 
-####
 sub _flush_input_queue {
   my $self = shift;
 
@@ -746,7 +743,6 @@ sub _flush_input_queue {
   return;
 }
 
-####
 sub _process_reply {
   my $self     = shift;
   my $data     = shift;
@@ -762,8 +758,8 @@ sub _process_reply {
       return;
     }
 
-    $self->_process_cmd_error( $cmd, ref( $data )
-        ? ( "Operation '$cmd->{kwd}' completed with errors.", $err_code, $data )
+    $self->_process_cmd_error( $cmd, ref($data)
+        ? ( "Operation \"$cmd->{kwd}\" completed with errors.", $err_code, $data )
         : $data, $err_code );
   }
   elsif ( $self->{_sub_cnt} > 0
@@ -773,7 +769,7 @@ sub _process_reply {
 
     unless ( defined $cmd ) {
       $self->_disconnect( "Don't know how process published message."
-          . " Unknown channel or pattern '$data->[1]'.", E_UNEXPECTED_DATA );
+          . " Unknown channel or pattern \"$data->[1]\".", E_UNEXPECTED_DATA );
 
       return;
     }
@@ -800,7 +796,6 @@ sub _process_reply {
   return;
 }
 
-####
 sub _process_cmd_error {
   my $self = shift;
   my $cmd  = shift;
@@ -827,7 +822,6 @@ sub _process_cmd_error {
   return;
 }
 
-####
 sub _process_cmd_success {
   my $self = shift;
   my $cmd  = shift;
@@ -869,7 +863,6 @@ sub _process_cmd_success {
   return;
 }
 
-####
 sub _parse_info {
   return {
     map { split( m/:/, $_, 2 ) }
@@ -877,7 +870,6 @@ sub _parse_info {
   };
 }
 
-####
 sub _disconnect {
   my $self     = shift;
   my $err_msg  = shift;
@@ -904,7 +896,6 @@ sub _disconnect {
   return;
 }
 
-####
 sub _abort_all {
   my $self     = shift;
   my $err_msg  = shift;
@@ -941,12 +932,12 @@ sub _abort_all {
     if ( $sub_cnt > 0 && $err_code != E_CONN_CLOSED_BY_CLIENT ) {
       foreach my $sub_key ( keys %{$sub_map} ) {
         my $cmd = $sub_map->{$sub_key};
-        $self->_process_cmd_error( $cmd, "Subscription '$sub_key' lost: "
+        $self->_process_cmd_error( $cmd, "Subscription \"$sub_key\" lost: "
             . $err_msg, $err_code );
       }
     }
     foreach my $cmd ( @unfin_cmds ) {
-      $self->_process_cmd_error( $cmd, "Operation '$cmd->{kwd}' aborted: "
+      $self->_process_cmd_error( $cmd, "Operation \"$cmd->{kwd}\" aborted: "
           . $err_msg, $err_code );
     }
   }
@@ -954,7 +945,6 @@ sub _abort_all {
   return;
 }
 
-####
 sub AUTOLOAD {
   our $AUTOLOAD;
   my $method = $AUTOLOAD;
@@ -978,7 +968,6 @@ sub AUTOLOAD {
   goto &{$sub};
 }
 
-####
 sub DESTROY {
   my $self = shift;
 
@@ -990,7 +979,8 @@ sub DESTROY {
     );
 
     foreach my $cmd ( @unfin_cmds ) {
-      warn "Operation '$cmd->{kwd}' aborted: Client object destroyed prematurely.\n";
+      warn "Operation \"$cmd->{kwd}\" aborted:"
+          . " Client object destroyed prematurely.\n";
     }
   }
 
@@ -998,7 +988,6 @@ sub DESTROY {
 }
 
 
-####
 package AnyEvent::Redis::RipeRedis::Error;
 
 # Constructor
@@ -1015,14 +1004,12 @@ sub new {
   return $self;
 }
 
-####
 sub message {
   my $self = shift;
 
   return $self->{message};
 }
 
-####
 sub code {
   my $self = shift;
 
@@ -1123,15 +1110,16 @@ Requires Redis 1.2 or higher, and any supported event loop.
 =head2 new( %params )
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
-    host               => 'localhost',
-    port               => '6379',
-    password           => 'yourpass',
-    database           => 7,
-    lazy               => 1,
-    connection_timeout => 5,
-    read_timeout       => 5,
-    reconnect          => 1,
-    encoding           => 'utf8',
+    host                   => 'localhost',
+    port                   => '6379',
+    password               => 'yourpass',
+    database               => 7,
+    lazy                   => 1,
+    connection_timeout     => 5,
+    read_timeout           => 5,
+    reconnect              => 1,
+    min_reconnect_interval => 5,
+    encoding               => 'utf8',
 
     on_connect => sub {
       # handling...
@@ -1221,13 +1209,22 @@ Disabled by default.
 =item reconnect => $boolean
 
 If the connection to the Redis server was lost and the parameter C<reconnect> is
-TRUE, the client try to restore the connection on a next command executuion.
-The client try to reconnect only once and if it fails, is called the
-C<on_error> callback. If you need several attempts of the reconnection, just
-retry a command from the C<on_error> callback as many times, as you need. This
-feature made the client more responsive.
+TRUE, the client try to restore the connection on a next command executuion
+unless C<min_reconnect_interval> is specified. The client try to reconnect only
+once and if it fails, is called the C<on_error> callback. If you need several
+attempts of the reconnection, just retry a command from the C<on_error>
+callback as many times, as you need. This feature made the client more responsive.
 
 Enabled by default.
+
+=item min_reconnect_interval
+
+If the parameter is specified the client will try to reconnect not often,
+than this interval and command executons between reconnections will be suspended.
+
+  min_reconnect_interval => 5,
+
+Not set by default.
 
 =item handle_params => \%params
 
@@ -2052,6 +2049,34 @@ Target key name already exists.
 
 =back
 
+Error codes available since Redis 3.0.
+
+=over
+
+=item E_CROSS_SLOT
+
+Keys in request don't hash to the same slot.
+
+=item E_TRY_AGAIN
+
+Multiple keys request during rehashing of slot.
+
+=item E_ASK
+
+Redirection required. For more information see:
+L<http://redis.io/topics/cluster-spec>
+
+=item E_MOVED
+
+Redirection required. For more information see:
+L<http://redis.io/topics/cluster-spec>
+
+=item E_CLUSTER_DOWN
+
+The cluster is down or hash slot not served.
+
+=back
+
 =head1 DISCONNECTION
 
 When the connection to the server is no longer needed you can close it in three
@@ -2091,6 +2116,10 @@ Get or set the C<read_timeout> of the client.
 =head2 reconnect( [ $boolean ] )
 
 Enables or disables reconnection mode of the client.
+
+=head2 min_reconnect_interval( [ $seconds ] )
+
+Get or set C<min_reconnect_interval> of the client.
 
 =head2 encoding( [ $enc_name ] )
 

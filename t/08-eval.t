@@ -42,7 +42,6 @@ t_errors_in_mbulk_reply_mth2( $REDIS );
 $REDIS->disconnect();
 
 
-####
 sub t_no_script {
   my $redis = shift;
 
@@ -78,7 +77,6 @@ LUA
   return;
 }
 
-####
 sub t_eval_cached_mth1 {
   my $redis = shift;
 
@@ -123,7 +121,6 @@ LUA
   return;
 }
 
-####
 sub t_eval_cached_mth2 {
   my $redis = shift;
 
@@ -183,7 +180,6 @@ LUA
   return;
 }
 
-####
 sub t_eval_cached_mbulk_mth1 {
   my $redis = shift;
 
@@ -227,7 +223,6 @@ LUA
   return;
 }
 
-####
 sub t_eval_cached_mbulk_mth2 {
   my $redis = shift;
 
@@ -270,7 +265,6 @@ LUA
   return;
 }
 
-####
 sub t_error_reply_mth1 {
   my $redis = shift;
 
@@ -304,7 +298,6 @@ LUA
   return;
 }
 
-####
 sub t_error_reply_mth2 {
   my $redis = shift;
 
@@ -341,7 +334,6 @@ LUA
   return;
 }
 
-####
 sub t_errors_in_mbulk_reply_mth1 {
   my $redis = shift;
 
@@ -372,7 +364,7 @@ LUA
   );
 
   my $t_npref = "errors in multi-bulk reply; 'on_error' used";
-  is( $t_err_msg, "Operation 'eval' completed with errors.",
+  is( $t_err_msg, "Operation \"eval\" completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 
@@ -391,7 +383,6 @@ LUA
   return;
 }
 
-####
 sub t_errors_in_mbulk_reply_mth2 {
   my $redis = shift;
 
@@ -424,7 +415,7 @@ LUA
   );
 
   my $t_npref = "errors in multi-bulk reply; 'on_reply' used";
-  is( $t_err_msg, "Operation 'eval' completed with errors.",
+  is( $t_err_msg, "Operation \"eval\" completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
 

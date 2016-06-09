@@ -55,7 +55,6 @@ SKIP: {
 $REDIS->disconnect();
 
 
-####
 sub t_leaks_status_reply_mth1 {
   my $redis = shift;
 
@@ -84,7 +83,6 @@ sub t_leaks_status_reply_mth1 {
   return;
 }
 
-####
 sub t_leaks_status_reply_mth2 {
   my $redis = shift;
 
@@ -125,7 +123,6 @@ sub t_leaks_status_reply_mth2 {
   return;
 }
 
-####
 sub t_leaks_bulk_reply_mth1 {
   my $redis = shift;
 
@@ -156,7 +153,6 @@ sub t_leaks_bulk_reply_mth1 {
   return;
 }
 
-####
 sub t_leaks_bulk_reply_mth2 {
   my $redis = shift;
 
@@ -199,7 +195,6 @@ sub t_leaks_bulk_reply_mth2 {
   return;
 }
 
-####
 sub t_leaks_mbulk_reply_mth1 {
   my $redis = shift;
 
@@ -232,7 +227,6 @@ sub t_leaks_mbulk_reply_mth1 {
   return;
 }
 
-####
 sub t_leaks_mbulk_reply_mth2 {
   my $redis = shift;
 
@@ -277,7 +271,6 @@ sub t_leaks_mbulk_reply_mth2 {
   return;
 }
 
-####
 sub t_leaks_nested_mbulk_reply_mth1 {
   my $redis = shift;
 
@@ -318,7 +311,6 @@ sub t_leaks_nested_mbulk_reply_mth1 {
   return;
 }
 
-####
 sub t_leaks_nested_mbulk_reply_mth2 {
   my $redis = shift;
 
@@ -371,7 +363,6 @@ sub t_leaks_nested_mbulk_reply_mth2 {
   return;
 }
 
-####
 sub t_leaks_subunsub_mth1 {
   my $redis = shift;
 
@@ -411,7 +402,6 @@ sub t_leaks_subunsub_mth1 {
   return;
 }
 
-####
 sub t_leaks_subunsub_mth2 {
   my $redis = shift;
 
@@ -462,7 +452,6 @@ sub t_leaks_subunsub_mth2 {
   return;
 }
 
-####
 sub t_leaks_eval_cached_mth1 {
   my $redis = shift;
 
@@ -500,7 +489,6 @@ LUA
   return;
 }
 
-####
 sub t_leaks_eval_cached_mth2 {
   my $redis = shift;
 

@@ -26,7 +26,6 @@ $SERVER_INFO = run_redis_instance(
 t_auto_select_after_auth( $SERVER_INFO );
 
 
-####
 sub t_auto_select {
   my $server_info = shift;
 
@@ -73,7 +72,6 @@ sub t_auto_select {
   return;
 }
 
-####
 sub t_select {
   my $server_info = shift;
 
@@ -118,7 +116,6 @@ sub t_select {
   return;
 }
 
-####
 sub t_invalid_db_index {
   my $server_info = shift;
 
@@ -157,7 +154,7 @@ sub t_invalid_db_index {
   );
 
   my $t_npref = 'invalid DB index';
-  like( $t_cmd_err_msg, qr/^Operation 'ping' aborted:/,
+  like( $t_cmd_err_msg, qr/^Operation "ping" aborted:/,
       "$t_npref; command error message" );
   is( $t_cmd_err_code, E_OPRN_ERROR, "$t_npref; command error code" );
   ok( defined $t_cli_err_msg, "$t_npref; client error message" );
@@ -166,7 +163,6 @@ sub t_invalid_db_index {
   return;
 }
 
-####
 sub t_auto_select_after_reconn {
   my $server_info = shift;
 
@@ -261,7 +257,6 @@ sub t_auto_select_after_reconn {
   return;
 }
 
-####
 sub t_auto_select_after_auth {
   my $server_info = shift;
 
@@ -311,7 +306,6 @@ sub t_auto_select_after_auth {
   return;
 }
 
-####
 sub set_get {
   my $redis_db1 = shift;
   my $redis_db2 = shift;

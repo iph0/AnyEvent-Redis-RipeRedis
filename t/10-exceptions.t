@@ -2,17 +2,17 @@ use 5.008000;
 use strict;
 use warnings;
 
-use Test::More tests => 11;
+use Test::More tests => 15;
 use Test::Fatal;
 use AnyEvent::Redis::RipeRedis;
 
 t_conn_timeout();
 t_read_timeout();
+t_min_reconnect_interval();
 t_encoding();
 t_on_message();
 
 
-####
 sub t_conn_timeout {
   like(
     exception {
@@ -20,7 +20,7 @@ sub t_conn_timeout {
         connection_timeout => 'invalid',
       );
     },
-    qr/Connection timeout must be a positive number/,
+    qr/"connection_timeout" must be a positive number/,
     'invalid connection timeout (character string; constructor)'
   );
 
@@ -30,7 +30,7 @@ sub t_conn_timeout {
         connection_timeout => -5,
       );
     },
-    qr/Connection timeout must be a positive number/,
+    qr/"connection_timeout" must be a positive number/,
     'invalid connection timeout (negative number; constructor)'
   );
 
@@ -38,24 +38,23 @@ sub t_conn_timeout {
 
   like(
     exception {
-      $redis->connection_timeout( 'invalid' );
+      $redis->connection_timeout('invalid');
     },
-    qr/Connection timeout must be a positive number/,
+    qr/"connection_timeout" must be a positive number/,
     'invalid connection timeout (character string; accessor)'
   );
 
   like(
     exception {
-      $redis->connection_timeout( -5 );
+      $redis->connection_timeout(-5);
     },
-    qr/Connection timeout must be a positive number/,
+    qr/"connection_timeout" must be a positive number/,
     'invalid connection timeout (negative number; accessor)'
   );
 
   return;
 }
 
-####
 sub t_read_timeout {
   like(
     exception {
@@ -63,7 +62,7 @@ sub t_read_timeout {
         read_timeout => 'invalid',
       );
     },
-    qr/Read timeout must be a positive number/,
+    qr/"read_timeout" must be a positive number/,
     'invalid read timeout (character string; constructor)',
   );
 
@@ -73,7 +72,7 @@ sub t_read_timeout {
         read_timeout => -5,
       );
     },
-    qr/Read timeout must be a positive number/,
+    qr/"read_timeout" must be a positive number/,
     'invalid read timeout (negative number; constructor)',
   );
 
@@ -81,24 +80,65 @@ sub t_read_timeout {
 
   like(
     exception {
-      $redis->read_timeout( 'invalid' );
+      $redis->read_timeout('invalid');
     },
-    qr/Read timeout must be a positive number/,
+    qr/"read_timeout" must be a positive number/,
     'invalid read timeout (character string; accessor)',
   );
 
   like(
     exception {
-      $redis->read_timeout( -5 );
+      $redis->read_timeout(-5);
     },
-    qr/Read timeout must be a positive number/,
+    qr/"read_timeout" must be a positive number/,
     'invalid read timeout (negative number; accessor)',
   );
 
   return;
 }
 
-####
+sub t_min_reconnect_interval {
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        min_reconnect_interval => 'invalid',
+      );
+    },
+    qr/"min_reconnect_interval" must be a positive number/,
+    "invalid 'min_reconnect_interval' (character string; constructor)",
+  );
+
+  like(
+    exception {
+      my $redis = AnyEvent::Redis::RipeRedis->new(
+        min_reconnect_interval => -5,
+      );
+    },
+    qr/"min_reconnect_interval" must be a positive number/,
+    "invalid 'min_reconnect_interval' (negative number; constructor)",
+  );
+
+  my $redis = AnyEvent::Redis::RipeRedis->new();
+
+  like(
+    exception {
+      $redis->min_reconnect_interval('invalid');
+    },
+    qr/"min_reconnect_interval" must be a positive number/,
+    "invalid 'min_reconnect_interval' (character string; accessor)",
+  );
+
+  like(
+    exception {
+      $redis->min_reconnect_interval(-5);
+    },
+    qr/"min_reconnect_interval" must be a positive number/,
+    "invalid 'min_reconnect_interval' (negative number; accessor)",
+  );
+
+  return;
+}
+
 sub t_encoding {
   like(
     exception {
@@ -106,7 +146,7 @@ sub t_encoding {
         encoding => 'utf88',
       );
     },
-    qr/Encoding 'utf88' not found/,
+    qr/Encoding "utf88" not found/,
     'invalid encoding (constructor)',
   );
 
@@ -114,25 +154,24 @@ sub t_encoding {
 
   like(
     exception {
-      $redis->encoding( 'utf88' );
+      $redis->encoding('utf88');
     },
-    qr/Encoding 'utf88' not found/,
+    qr/Encoding "utf88" not found/,
     'invalid encoding (accessor)',
   );
 
   return;
 }
 
-####
 sub t_on_message {
   my $redis = AnyEvent::Redis::RipeRedis->new();
 
   like(
     exception {
-      $redis->subscribe( 'channel' );
+      $redis->subscribe('channel');
     },
-    qr/'on_message' callback must be specified/,
-    "'on_message' callback not specified",
+    qr/"on_message" callback must be specified/,
+    "\"on_message\" callback not specified",
   );
 
   return;
