@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.49_02';
+our $VERSION = '1.50';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1033,7 +1033,7 @@ feature
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host     => 'localhost',
-    port     => '6379',
+    port     => 6379,
     password => 'yourpass',
   );
 
@@ -1111,7 +1111,7 @@ Requires Redis 1.2 or higher, and any supported event loop.
 
   my $redis = AnyEvent::Redis::RipeRedis->new(
     host                   => 'localhost',
-    port                   => '6379',
+    port                   => 6379,
     password               => 'yourpass',
     database               => 7,
     lazy                   => 1,
