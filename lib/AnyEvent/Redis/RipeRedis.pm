@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.50';
+our $VERSION = '1.51_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -93,18 +93,23 @@ my %MSG_TYPES = (
 );
 
 my %ERR_PREFS_MAP = (
-  LOADING    => E_LOADING_DATASET,
-  NOSCRIPT   => E_NO_SCRIPT,
-  BUSY       => E_BUSY,
-  MASTERDOWN => E_MASTER_DOWN,
-  MISCONF    => E_MISCONF,
-  READONLY   => E_READONLY,
-  OOM        => E_OOM,
-  EXECABORT  => E_EXEC_ABORT,
-  NOAUTH     => E_NO_AUTH,
-  WRONGTYPE  => E_WRONG_TYPE,
-  NOREPLICAS => E_NO_REPLICAS,
-  BUSYKEY    => E_BUSY_KEY,
+  LOADING     => E_LOADING_DATASET,
+  NOSCRIPT    => E_NO_SCRIPT,
+  BUSY        => E_BUSY,
+  MASTERDOWN  => E_MASTER_DOWN,
+  MISCONF     => E_MISCONF,
+  READONLY    => E_READONLY,
+  OOM         => E_OOM,
+  EXECABORT   => E_EXEC_ABORT,
+  NOAUTH      => E_NO_AUTH,
+  WRONGTYPE   => E_WRONG_TYPE,
+  NOREPLICAS  => E_NO_REPLICAS,
+  BUSYKEY     => E_BUSY_KEY,
+  CROSSSLOT   => E_CROSS_SLOT,
+  TRYAGAIN    => E_TRY_AGAIN,
+  ASK         => E_ASK,
+  MOVED       => E_MOVED,
+  CLUSTERDOWN => E_CLUSTER_DOWN,
 );
 
 my %EVAL_CACHE;
