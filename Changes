@@ -1,13 +1,16 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
-1.50 Mon Jun  20 15:20:45 MSK 2016
+1.52 Mon Jun 27 11:25:35 MSK 2016
+  - BUGFIX Added error code mapping for new error prefixes.
+
+1.50 Mon Jun 20 15:20:45 MSK 2016
   - FEATURE Improved syntax of calling of multiple word commands.
   - FEATURE Added new constructor parameter "min_reconnect_interval" and
     corresponding accessor.
   - FEATURE Added new error codes.
   - Slight refactoring of unit tests.
 
-1.48 Sat Jun  27 15:31:24 MSK 2015
+1.48 Sat Jun 27 15:31:24 MSK 2015
   - FEATURE Improved subscription mechanism. Now if connection was lost when
     client has active subscriptions, the 'on_error' or 'on_reply' callback,
     specified in appropriate '(p)subscribe' method, is called.
