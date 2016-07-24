@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.52';
+our $VERSION = '1.53_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1026,8 +1026,7 @@ __END__
 
 =head1 NAME
 
-AnyEvent::Redis::RipeRedis - Flexible non-blocking Redis client with reconnect
-feature
+AnyEvent::Redis::RipeRedis - DEPRECATED. Use AnyEvent::RipeRedis instead
 
 =head1 SYNOPSIS
 
@@ -1044,9 +1043,9 @@ feature
 
   $redis->incr( 'foo',
     sub {
-      my $data = shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1055,7 +1054,7 @@ feature
         return;
       }
 
-      print "$data\n";
+      print "$reply\n";
     }
   );
 
@@ -1071,9 +1070,9 @@ feature
 
   $redis->get( 'bar',
     { on_done => sub {
-        my $data = shift;
+        my $reply = shift;
 
-        print "$data\n";
+        print "$reply\n";
       },
 
       on_error => sub {
@@ -1087,9 +1086,9 @@ feature
 
   $redis->quit(
     sub {
-      shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1103,6 +1102,11 @@ feature
   $cv->recv();
 
 =head1 DESCRIPTION
+
+MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead. The interface of
+L<AnyEvent::RipeRedis> has several diffreneces from interface of
+AnyEvent::Redis::RipeRedis. See the documentation on L<AnyEvent::RipeRedis>
+for more information.
 
 AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
 reconnect feature. The client supports subscriptions, transactions and connection
@@ -1225,8 +1229,7 @@ Enabled by default.
 =item min_reconnect_interval => $fractional_seconds
 
 If the parameter is specified, the client will try to reconnect not often than
-through this interval. Command executons between reconnections in this case
-will be suspended.
+through this interval.
 
   min_reconnect_interval => 5,
 
@@ -1249,7 +1252,7 @@ This option is in effect when, for example, code terminates connection by callin
 C<disconnect> but there are ongoing operations. In this case destructor of
 underlying L<AnyEvent::Handle> object will keep the write buffer in memory for
 long time (see default value) causing temporal 'memory leak'. See
-L<AnyEvent::Handle> for more info.
+L<AnyEvent::Handle> for more information.
 
 By default is applied default setting of L<AnyEvent::Handle> (i.e. 3600 seconds).
 
@@ -1261,7 +1264,7 @@ When enabled, writes to socket will always be queued till the next event loop
 iteration. This is efficient when you execute many operations per iteration, but
 less efficient when you execute a single operation only per iteration (or when
 the write buffer often is full). It also increases operation latency. See
-L<AnyEvent::Handle> for more info.
+L<AnyEvent::Handle> for more information.
 
 Disabled by default.
 
@@ -1305,9 +1308,9 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->incr( 'foo',
     sub {
-      my $data = shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1316,15 +1319,15 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
         return;
       }
 
-      print "$data\n";
+      print "$reply\n";
     },
   );
 
   $redis->incr( 'foo',
     { on_reply => sub {
-        my $data = shift;
+        my $reply = shift;
 
-        if ( @_ ) {
+        if (@_) {
           my $err_msg  = shift;
           my $err_code = shift;
 
@@ -1333,7 +1336,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
           return;
         }
 
-        print "$data\n";
+        print "$reply\n";
       },
     }
   );
@@ -1342,9 +1345,9 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->get( 'bar',
     { on_done => sub {
-        my $data = shift;
+        my $reply = shift;
 
-        print "$data\n";
+        print "$reply\n";
       },
 
       on_error => sub {
@@ -1358,9 +1361,9 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
   $redis->lrange( 'list', 0, -1,
     { on_done => sub {
-        my $data = shift;
+        my $reply = shift;
 
-        foreach my $val ( @{$data}  ) {
+        foreach my $val ( @{$reply}  ) {
           print "$val\n";
         }
       },
@@ -1376,7 +1379,7 @@ The full list of the Redis commands can be found here: L<http://redis.io/command
 
 =over
 
-=item on_done => $cb->( [ $data ] )
+=item on_done => $cb->( [ $reply ] )
 
 The C<on_done> callback is called when the current operation was completed
 successfully.
@@ -1385,7 +1388,7 @@ successfully.
 
 The C<on_error> callback is called when some error occurred.
 
-=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply ] [, $err_msg, $err_code ] )
 
 Since version 1.300 of the client you can specify single, C<on_reply> callback,
 instead of two, C<on_done> and C<on_error> callbacks. The C<on_reply> callback
@@ -1426,17 +1429,17 @@ error message and C<code()> to get error code.
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
     sub {
-      my $replies = shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        if ( defined $replies ) {
-          foreach my $reply ( @{$replies} ) {
-            if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-              my $oprn_err_msg  = $reply->message();
-              my $oprn_err_code = $reply->code();
+        if ( defined $reply ) {
+          foreach my $nested_reply ( @{$reply} ) {
+            if ( ref($nested_reply) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $nested_err_msg  = $nested_reply->message();
+              my $nested_err_code = $nested_reply->code();
 
               # error handling...
             }
@@ -1450,7 +1453,7 @@ error message and C<code()> to get error code.
         return;
       }
 
-      # handling...
+      # reply handling...
     },
   );
 
@@ -1459,7 +1462,7 @@ error message and C<code()> to get error code.
   $redis->incr( 'foo' ); # causes an error
   $redis->exec(
     { on_done => sub {
-        my $replies = shift;
+        my $reply = shift;
 
         # handling...
       },
@@ -1467,13 +1470,13 @@ error message and C<code()> to get error code.
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
-        my $replies  = shift;
+        my $reply    = shift;
 
-        if ( defined $replies ) {
-          foreach my $reply ( @{$replies} ) {
-            if ( ref( $reply ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-              my $oprn_err_msg  = $reply->message();
-              my $oprn_err_code = $reply->code();
+        if ( defined $reply ) {
+          foreach my $nested_reply ( @{$reply} ) {
+            if ( ref($nested_reply) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $nested_err_msg  = $nested_reply->message();
+              my $nested_err_code = $nested_reply->code();
 
               # error handling...
             }
@@ -1518,9 +1521,9 @@ Subscribes the client to the specified channels.
 
   $redis->subscribe( qw( ch_foo ch_bar ),
     { on_reply => sub {
-        my $data = shift;
+        my $reply = shift;
 
-        if ( @_ ) {
+        if (@_) {
           my $err_msg  = shift;
           my $err_code = shift;
 
@@ -1529,8 +1532,8 @@ Subscribes the client to the specified channels.
           return;
         }
 
-        my $ch_name  = $data->[0];
-        my $subs_num = $data->[1];
+        my $ch_name  = $reply->[0];
+        my $subs_num = $reply->[1];
 
         # handling...
       },
@@ -1592,7 +1595,7 @@ The C<on_message> callback is called when a published message was received.
 
 The C<on_error> callback is called if the subscription operation fails.
 
-=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription operation
 was completed successfully or when subscription operation fails. In first case
@@ -1608,9 +1611,9 @@ Subscribes the client to the given patterns.
 
   $redis->psubscribe( qw( foo_* bar_* ),
     { on_reply => sub {
-        my $data = shift;
+        my $reply = shift;
 
-        if ( @_ ) {
+        if (@_) {
           my $err_msg  = shift;
           my $err_code = shift;
 
@@ -1619,8 +1622,8 @@ Subscribes the client to the given patterns.
           return;
         }
 
-        my $ch_pattern = $data->[0];
-        my $subs_num   = $data->[1];
+        my $ch_pattern = $reply->[0];
+        my $subs_num   = $reply->[1];
 
         # handling...
       },
@@ -1685,7 +1688,7 @@ The C<on_message> callback is called when published message was received.
 
 The C<on_error> callback is called if the subscription operation fails.
 
-=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the subscription
 operation was completed successfully or when subscription operation fails.
@@ -1710,9 +1713,9 @@ channel will be sent to the client.
 
   $redis->unsubscribe( qw( ch_foo ch_bar ),
     sub {
-      my $data = shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1721,8 +1724,8 @@ channel will be sent to the client.
         return;
       }
 
-      my $ch_name  = $data->[0];
-      my $subs_num = $data->[1];
+      my $ch_name  = $reply->[0];
+      my $subs_num = $reply->[1];
 
       # handling...
     }
@@ -1749,7 +1752,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called if the unsubscription operation fails.
 
-=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully or when unsubscription operation fails.
@@ -1770,9 +1773,9 @@ pattern will be sent to the client.
 
   $redis->punsubscribe( qw( foo_* bar_* ),
     sub {
-      my $data = shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1781,8 +1784,8 @@ pattern will be sent to the client.
         return;
       }
 
-      my $ch_pattern = $data->[0];
-      my $subs_num   = $data->[1];
+      my $ch_pattern = $reply->[0];
+      my $subs_num   = $reply->[1];
 
       # handling...
     }
@@ -1809,7 +1812,7 @@ unsubscription operation was completed successfully.
 
 The C<on_error> callback is called if the unsubscription operation fails.
 
-=item on_reply => $cb->( [ $data ] [, $err_msg, $err_code ] )
+=item on_reply => $cb->( [ $reply ] [, $err_msg, $err_code ] )
 
 The C<on_reply> callback is called in both cases: when the unsubscription
 operation was completed successfully or when unsubscription operation fails.
@@ -1850,9 +1853,9 @@ instead.
   $redis->eval_cached( 'return { KEYS[1], KEYS[2], ARGV[1], ARGV[2] }',
       2, 'key1', 'key2', 'first', 'second',
     sub {
-      my $data = shift;
+      my $reply = shift;
 
-      if ( @_ ) {
+      if (@_) {
         my $err_msg  = shift;
         my $err_code = shift;
 
@@ -1861,7 +1864,7 @@ instead.
         return;
       }
 
-      foreach my $val ( @{$data}  ) {
+      foreach my $val ( @{$reply}  ) {
         print "$val\n";
       }
     }
@@ -1878,17 +1881,17 @@ command.
 
   $redis->eval_cached( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     sub {
-      my $data = shift;
+      my $reply = shift;
 
       if ( @_ ) {
         my $err_msg  = shift;
         my $err_code = shift;
 
-        if ( defined $data ) {
-          foreach my $chunk ( @{$data} ) {
-            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-              my $nested_err_msg  = $chunk->message();
-              my $nested_err_code = $chunk->code();
+        if ( defined $reply ) {
+          foreach my $nested_reply ( @{$reply} ) {
+            if ( ref($nested_reply) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $nested_err_msg  = $nested_reply->message();
+              my $nested_err_code = $nested_reply->code();
 
               # error handling...
             }
@@ -1900,13 +1903,13 @@ command.
         return;
       }
 
-      # handling...
+      # reply handling...
     }
   );
 
   $redis->eval_cached( "return { 'foo', redis.error_reply( 'Error.' ) }", 0,
     { on_done => sub {
-         my $data = shift;
+         my $reply = shift;
 
          # handling...
       },
@@ -1914,13 +1917,13 @@ command.
       on_error => sub {
         my $err_msg  = shift;
         my $err_code = shift;
-        my $data     = shift;
+        my $reply     = shift;
 
-        if ( defined $data ) {
-          foreach my $chunk ( @{$data} ) {
-            if ( ref( $chunk ) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
-              my $nested_err_msg  = $chunk->message();
-              my $nested_err_code = $chunk->code();
+        if ( defined $reply ) {
+          foreach my $nested_reply ( @{$reply} ) {
+            if ( ref($nested_reply) eq 'AnyEvent::Redis::RipeRedis::Error' ) {
+              my $nested_err_msg  = $nested_reply->message();
+              my $nested_err_code = $nested_reply->code();
 
               # error handling...
             }
@@ -2151,9 +2154,14 @@ Get or set the C<on_error> callback.
 
 Get currently selected database index.
 
+=head1 KNOWN BUGS
+
+Methods C<unsubscribe()> and C<punsubscribe()> without arguments don't works
+correctly. This issue fixed in L<AnyEvent::RipeRedis>.
+
 =head1 SEE ALSO
 
-L<AnyEvent>, L<AnyEvent::Redis>, L<Redis>, L<Redis::hiredis>, L<RedisDB>
+L<AnyEvent::RipeRedis>, L<AnyEvent>, L<Redis::hiredis>, L<Redis>, L<RedisDB>
 
 =head1 AUTHOR
 
@@ -2183,7 +2191,7 @@ Ivan Kruglov
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012-2015, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
+Copyright (c) 2012-2016, Eugene Ponizovsky, E<lt>ponizovsky@gmail.comE<gt>.
 All rights reserved.
 
 This module is free software; you can redistribute it and/or modify it under

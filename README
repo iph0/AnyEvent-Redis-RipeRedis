@@ -1,4 +1,4 @@
-AnyEvent-Redis-RipeRedis version 1.52
+AnyEvent-Redis-RipeRedis version 1.53_01
 ======================
 
 INSTALLATION
@@ -31,7 +31,7 @@ Special thanks
 
 COPYRIGHT AND LICENSE
 
-Copyright (c) 2012-2015, Eugene Ponizovsky, <ponizovsky@gmail.com>.
+Copyright (c) 2012-2016, Eugene Ponizovsky, <ponizovsky@gmail.com>.
 All rights reserved.
 
 This module is free software; you can redistribute it and/or modify it under
