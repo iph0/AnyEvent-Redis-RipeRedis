@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.54';
+our $VERSION = '1.56';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1105,7 +1105,7 @@ AnyEvent::Redis::RipeRedis - DEPRECATED. Use AnyEvent::RipeRedis instead
 
 MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead.
 
-IMPORTANT. The interface of L<AnyEvent::RipeRedis> has several differences from
+ATTENTION, the interface of L<AnyEvent::RipeRedis> has several differences from
 interface of AnyEvent::Redis::RipeRedis. To migrate on L<AnyEvent::RipeRedis>
 you must do few changes in the old code.
 
