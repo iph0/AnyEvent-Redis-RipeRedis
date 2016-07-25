@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.53_01';
+our $VERSION = '1.53_02';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1103,10 +1103,11 @@ AnyEvent::Redis::RipeRedis - DEPRECATED. Use AnyEvent::RipeRedis instead
 
 =head1 DESCRIPTION
 
-MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead. The interface of
-L<AnyEvent::RipeRedis> has several diffreneces from interface of
-AnyEvent::Redis::RipeRedis. See the documentation on L<AnyEvent::RipeRedis>
-for more information.
+MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead.
+
+IMPORTANT. The interface of L<AnyEvent::RipeRedis> has several diffreneces from
+interface of AnyEvent::Redis::RipeRedis. To migrate on L<AnyEvent::RipeRedis>
+you must change the old code.
 
 AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
 reconnect feature. The client supports subscriptions, transactions and connection
@@ -1237,7 +1238,7 @@ Not set by default.
 
 =item handle_params => \%params
 
-Parameters, which will be passed to L<AnyEvent::Handle> constructor.
+Specifies L<AnyEvent::Handle> parameters.
 
   handle_params => {
     linger   => 60,
