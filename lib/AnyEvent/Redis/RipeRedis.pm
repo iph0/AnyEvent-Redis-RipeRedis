@@ -1105,7 +1105,7 @@ AnyEvent::Redis::RipeRedis - DEPRECATED. Use AnyEvent::RipeRedis instead
 
 MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead.
 
-IMPORTANT. The interface of L<AnyEvent::RipeRedis> has several diffreneces from
+IMPORTANT. The interface of L<AnyEvent::RipeRedis> has several differences from
 interface of AnyEvent::Redis::RipeRedis. To migrate on L<AnyEvent::RipeRedis>
 you must change the old code.
 
