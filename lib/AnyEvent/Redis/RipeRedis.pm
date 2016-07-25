@@ -1241,8 +1241,8 @@ Not set by default.
 Specifies L<AnyEvent::Handle> parameters.
 
   handle_params => {
-    linger   => 60,
     autocork => 1,
+    linger   => 60,
   }
 
 =item linger => $fractional_seconds
