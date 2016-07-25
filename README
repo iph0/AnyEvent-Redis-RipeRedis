@@ -12,9 +12,15 @@ To install this module type the following:
 
 DESCRIPTION
 
-AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with reconnect
-feature. The client supports subscriptions, transactions and connection via
-UNIX-socket.
+MODULE IS DEPRECATED. Use AnyEvent::RipeRedis instead.
+
+IMPORTANT. The interface of AnyEvent::RipeRedis has several differences from
+interface of AnyEvent::Redis::RipeRedis. To migrate on AnyEvent::RipeRedis you
+must do few changes in the old code.
+
+AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
+reconnect feature. The client supports subscriptions, transactions and
+connection via UNIX-socket.
 
 Requires Redis 1.2 or higher and any supported event loop.
 
