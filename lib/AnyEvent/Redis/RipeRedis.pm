@@ -1107,7 +1107,7 @@ MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead.
 
 IMPORTANT. The interface of L<AnyEvent::RipeRedis> has several differences from
 interface of AnyEvent::Redis::RipeRedis. To migrate on L<AnyEvent::RipeRedis>
-you must change the old code.
+you must do few changes in the old code.
 
 AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
 reconnect feature. The client supports subscriptions, transactions and connection
