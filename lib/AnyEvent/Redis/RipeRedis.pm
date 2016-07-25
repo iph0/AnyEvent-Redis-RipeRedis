@@ -1520,7 +1520,7 @@ or C<on_reply> callback in appropriate C<(p)subscribe> method is called.
 
 Subscribes the client to the specified channels.
 
-  $redis->subscribe( qw( ch_foo ch_bar ),
+  $redis->subscribe( qw( foo bar ),
     { on_reply => sub {
         my $reply = shift;
 
@@ -1533,14 +1533,14 @@ Subscribes the client to the specified channels.
           return;
         }
 
-        my $ch_name  = $reply->[0];
-        my $subs_num = $reply->[1];
+        my $channel      = $reply->[0];
+        my $channels_num = $reply->[1];
 
         # handling...
       },
 
       on_message => sub {
-        my $ch_name = shift;
+        my $channel = shift;
         my $msg     = shift;
 
         # message handling...
@@ -1548,25 +1548,25 @@ Subscribes the client to the specified channels.
     }
   );
 
-  $redis->subscribe( qw( ch_foo ch_bar ),
+  $redis->subscribe( qw( foo bar ),
     sub {
-      my $ch_name = shift;
+      my $channel = shift;
       my $msg     = shift;
 
       # message handling...
     }
   );
 
-  $redis->subscribe( qw( ch_foo ch_bar ),
+  $redis->subscribe( qw( foo bar ),
     { on_done =>  sub {
-        my $ch_name  = shift;
-        my $subs_num = shift;
+        my $channel      = shift;
+        my $channels_num = shift;
 
         # handling...
       },
 
       on_message => sub {
-        my $ch_name = shift;
+        my $channel = shift;
         my $msg     = shift;
 
         # message handling...
@@ -1583,12 +1583,12 @@ Subscribes the client to the specified channels.
 
 =over
 
-=item on_done => $cb->( $ch_name, $sub_num )
+=item on_done => $cb->( $channel, $sub_num )
 
 The C<on_done> callback is called on every specified channel when the
 subscription operation was completed successfully.
 
-=item on_message => $cb->( $ch_name, $msg )
+=item on_message => $cb->( $channel, $msg )
 
 The C<on_message> callback is called when a published message was received.
 
@@ -1623,16 +1623,16 @@ Subscribes the client to the given patterns.
           return;
         }
 
-        my $ch_pattern = $reply->[0];
-        my $subs_num   = $reply->[1];
+        my $pattern      = $reply->[0];
+        my $channels_num = $reply->[1];
 
         # handling...
       },
 
       on_message => sub {
-        my $ch_name    = shift;
-        my $msg        = shift;
-        my $ch_pattern = shift;
+        my $channel = shift;
+        my $msg     = shift;
+        my $pattern = shift;
 
         # message handling...
       },
@@ -1641,9 +1641,9 @@ Subscribes the client to the given patterns.
 
   $redis->psubscribe( qw( foo_* bar_* ),
     sub {
-      my $ch_name    = shift;
-      my $msg        = shift;
-      my $ch_pattern = shift;
+      my $channel = shift;
+      my $msg     = shift;
+      my $pattern = shift;
 
       # message handling...
     }
@@ -1651,16 +1651,16 @@ Subscribes the client to the given patterns.
 
   $redis->psubscribe( qw( foo_* bar_* ),
     { on_done =>  sub {
-        my $ch_pattern = shift;
-        my $subs_num   = shift;
+        my $pattern      = shift;
+        my $channels_num = shift;
 
         # handling...
       },
 
       on_message => sub {
-        my $ch_name    = shift;
-        my $msg        = shift;
-        my $ch_pattern = shift;
+        my $channel = shift;
+        my $msg     = shift;
+        my $pattern = shift;
 
         # message handling...
       },
@@ -1676,12 +1676,12 @@ Subscribes the client to the given patterns.
 
 =over
 
-=item on_done => $cb->( $ch_pattern, $sub_num )
+=item on_done => $cb->( $pattern, $sub_num )
 
 The C<on_done> callback is called on every specified pattern when the
 subscription operation was completed successfully.
 
-=item on_message => $cb->( $ch_name, $msg, $ch_pattern )
+=item on_message => $cb->( $channel, $msg, $pattern )
 
 The C<on_message> callback is called when published message was received.
 
@@ -1725,8 +1725,8 @@ channel will be sent to the client.
         return;
       }
 
-      my $ch_name  = $reply->[0];
-      my $subs_num = $reply->[1];
+      my $channel      = $reply->[0];
+      my $channels_num = $reply->[1];
 
       # handling...
     }
@@ -1734,8 +1734,8 @@ channel will be sent to the client.
 
   $redis->unsubscribe( qw( ch_foo ch_bar ),
     { on_done => sub {
-        my $ch_name  = shift;
-        my $subs_num = shift;
+        my $channel      = shift;
+        my $channels_num = shift;
 
         # handling...
       },
@@ -1744,7 +1744,7 @@ channel will be sent to the client.
 
 =over
 
-=item on_done => $cb->( $ch_name, $sub_num )
+=item on_done => $cb->( $channel, $sub_num )
 
 The C<on_done> callback is called on every specified channel when the
 unsubscription operation was completed successfully.
@@ -1785,8 +1785,8 @@ pattern will be sent to the client.
         return;
       }
 
-      my $ch_pattern = $reply->[0];
-      my $subs_num   = $reply->[1];
+      my $pattern      = $reply->[0];
+      my $channels_num = $reply->[1];
 
       # handling...
     }
@@ -1794,8 +1794,8 @@ pattern will be sent to the client.
 
   $redis->punsubscribe( qw( foo_* bar_* ),
     { on_done => sub {
-        my $ch_pattern = shift;
-        my $subs_num   = shift;
+        my $pattern      = shift;
+        my $channels_num = shift;
 
         # handling...
       },
@@ -1804,7 +1804,7 @@ pattern will be sent to the client.
 
 =over
 
-=item on_done => $cb->( $ch_name, $sub_num )
+=item on_done => $cb->( $channel, $sub_num )
 
 The C<on_done> callback is called on every specified pattern when the
 unsubscription operation was completed successfully.
