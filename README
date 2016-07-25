@@ -1,4 +1,4 @@
-AnyEvent-Redis-RipeRedis version 1.56
+AnyEvent-Redis-RipeRedis version 1.58
 ======================
 
 INSTALLATION
@@ -14,7 +14,7 @@ DESCRIPTION
 
 MODULE IS DEPRECATED. Use AnyEvent::RipeRedis instead.
 
-IMPORTANT. The interface of AnyEvent::RipeRedis has several differences from
+ATTENTION, the interface of AnyEvent::RipeRedis has several differences from
 interface of AnyEvent::Redis::RipeRedis. To migrate on AnyEvent::RipeRedis you
 must do few changes in the old code.
 

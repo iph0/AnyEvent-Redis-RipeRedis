@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.56';
+our $VERSION = '1.58';
 
 use AnyEvent;
 use AnyEvent::Handle;
