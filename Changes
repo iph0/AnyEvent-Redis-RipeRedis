@@ -1,5 +1,9 @@
 Revision history for AnyEvent::Redis::RipeRedis.
 
+1.54 Mon Jul 25 18:04:40 MSK 2016
+  - Module is deprecated. Use AnyEvent::RipeRedis instead. Made related changes
+    in POD.
+
 1.52 Mon Jun 27 11:25:35 MSK 2016
   - BUGFIX Added error code mapping for new error prefixes.
 
