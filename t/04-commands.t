@@ -977,7 +977,7 @@ sub t_multi_word_command {
 
   SKIP: {
     if ( $ver < version->parse( 'v2.6.9' ) ) {
-      skip 'redis-server 2.6.9 or higher is required for this test';
+      skip 'redis-server 2.6.9 or higher is required for this test', 2;
     }
 
     my $t_reply;
