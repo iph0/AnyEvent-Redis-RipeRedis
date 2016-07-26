@@ -1,4 +1,4 @@
-AnyEvent-Redis-RipeRedis version 1.59_01
+AnyEvent-Redis-RipeRedis version 1.60
 ======================
 
 INSTALLATION
@@ -12,10 +12,9 @@ To install this module type the following:
 
 DESCRIPTION
 
-MODULE IS DEPRECATED. Use AnyEvent::RipeRedis instead.
-
-ATTENTION. The interface of AnyEvent::RipeRedis has several differences from
-interface of AnyEvent::Redis::RipeRedis. For more information see documentation.
+MODULE IS DEPRECATED. Use AnyEvent::RipeRedis instead. The interface of
+AnyEvent::RipeRedis has several differences from interface of
+AnyEvent::Redis::RipeRedis. For more information see documentation.
 
 AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
 reconnect feature. The client supports subscriptions, transactions and

@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.59_01';
+our $VERSION = '1.60';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -1113,10 +1113,9 @@ AnyEvent::Redis::RipeRedis - DEPRECATED. Use AnyEvent::RipeRedis instead
 
 =head1 DESCRIPTION
 
-MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead.
-
-ATTENTION. The interface of AnyEvent::RipeRedis has several differences from
-interface of AnyEvent::Redis::RipeRedis. For more information see documentation.
+MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead. The interface of
+L<AnyEvent::RipeRedis> has several differences from interface of
+AnyEvent::Redis::RipeRedis. For more information see documentation.
 
 AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
 reconnect feature. The client supports subscriptions, transactions and connection
@@ -1194,12 +1193,11 @@ Not set by default.
 
 =item connection_timeout => $fractional_seconds
 
-Timeout, within which the client will be wait the connection establishment to
-the Redis server. If the client could not connect to the server after specified
-timeout, the C<on_error> or C<on_connect_error> callback is called. In case
-when C<on_error> callback is called, C<E_CANT_CONN> error code is passed to
-callback in the second argument. The timeout specifies in seconds and can
-contain a fractional part.
+Specifies connection timeout. If the client could not connect to the server
+after specified timeout, the C<on_error> or C<on_connect_error> callback is
+called. In case when C<on_error> callback is called, C<E_CANT_CONN> error code
+is passed to callback in the second argument. The timeout specifies in seconds
+and can contain a fractional part.
 
   connection_timeout => 10.5,
 
@@ -1207,11 +1205,10 @@ By default the client use kernel's connection timeout.
 
 =item read_timeout => $fractional_seconds
 
-Timeout, within which the client will be wait a response on a command from the
-Redis server. If the client could not receive a response from the server after
-specified timeout, the client close connection and call C<on_error> callback
-with the C<E_READ_TIMEDOUT> error code. The timeout is specifies in seconds
-and can contain a fractional part.
+Specifies read timeout. If the client could not receive a reply from the
+server after specified timeout, the client close connection and call the
+C<on_error> callback with the C<E_READ_TIMEDOUT> error code. The timeout is
+specifies in seconds and can contain a fractional part.
 
   read_timeout => 3.5,
 
@@ -1232,14 +1229,15 @@ TRUE, the client try to restore the connection on a next command executuion
 unless C<min_reconnect_interval> is specified. The client try to reconnect only
 once and if it fails, is called the C<on_error> callback. If you need several
 attempts of the reconnection, just retry a command from the C<on_error>
-callback as many times, as you need. This feature made the client more responsive.
+callback as many times, as you need. This feature made the client more
+responsive.
 
 Enabled by default.
 
 =item min_reconnect_interval => $fractional_seconds
 
 If the parameter is specified, the client will try to reconnect not often than
-through this interval.
+after this interval.
 
   min_reconnect_interval => 5,
 
@@ -1303,7 +1301,7 @@ Not set by default.
 =item on_error => $cb->( $err_msg, $err_code )
 
 The common C<on_error> callback is called when ocurred some error, which was
-affected on entire client (e. g. connection error). Also this callback is called
+affected on whole client (e. g. connection error). Also this callback is called
 on other errors if neither C<on_error> callback nor C<on_reply> callback is
 specified in the command method. If common C<on_error> callback is not specified,
 the client just print an error messages to C<STDERR>.
