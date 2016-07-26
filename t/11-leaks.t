@@ -65,7 +65,7 @@ sub t_leaks_status_reply_mth1 {
 
         $redis->set( 'foo', "some\r\nstring",
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -93,7 +93,7 @@ sub t_leaks_status_reply_mth2 {
 
         $redis->set( 'foo', "some\r\nstring",
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             if ( @_ ) {
               my $err_msg = shift;
@@ -135,7 +135,7 @@ sub t_leaks_bulk_reply_mth1 {
 
         $redis->get( 'foo',
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -165,7 +165,7 @@ sub t_leaks_bulk_reply_mth2 {
 
         $redis->get( 'foo',
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             if ( @_ ) {
               my $err_msg = shift;
@@ -209,7 +209,7 @@ sub t_leaks_mbulk_reply_mth1 {
 
         $redis->lrange( 'list', 0, -1,
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -241,7 +241,7 @@ sub t_leaks_mbulk_reply_mth2 {
 
         $redis->lrange( 'list', 0, -1,
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             if ( @_ ) {
               my $err_msg = shift;
@@ -293,7 +293,7 @@ sub t_leaks_nested_mbulk_reply_mth1 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
             },
           }
         );
@@ -333,7 +333,7 @@ sub t_leaks_nested_mbulk_reply_mth2 {
         $redis->lrange( 'list', 0, -1 );
         $redis->exec(
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             if ( @_ ) {
               my $err_msg = shift;
@@ -412,7 +412,7 @@ sub t_leaks_subunsub_mth2 {
 
         $redis->subscribe( qw( ch_foo ch_bar ),
           { on_reply => sub {
-              my $data = shift;
+              my $reply = shift;
 
               if ( @_ ) {
                 my $err_msg = shift;
@@ -430,7 +430,7 @@ sub t_leaks_subunsub_mth2 {
 
         $redis->unsubscribe( qw( ch_foo ch_bar ),
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             if ( @_ ) {
               my $err_msg = shift;
@@ -440,7 +440,7 @@ sub t_leaks_subunsub_mth2 {
               return;
             }
 
-            if ( $data->[1] == 0 ) {
+            if ( $reply->[1] == 0 ) {
               $cv->send();
             }
           }
@@ -469,12 +469,12 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           { on_done => sub {
-              my $data = shift;
+              my $reply = shift;
 
               $redis->eval_cached( $script, 0, 57,
                 {
                   on_done => sub {
-                    my $data = shift;
+                    my $reply = shift;
                     $cv->send();
                   },
                 }
@@ -506,7 +506,7 @@ LUA
 
         $redis->eval_cached( $script, 0, 42,
           sub {
-            my $data = shift;
+            my $reply = shift;
 
             if ( @_ ) {
               my $err_msg = shift;
@@ -518,7 +518,7 @@ LUA
 
             $redis->eval_cached( $script, 0, 57,
               sub {
-                my $data = shift;
+                my $reply = shift;
 
                 if ( @_ ) {
                   my $err_msg = shift;

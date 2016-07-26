@@ -6,7 +6,7 @@ package AnyEvent::Redis::RipeRedis;
 
 use base qw( Exporter );
 
-our $VERSION = '1.58';
+our $VERSION = '1.59_01';
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -146,19 +146,19 @@ sub new {
   }
   $self->{handle_params} = $hdl_params;
 
-  $self->{_handle}          = undef;
-  $self->{_connected}       = 0;
-  $self->{_lazy_conn_st}    = $params{lazy};
-  $self->{_auth_st}         = S_NEED_PERFORM;
-  $self->{_select_db_st}    = S_NEED_PERFORM;
-  $self->{_ready_to_write}  = 0;
-  $self->{_input_queue}     = [];
-  $self->{_tmp_queue}       = [];
-  $self->{_process_queue}   = [];
-  $self->{_txn_lock}        = 0;
-  $self->{_sub_map}         = {};
-  $self->{_sub_cnt}         = 0;
-  $self->{_reconnect_timer} = undef;
+  $self->{_handle}           = undef;
+  $self->{_connected}        = 0;
+  $self->{_lazy_conn_st}     = $params{lazy};
+  $self->{_auth_st}          = S_NEED_PERFORM;
+  $self->{_select_db_st}     = S_NEED_PERFORM;
+  $self->{_ready_to_write}   = 0;
+  $self->{_input_queue}      = [];
+  $self->{_temp_queue}       = [];
+  $self->{_processing_queue} = [];
+  $self->{_txn_lock}         = 0;
+  $self->{_channels}         = {};
+  $self->{_channel_cnt}      = 0;
+  $self->{_reconnect_timer}  = undef;
 
   unless ( $self->{_lazy_conn_st} ) {
     $self->_connect();
@@ -404,8 +404,10 @@ sub _get_on_connect_error {
   return sub {
     my $err_msg = pop;
 
-    $self->_disconnect( "Can't connect to $self->{host}:$self->{port}: $err_msg",
-        E_CANT_CONN );
+    $self->_disconnect(
+      "Can't connect to $self->{host}:$self->{port}: $err_msg",
+      E_CANT_CONN
+    );
   };
 }
 
@@ -415,7 +417,7 @@ sub _get_on_rtimeout {
   weaken( $self );
 
   return sub {
-    if ( @{ $self->{_process_queue} } ) {
+    if ( @{ $self->{_processing_queue} } ) {
       $self->_disconnect( 'Read timed out.', E_READ_TIMEDOUT );
     }
     else {
@@ -464,7 +466,7 @@ sub _get_on_read {
         return;
       }
 
-      my $data;
+      my $reply;
       my $err_code;
 
       if ( defined $str_len ) {
@@ -472,10 +474,10 @@ sub _get_on_read {
           return;
         }
 
-        $data = substr( $handle->{rbuf}, 0, $str_len, '' );
+        $reply = substr( $handle->{rbuf}, 0, $str_len, '' );
         substr( $handle->{rbuf}, 0, EOL_LEN, '' );
         if ( defined $self->{encoding} ) {
-          $data = $self->{encoding}->decode( $data );
+          $reply = $self->{encoding}->decode( $reply );
         }
         undef $str_len;
       }
@@ -486,42 +488,42 @@ sub _get_on_read {
           return;
         }
 
-        $data = substr( $handle->{rbuf}, 0, $eol_pos, '' );
-        my $type = substr( $data, 0, 1, '' );
+        $reply = substr( $handle->{rbuf}, 0, $eol_pos, '' );
+        my $type = substr( $reply, 0, 1, '' );
         substr( $handle->{rbuf}, 0, EOL_LEN, '' );
 
         if ( $type ne '+' && $type ne ':' ) {
           if ( $type eq '$' ) {
-            if ( $data >= 0 ) {
-              $str_len = $data;
+            if ( $reply >= 0 ) {
+              $str_len = $reply;
 
               next;
             }
 
-            undef $data;
+            undef $reply;
           }
           elsif ( $type eq '*' ) {
-            if ( $data > 0 ) {
+            if ( $reply > 0 ) {
               push( @bufs,
                 { data       => [],
                   err_code   => undef,
-                  chunks_cnt => $data,
+                  chunks_cnt => $reply,
                 }
               );
               $bufs_num++;
 
               next;
             }
-            elsif ( $data == 0 ) {
-              $data = [];
+            elsif ( $reply == 0 ) {
+              $reply = [];
             }
             else {
-              undef $data;
+              undef $reply;
             }
           }
           elsif ( $type eq '-' ) {
             $err_code = E_OPRN_ERROR;
-            if ( $data =~ m/^([A-Z]{3,}) / ) {
+            if ( $reply =~ m/^([A-Z]{3,}) / ) {
               if ( exists $ERR_PREFS_MAP{$1} ) {
                 $err_code = $ERR_PREFS_MAP{$1};
               }
@@ -539,23 +541,24 @@ sub _get_on_read {
       while ( $bufs_num > 0 ) {
         my $curr_buf = $bufs[-1];
         if ( defined $err_code ) {
-          unless ( ref( $data ) ) {
-            $data = AnyEvent::Redis::RipeRedis::Error->new( $data, $err_code );
+          unless ( ref($reply) ) {
+            $reply
+                = AnyEvent::Redis::RipeRedis::Error->new( $reply, $err_code );
           }
           $curr_buf->{err_code} = E_OPRN_ERROR;
         }
-        push( @{ $curr_buf->{data} }, $data );
+        push( @{ $curr_buf->{data} }, $reply );
         if ( --$curr_buf->{chunks_cnt} > 0 ) {
           next MAIN;
         }
 
-        $data     = $curr_buf->{data};
+        $reply    = $curr_buf->{data};
         $err_code = $curr_buf->{err_code};
         pop @bufs;
         $bufs_num--;
       }
 
-      $self->_process_reply( $data, $err_code );
+      $self->_process_reply( $reply, $err_code );
     }
 
     return;
@@ -664,11 +667,11 @@ sub _push_write {
   $cmd_str = '*' . ( scalar( @{ $cmd->{args} } ) + 1 ) . EOL . $cmd_str;
 
   my $handle = $self->{_handle};
-  if ( defined $self->{read_timeout} && !@{ $self->{_process_queue} } ) {
+  if ( defined $self->{read_timeout} && !@{ $self->{_processing_queue} } ) {
     $handle->rtimeout_reset();
     $handle->rtimeout( $self->{read_timeout} );
   }
-  push( @{ $self->{_process_queue} }, $cmd );
+  push( @{ $self->{_processing_queue} }, $cmd );
 
   $handle->push_write( $cmd_str );
 
@@ -738,10 +741,10 @@ sub _select_db {
 sub _flush_input_queue {
   my $self = shift;
 
-  $self->{_tmp_queue}   = $self->{_input_queue};
+  $self->{_temp_queue}  = $self->{_input_queue};
   $self->{_input_queue} = [];
 
-  while ( my $cmd = shift @{ $self->{_tmp_queue} } ) {
+  while ( my $cmd = shift @{ $self->{_temp_queue} } ) {
     $self->_push_write( $cmd );
   }
 
@@ -750,52 +753,60 @@ sub _flush_input_queue {
 
 sub _process_reply {
   my $self     = shift;
-  my $data     = shift;
+  my $reply    = shift;
   my $err_code = shift;
 
   if ( defined $err_code ) {
-    my $cmd = shift @{ $self->{_process_queue} };
+    my $cmd = shift @{ $self->{_processing_queue} };
 
     unless ( defined $cmd ) {
-      $self->_disconnect( "Don't know how process error message."
-          . ' Processing queue is empty.', E_UNEXPECTED_DATA );
+      $self->_disconnect(
+        "Don't know how process error message. Processing queue is empty.",
+        E_UNEXPECTED_DATA,
+      );
 
       return;
     }
 
-    $self->_process_cmd_error( $cmd, ref($data)
-        ? ( "Operation \"$cmd->{kwd}\" completed with errors.", $err_code, $data )
-        : $data, $err_code );
+    $self->_process_cmd_error( $cmd, ref($reply)
+        ? ( "Operation \"$cmd->{kwd}\" completed with errors.",
+            $err_code, $reply )
+        : $reply, $err_code );
   }
-  elsif ( $self->{_sub_cnt} > 0
-    && ref( $data ) && exists $MSG_TYPES{ $data->[0] } )
+  elsif ( $self->{_channel_cnt} > 0
+    && ref( $reply ) && exists $MSG_TYPES{ $reply->[0] } )
   {
-    my $cmd = $self->{_sub_map}{ $data->[1] };
+    my $cmd = $self->{_channels}{ $reply->[1] };
 
     unless ( defined $cmd ) {
-      $self->_disconnect( "Don't know how process published message."
-          . " Unknown channel or pattern \"$data->[1]\".", E_UNEXPECTED_DATA );
+      $self->_disconnect(
+        "Don't know how process published message."
+            . " Unknown channel or pattern \"$reply->[1]\".",
+        E_UNEXPECTED_DATA
+      );
 
       return;
     }
 
-    $cmd->{on_message}->( $data->[0] eq 'pmessage'
-        ? @{$data}[ 2, 3, 1 ] : @{$data}[ 1, 2 ] );
+    $cmd->{on_message}->( $reply->[0] eq 'pmessage'
+        ? @{$reply}[ 2, 3, 1 ] : @{$reply}[ 1, 2 ] );
   }
   else {
-    my $cmd = $self->{_process_queue}[0];
+    my $cmd = $self->{_processing_queue}[0];
 
     unless ( defined $cmd ) {
-      $self->_disconnect( "Don't know how process reply."
-          . ' Processing queue is empty.', E_UNEXPECTED_DATA );
+      $self->_disconnect(
+        "Don't know how process reply. Processing queue is empty.",
+        E_UNEXPECTED_DATA
+      );
 
       return;
     }
 
     if ( !defined $cmd->{replies_cnt} || --$cmd->{replies_cnt} <= 0 ) {
-      shift @{ $self->{_process_queue} };
+      shift @{ $self->{_processing_queue} };
     }
-    $self->_process_cmd_success( $cmd, $data );
+    $self->_process_cmd_success( $cmd, $reply );
   }
 
   return;
@@ -828,27 +839,27 @@ sub _process_cmd_error {
 }
 
 sub _process_cmd_success {
-  my $self = shift;
-  my $cmd  = shift;
-  my $data = shift;
+  my $self  = shift;
+  my $cmd   = shift;
+  my $reply = shift;
 
   if ( exists $NEED_POSTPROCESS{ $cmd->{kwd} } ) {
     my $kwd = $cmd->{kwd};
 
     if ( exists $SUBUNSUB_CMDS{$kwd} ) {
-      shift @{$data};
+      shift @{$reply};
 
       if ( exists $SUB_CMDS{$kwd} ) {
-        $self->{_sub_map}{ $data->[0] } = $cmd;
+        $self->{_channels}{ $reply->[0] } = $cmd;
       }
       else { # unsubscribe or punsubscribe
-        delete $self->{_sub_map}{ $data->[0] };
+        delete $self->{_channels}{ $reply->[0] };
       }
 
-      $self->{_sub_cnt} = $data->[1];
+      $self->{_channel_cnt} = $reply->[1];
     }
     elsif ( $kwd eq 'info' ) {
-      $data = $self->_parse_info( $data );
+      $reply = $self->_parse_info( $reply );
     }
     elsif ( $kwd eq 'select' ) {
       $self->{database} = $cmd->{args}[0];
@@ -859,10 +870,10 @@ sub _process_cmd_success {
   }
 
   if ( defined $cmd->{on_done} ) {
-    $cmd->{on_done}->( $data );
+    $cmd->{on_done}->( $reply );
   }
   elsif ( defined $cmd->{on_reply} ) {
-    $cmd->{on_reply}->( $data );
+    $cmd->{on_reply}->( $reply );
   }
 
   return;
@@ -907,19 +918,18 @@ sub _abort_all {
   my $err_code = shift;
 
   my @unfin_cmds = (
-    @{ $self->{_process_queue} },
-    @{ $self->{_tmp_queue} },
+    @{ $self->{_processing_queue} },
+    @{ $self->{_temp_queue} },
     @{ $self->{_input_queue} },
   );
 
-  my $sub_map = $self->{_sub_map};
-  my $sub_cnt = $self->{_sub_cnt};
+  my %channels = %{ $self->{_channels} };
 
-  $self->{_input_queue}   = [];
-  $self->{_tmp_queue}     = [];
-  $self->{_process_queue} = [];
-  $self->{_sub_map}       = {};
-  $self->{_sub_cnt}       = 0;
+  $self->{_input_queue}      = [];
+  $self->{_temp_queue}       = [];
+  $self->{_processing_queue} = [];
+  $self->{_channels}         = {};
+  $self->{_channel_cnt}      = 0;
 
   if ( !defined $err_msg && @unfin_cmds ) {
     $err_msg  = 'Connection closed by client prematurely.';
@@ -934,10 +944,10 @@ sub _abort_all {
       $self->{on_error}->( $err_msg, $err_code );
     }
 
-    if ( $sub_cnt > 0 && $err_code != E_CONN_CLOSED_BY_CLIENT ) {
-      foreach my $sub_key ( keys %{$sub_map} ) {
-        my $cmd = $sub_map->{$sub_key};
-        $self->_process_cmd_error( $cmd, "Subscription \"$sub_key\" lost: "
+    if ( %channels && $err_code != E_CONN_CLOSED_BY_CLIENT ) {
+      foreach my $name ( keys %channels ) {
+        my $cmd = $channels{$name};
+        $self->_process_cmd_error( $cmd, "Subscription \"$name\" lost: "
             . $err_msg, $err_code );
       }
     }
@@ -978,8 +988,8 @@ sub DESTROY {
 
   if ( defined $self->{_handle} ) {
     my @unfin_cmds = (
-      @{ $self->{_process_queue} },
-      @{ $self->{_tmp_queue} },
+      @{ $self->{_processing_queue} },
+      @{ $self->{_temp_queue} },
       @{ $self->{_input_queue} },
     );
 
@@ -1105,9 +1115,8 @@ AnyEvent::Redis::RipeRedis - DEPRECATED. Use AnyEvent::RipeRedis instead
 
 MODULE IS DEPRECATED. Use L<AnyEvent::RipeRedis> instead.
 
-ATTENTION, the interface of L<AnyEvent::RipeRedis> has several differences from
-interface of AnyEvent::Redis::RipeRedis. To migrate on L<AnyEvent::RipeRedis>
-you must do few changes in the old code.
+ATTENTION. The interface of AnyEvent::RipeRedis has several differences from
+interface of AnyEvent::Redis::RipeRedis. For more information see documentation.
 
 AnyEvent::Redis::RipeRedis is the flexible non-blocking Redis client with
 reconnect feature. The client supports subscriptions, transactions and connection
@@ -1583,7 +1592,7 @@ Subscribes the client to the specified channels.
 
 =over
 
-=item on_done => $cb->( $channel, $sub_num )
+=item on_done => $cb->( $channel, $channels_num )
 
 The C<on_done> callback is called on every specified channel when the
 subscription operation was completed successfully.
@@ -1676,7 +1685,7 @@ Subscribes the client to the given patterns.
 
 =over
 
-=item on_done => $cb->( $pattern, $sub_num )
+=item on_done => $cb->( $pattern, $channels_num )
 
 The C<on_done> callback is called on every specified pattern when the
 subscription operation was completed successfully.
@@ -1744,7 +1753,7 @@ channel will be sent to the client.
 
 =over
 
-=item on_done => $cb->( $channel, $sub_num )
+=item on_done => $cb->( $channel, $channels_num )
 
 The C<on_done> callback is called on every specified channel when the
 unsubscription operation was completed successfully.
@@ -1804,7 +1813,7 @@ pattern will be sent to the client.
 
 =over
 
-=item on_done => $cb->( $channel, $sub_num )
+=item on_done => $cb->( $channel, $channels_num )
 
 The C<on_done> callback is called on every specified pattern when the
 unsubscription operation was completed successfully.

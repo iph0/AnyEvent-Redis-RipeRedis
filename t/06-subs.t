@@ -46,7 +46,7 @@ sub t_subunsub_mth1 {
 
       my $msg_cnt = 0;
 
-      $r_consum->subscribe( qw( ch_foo ch_bar ),
+      $r_consum->subscribe( qw( foo bar ),
         { on_done => sub {
             my $ch_name  = shift;
             my $subs_num = shift;
@@ -80,10 +80,10 @@ sub t_subunsub_mth1 {
   );
 
   is_deeply( \@t_sub_data,
-    [ { ch_name  => 'ch_foo',
+    [ { ch_name  => 'foo',
         subs_num => 1,
       },
-      { ch_name  => 'ch_bar',
+      { ch_name  => 'bar',
         subs_num => 2,
       },
     ],
@@ -91,10 +91,10 @@ sub t_subunsub_mth1 {
   );
 
   is_deeply( \@t_sub_msgs,
-    [ { ch_name => 'ch_foo',
+    [ { ch_name => 'foo',
         message => 'test1',
       },
-      { ch_name => 'ch_bar',
+      { ch_name => 'bar',
         message => 'test2',
       },
     ],
@@ -107,7 +107,7 @@ sub t_subunsub_mth1 {
     sub {
       my $cv = shift;
 
-      $r_consum->unsubscribe( qw( ch_foo ch_bar ),
+      $r_consum->unsubscribe( qw( foo bar ),
         { on_done => sub {
             my $ch_name  = shift;
             my $subs_num = shift;
@@ -128,10 +128,10 @@ sub t_subunsub_mth1 {
   );
 
   is_deeply( \@t_unsub_data,
-    [ { ch_name  => 'ch_foo',
+    [ { ch_name  => 'foo',
         subs_num => 1,
       },
-      { ch_name  => 'ch_bar',
+      { ch_name  => 'bar',
         subs_num => 0,
       },
     ],
@@ -154,7 +154,7 @@ sub t_subunsub_mth2 {
 
       my $msg_cnt = 0;
 
-      $r_consum->subscribe( qw( ch_foo ch_bar ),
+      $r_consum->subscribe( qw( foo bar ),
         sub {
           my $ch_name = shift;
           my $msg     = shift;
@@ -169,7 +169,7 @@ sub t_subunsub_mth2 {
         }
       );
 
-      $r_consum->subscribe( qw( ch_events ch_signals ),
+      $r_consum->subscribe( qw( events signals ),
         { on_reply => sub {
             my $data = shift;
 
@@ -187,9 +187,9 @@ sub t_subunsub_mth2 {
               }
             );
 
-            if ( $data->[0] eq 'ch_events' ) {
-              $r_transm->publish( 'ch_foo', 'test1' );
-              $r_transm->publish( 'ch_bar', 'test2' );
+            if ( $data->[0] eq 'events' ) {
+              $r_transm->publish( 'foo', 'test1' );
+              $r_transm->publish( 'bar', 'test2' );
             }
             $r_transm->publish( $data->[0], "test$data->[1]" );
           },
@@ -214,10 +214,10 @@ sub t_subunsub_mth2 {
   );
 
   is_deeply( \@t_sub_data,
-    [ { ch_name  => 'ch_events',
+    [ { ch_name  => 'events',
         subs_num => 3,
       },
-      { ch_name  => 'ch_signals',
+      { ch_name  => 'signals',
         subs_num => 4,
       },
     ],
@@ -225,17 +225,17 @@ sub t_subunsub_mth2 {
   );
 
   is_deeply( \@t_sub_msgs,
-    [ { ch_name => 'ch_foo',
+    [ { ch_name => 'foo',
         message => 'test1',
       },
-      { ch_name => 'ch_bar',
+      { ch_name => 'bar',
         message => 'test2',
       },
-      { ch_name => 'ch_events',
+      { ch_name => 'events',
         message => 'test3',
       },
 
-      { ch_name => 'ch_signals',
+      { ch_name => 'signals',
         message => 'test4',
       },
     ],
@@ -248,7 +248,7 @@ sub t_subunsub_mth2 {
     sub {
       my $cv = shift;
 
-      $r_consum->unsubscribe( qw( ch_foo ch_bar ch_events ch_signals ),
+      $r_consum->unsubscribe( qw( foo bar events signals ),
         sub {
           my $data = shift;
 
@@ -275,16 +275,16 @@ sub t_subunsub_mth2 {
   );
 
   is_deeply( \@t_unsub_data,
-    [ { ch_name  => 'ch_foo',
+    [ { ch_name  => 'foo',
         subs_num => 3,
       },
-      { ch_name  => 'ch_bar',
+      { ch_name  => 'bar',
         subs_num => 2,
       },
-      { ch_name  => 'ch_events',
+      { ch_name  => 'events',
         subs_num => 1,
       },
-      { ch_name  => 'ch_signals',
+      { ch_name  => 'signals',
         subs_num => 0,
       },
     ],

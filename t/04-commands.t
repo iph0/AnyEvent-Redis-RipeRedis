@@ -93,7 +93,7 @@ t_quit($REDIS);
 sub t_status_reply_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -101,7 +101,7 @@ sub t_status_reply_mth1 {
 
       $redis->set( 'foo', "some\r\nstring",
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -115,7 +115,7 @@ sub t_status_reply_mth1 {
     }
   );
 
-  is( $t_data, 'OK', "SET; 'on_done' used; status reply" );
+  is( $t_reply, 'OK', "SET; 'on_done' used; status reply" );
 
   return;
 }
@@ -123,7 +123,7 @@ sub t_status_reply_mth1 {
 sub t_status_reply_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -131,7 +131,7 @@ sub t_status_reply_mth2 {
 
       $redis->set( 'foo', "some\r\nstring",
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -162,7 +162,7 @@ sub t_status_reply_mth2 {
     }
   );
 
-  is( $t_data, 'OK', "SET; 'on_reply' used; status reply" );
+  is( $t_reply, 'OK', "SET; 'on_reply' used; status reply" );
 
   return;
 }
@@ -170,7 +170,7 @@ sub t_status_reply_mth2 {
 sub t_numeric_reply_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -178,7 +178,7 @@ sub t_numeric_reply_mth1 {
 
       $redis->incr( 'bar',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -192,7 +192,7 @@ sub t_numeric_reply_mth1 {
     }
   );
 
-  is( $t_data, 1, "INCR; 'on_done' used; numeric reply" );
+  is( $t_reply, 1, "INCR; 'on_done' used; numeric reply" );
 
   return;
 }
@@ -200,7 +200,7 @@ sub t_numeric_reply_mth1 {
 sub t_numeric_reply_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -208,7 +208,7 @@ sub t_numeric_reply_mth2 {
 
       $redis->incr( 'bar',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -234,7 +234,7 @@ sub t_numeric_reply_mth2 {
     }
   );
 
-  is( $t_data, 1, "INCR; 'on_reply' used; numeric reply" );
+  is( $t_reply, 1, "INCR; 'on_reply' used; numeric reply" );
 
   return;
 }
@@ -242,7 +242,7 @@ sub t_numeric_reply_mth2 {
 sub t_bulk_reply_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -252,7 +252,7 @@ sub t_bulk_reply_mth1 {
 
       $redis->get( 'foo',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -266,7 +266,7 @@ sub t_bulk_reply_mth1 {
     }
   );
 
-  is( $t_data, "some\r\nstring", "GET; 'on_done' used; bulk reply" );
+  is( $t_reply, "some\r\nstring", "GET; 'on_done' used; bulk reply" );
 
   return;
 }
@@ -274,7 +274,7 @@ sub t_bulk_reply_mth1 {
 sub t_bulk_reply_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -284,7 +284,7 @@ sub t_bulk_reply_mth2 {
 
       $redis->get( 'foo',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -310,7 +310,7 @@ sub t_bulk_reply_mth2 {
     }
   );
 
-  is( $t_data, "some\r\nstring", "GET; 'on_reply' used; bulk reply" );
+  is( $t_reply, "some\r\nstring", "GET; 'on_reply' used; bulk reply" );
 
   return;
 }
@@ -318,7 +318,7 @@ sub t_bulk_reply_mth2 {
 sub t_set_undef_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -326,7 +326,7 @@ sub t_set_undef_mth1 {
 
       $redis->set( 'empty', undef,
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
 
             $cv->send();
           },
@@ -335,7 +335,7 @@ sub t_set_undef_mth1 {
     }
   );
 
-  is( $t_data, 'OK', "SET; 'on_done' used; undef" );
+  is( $t_reply, 'OK', "SET; 'on_done' used; undef" );
 
   return;
 }
@@ -343,7 +343,7 @@ sub t_set_undef_mth1 {
 sub t_set_undef_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -351,7 +351,7 @@ sub t_set_undef_mth2 {
 
       $redis->set( 'empty', undef,
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -365,7 +365,7 @@ sub t_set_undef_mth2 {
     }
   );
 
-  is( $t_data, 'OK', "SET; 'on_reply' used; undef" );
+  is( $t_reply, 'OK', "SET; 'on_reply' used; undef" );
 
   return;
 }
@@ -373,7 +373,7 @@ sub t_set_undef_mth2 {
 sub t_get_undef_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -381,7 +381,7 @@ sub t_get_undef_mth1 {
 
       $redis->get( 'empty',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
 
             $cv->send();
           },
@@ -390,7 +390,7 @@ sub t_get_undef_mth1 {
     }
   );
 
-  is( $t_data, '', "GET; 'on_done' used; undef" );
+  is( $t_reply, '', "GET; 'on_done' used; undef" );
 
   return;
 }
@@ -398,7 +398,7 @@ sub t_get_undef_mth1 {
 sub t_get_undef_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -406,7 +406,7 @@ sub t_get_undef_mth2 {
 
       $redis->get( 'empty',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -420,7 +420,7 @@ sub t_get_undef_mth2 {
     }
   );
 
-  is( $t_data, '', "GET; 'on_reply' used; undef" );
+  is( $t_reply, '', "GET; 'on_reply' used; undef" );
 
   return;
 }
@@ -428,7 +428,7 @@ sub t_get_undef_mth2 {
 sub t_set_utf8_string_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -436,7 +436,7 @@ sub t_set_utf8_string_mth1 {
 
       $redis->set( 'ключ', 'Значение',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -450,7 +450,7 @@ sub t_set_utf8_string_mth1 {
     }
   );
 
-  is( $t_data, 'OK', "SET; 'on_done' used; UTF-8 string" );
+  is( $t_reply, 'OK', "SET; 'on_done' used; UTF-8 string" );
 
   return;
 }
@@ -458,7 +458,7 @@ sub t_set_utf8_string_mth1 {
 sub t_set_utf8_string_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -466,7 +466,7 @@ sub t_set_utf8_string_mth2 {
 
       $redis->set( 'ключ', 'Значение',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -492,7 +492,7 @@ sub t_set_utf8_string_mth2 {
     }
   );
 
-  is( $t_data, 'OK', "SET; 'on_reply' used; UTF-8 string" );
+  is( $t_reply, 'OK', "SET; 'on_reply' used; UTF-8 string" );
 
   return;
 }
@@ -500,7 +500,7 @@ sub t_set_utf8_string_mth2 {
 sub t_get_utf8_string_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -510,7 +510,7 @@ sub t_get_utf8_string_mth1 {
 
       $redis->get( 'ключ',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -524,7 +524,7 @@ sub t_get_utf8_string_mth1 {
     }
   );
 
-  is( $t_data, 'Значение', "GET; 'on_done' used; UTF-8 string" );
+  is( $t_reply, 'Значение', "GET; 'on_done' used; UTF-8 string" );
 
   return;
 }
@@ -532,7 +532,7 @@ sub t_get_utf8_string_mth1 {
 sub t_get_utf8_string_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -542,7 +542,7 @@ sub t_get_utf8_string_mth2 {
 
       $redis->get( 'ключ',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -568,7 +568,7 @@ sub t_get_utf8_string_mth2 {
     }
   );
 
-  is( $t_data, 'Значение', "GET; 'on_reply' used; UTF-8 string" );
+  is( $t_reply, 'Значение', "GET; 'on_reply' used; UTF-8 string" );
 
   return;
 }
@@ -576,7 +576,7 @@ sub t_get_utf8_string_mth2 {
 sub t_get_non_existent_mth1 {
   my $redis = shift;
 
-  my $t_data = 'not_undef';
+  my $t_reply = 'not_undef';
 
   ev_loop(
     sub {
@@ -584,7 +584,7 @@ sub t_get_non_existent_mth1 {
 
       $redis->get( 'non_existent',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
 
             $cv->send();
           },
@@ -593,7 +593,7 @@ sub t_get_non_existent_mth1 {
     }
   );
 
-  is( $t_data, undef, "GET; 'on_done' used; non existent key" );
+  is( $t_reply, undef, "GET; 'on_done' used; non existent key" );
 
   return;
 }
@@ -601,7 +601,7 @@ sub t_get_non_existent_mth1 {
 sub t_get_non_existent_mth2 {
   my $redis = shift;
 
-  my $t_data = 'not_undef';
+  my $t_reply = 'not_undef';
   my $t_err_msg;
 
   ev_loop(
@@ -610,7 +610,7 @@ sub t_get_non_existent_mth2 {
 
       $redis->get( 'non_existent',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             $t_err_msg = shift;
@@ -624,7 +624,7 @@ sub t_get_non_existent_mth2 {
     }
   );
 
-  ok( !defined $t_data && !defined $t_err_msg,
+  ok( !defined $t_reply && !defined $t_err_msg,
       "GET; 'on_reply' used; non existent key" );
 
   return;
@@ -633,7 +633,7 @@ sub t_get_non_existent_mth2 {
 sub t_mbulk_reply_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -645,7 +645,7 @@ sub t_mbulk_reply_mth1 {
 
       $redis->lrange( 'list', 0, -1,
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -659,7 +659,7 @@ sub t_mbulk_reply_mth1 {
     }
   );
 
-  is_deeply( $t_data,
+  is_deeply( $t_reply,
     [ qw(
         element_1
         element_2
@@ -675,7 +675,7 @@ sub t_mbulk_reply_mth1 {
 sub t_mbulk_reply_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -687,7 +687,7 @@ sub t_mbulk_reply_mth2 {
 
       $redis->lrange( 'list', 0, -1,
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -713,7 +713,7 @@ sub t_mbulk_reply_mth2 {
     }
   );
 
-  is_deeply( $t_data,
+  is_deeply( $t_reply,
     [ qw(
         element_1
         element_2
@@ -729,7 +729,7 @@ sub t_mbulk_reply_mth2 {
 sub t_mbulk_reply_empty_list_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -737,7 +737,7 @@ sub t_mbulk_reply_empty_list_mth1 {
 
       $redis->lrange( 'non_existent', 0, -1,
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
 
             $cv->send();
           },
@@ -746,7 +746,7 @@ sub t_mbulk_reply_empty_list_mth1 {
     },
   );
 
-  is_deeply( $t_data, [], "LRANGE; 'on_done' used; empty list" );
+  is_deeply( $t_reply, [], "LRANGE; 'on_done' used; empty list" );
 
   return;
 }
@@ -754,7 +754,7 @@ sub t_mbulk_reply_empty_list_mth1 {
 sub t_mbulk_reply_empty_list_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -762,7 +762,7 @@ sub t_mbulk_reply_empty_list_mth2 {
 
       $redis->lrange( 'non_existent', 0, -1,
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -776,7 +776,7 @@ sub t_mbulk_reply_empty_list_mth2 {
     },
   );
 
-  is_deeply( $t_data, [], "LRANGE; 'on_reply' used; empty list" );
+  is_deeply( $t_reply, [], "LRANGE; 'on_reply' used; empty list" );
 
   return;
 }
@@ -784,7 +784,7 @@ sub t_mbulk_reply_empty_list_mth2 {
 sub t_mbulk_reply_undef_mth1 {
   my $redis = shift;
 
-  my $t_data = 'not_undef';
+  my $t_reply = 'not_undef';
 
   ev_loop(
     sub {
@@ -792,7 +792,7 @@ sub t_mbulk_reply_undef_mth1 {
 
       $redis->brpop( 'non_existent', '1',
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
 
             $cv->send();
           },
@@ -801,7 +801,7 @@ sub t_mbulk_reply_undef_mth1 {
     }
   );
 
-  is( $t_data, undef, "BRPOP; 'on_done' used; multi-bulk undef" );
+  is( $t_reply, undef, "BRPOP; 'on_done' used; multi-bulk undef" );
 
   return;
 }
@@ -809,7 +809,7 @@ sub t_mbulk_reply_undef_mth1 {
 sub t_mbulk_reply_undef_mth2 {
   my $redis = shift;
 
-  my $t_data = 'not_undef';
+  my $t_reply = 'not_undef';
   my $t_err_msg;
 
   ev_loop(
@@ -818,7 +818,7 @@ sub t_mbulk_reply_undef_mth2 {
 
       $redis->brpop( 'non_existent', '1',
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             $t_err_msg = shift;
@@ -832,7 +832,7 @@ sub t_mbulk_reply_undef_mth2 {
     }
   );
 
-  ok( !defined $t_data && !defined $t_err_msg,
+  ok( !defined $t_reply && !defined $t_err_msg,
       "BRPOP; 'on_reply' used; multi-bulk undef" );
 
   return;
@@ -841,7 +841,7 @@ sub t_mbulk_reply_undef_mth2 {
 sub t_nested_mbulk_reply_mth1 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -861,7 +861,7 @@ sub t_nested_mbulk_reply_mth1 {
       $redis->lrange( 'list', 0, -1 );
       $redis->exec(
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
           },
         }
       );
@@ -875,7 +875,7 @@ sub t_nested_mbulk_reply_mth1 {
     }
   );
 
-  is_deeply( $t_data,
+  is_deeply( $t_reply,
     [ 1,
       [ qw(
           element_1
@@ -901,7 +901,7 @@ sub t_nested_mbulk_reply_mth1 {
 sub t_nested_mbulk_reply_mth2 {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -921,7 +921,7 @@ sub t_nested_mbulk_reply_mth2 {
       $redis->lrange( 'list', 0, -1 );
       $redis->exec(
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             my $err_msg = shift;
@@ -947,7 +947,7 @@ sub t_nested_mbulk_reply_mth2 {
     }
   );
 
-  is_deeply( $t_data,
+  is_deeply( $t_reply,
     [ 1,
       [ qw(
           element_1
@@ -980,7 +980,7 @@ sub t_multi_word_command {
       skip 'redis-server 2.6.9 or higher is required for this test';
     }
 
-    my $t_data;
+    my $t_reply;
 
     ev_loop(
       sub {
@@ -988,7 +988,7 @@ sub t_multi_word_command {
 
         $redis->client_setname( 'test',
           { on_done => sub {
-              $t_data = shift;
+              $t_reply = shift;
               $cv->send();
             },
           }
@@ -996,7 +996,7 @@ sub t_multi_word_command {
       }
     );
 
-    is_deeply( $t_data, 'OK', 'CLIENT SETNAME; multiple word command' );
+    is_deeply( $t_reply, 'OK', 'CLIENT SETNAME; multiple word command' );
 
     ev_loop(
       sub {
@@ -1004,7 +1004,7 @@ sub t_multi_word_command {
 
         $redis->client_getname(
           { on_done => sub {
-              $t_data = shift;
+              $t_reply = shift;
               $cv->send();
             },
           }
@@ -1012,7 +1012,7 @@ sub t_multi_word_command {
       }
     );
 
-    is_deeply( $t_data, 'test', 'CLIENT GETNAME; multiple word command' );
+    is_deeply( $t_reply, 'test', 'CLIENT GETNAME; multiple word command' );
   }
 
   return;
@@ -1061,7 +1061,7 @@ sub t_oprn_error_mth2 {
       # missing argument
       $redis->set( 'foo',
         sub {
-          my $data = shift;
+          my $reply = shift;
 
           if ( @_ ) {
             $t_err_msg  = shift;
@@ -1113,7 +1113,7 @@ sub t_error_after_exec_mth1 {
 
   my $t_err_msg;
   my $t_err_code;
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -1126,7 +1126,7 @@ sub t_error_after_exec_mth1 {
         { on_error => sub {
             $t_err_msg  = shift;
             $t_err_code = shift;
-            $t_data     = shift;
+            $t_reply    = shift;
 
             $cv->send();
           },
@@ -1139,13 +1139,13 @@ sub t_error_after_exec_mth1 {
   is( $t_err_msg, "Operation \"exec\" completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
-  is( $t_data->[0], 'OK', "$t_npref; status reply" );
+  is( $t_reply->[0], 'OK', "$t_npref; status reply" );
 
-  isa_ok( $t_data->[1], 'AnyEvent::Redis::RipeRedis::Error' );
-  can_ok( $t_data->[1], 'code' );
-  can_ok( $t_data->[1], 'message' );
-  ok( defined $t_data->[1]->message(), "$t_npref; nested error message" );
-  is( $t_data->[1]->code(), E_OPRN_ERROR, "$t_npref; nested error message" );
+  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error' );
+  can_ok( $t_reply->[1], 'code' );
+  can_ok( $t_reply->[1], 'message' );
+  ok( defined $t_reply->[1]->message(), "$t_npref; nested error message" );
+  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; nested error message" );
 
   return;
 }
@@ -1155,7 +1155,7 @@ sub t_error_after_exec_mth2 {
 
   my $t_err_msg;
   my $t_err_code;
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -1166,7 +1166,7 @@ sub t_error_after_exec_mth2 {
       $redis->incr( 'foo' );
       $redis->exec(
         sub {
-          $t_data = shift;
+          $t_reply = shift;
 
           if ( @_ ) {
             $t_err_msg  = shift;
@@ -1183,13 +1183,13 @@ sub t_error_after_exec_mth2 {
   is( $t_err_msg, "Operation \"exec\" completed with errors.",
       "$t_npref; error message" );
   is( $t_err_code, E_OPRN_ERROR, "$t_npref; error code" );
-  is( $t_data->[0], 'OK', "$t_npref; status reply" );
+  is( $t_reply->[0], 'OK', "$t_npref; status reply" );
 
-  isa_ok( $t_data->[1], 'AnyEvent::Redis::RipeRedis::Error' );
-  can_ok( $t_data->[1], 'code' );
-  can_ok( $t_data->[1], 'message' );
-  ok( defined $t_data->[1]->message(), "$t_npref; nested error message" );
-  is( $t_data->[1]->code(), E_OPRN_ERROR, "$t_npref; nested error message" );
+  isa_ok( $t_reply->[1], 'AnyEvent::Redis::RipeRedis::Error' );
+  can_ok( $t_reply->[1], 'code' );
+  can_ok( $t_reply->[1], 'message' );
+  ok( defined $t_reply->[1]->message(), "$t_npref; nested error message" );
+  is( $t_reply->[1]->code(), E_OPRN_ERROR, "$t_npref; nested error message" );
 
   return;
 }
@@ -1197,7 +1197,7 @@ sub t_error_after_exec_mth2 {
 sub t_quit {
   my $redis = shift;
 
-  my $t_data;
+  my $t_reply;
 
   ev_loop(
     sub {
@@ -1205,7 +1205,7 @@ sub t_quit {
 
       $redis->quit(
         { on_done => sub {
-            $t_data = shift;
+            $t_reply = shift;
 
             $cv->send();
           },
@@ -1214,7 +1214,7 @@ sub t_quit {
     }
   );
 
-  is( $t_data, 'OK', 'QUIT; status reply; disconnect' );
+  is( $t_reply, 'OK', 'QUIT; status reply; disconnect' );
   ok( $T_IS_DISCONN, 'on_disconnect' );
 
   return;

@@ -23,19 +23,19 @@ my $redis = AnyEvent::Redis::RipeRedis->new(
 );
 
 # Subscribe to channels by name
-$redis->subscribe( qw( ch_foo ch_bar ),
+$redis->subscribe( qw( foo bar ),
   { on_done => sub {
-      my $ch_name  = shift;
-      my $subs_num = shift;
+      my $channel      = shift;
+      my $channels_num = shift;
 
-      print "Subscribed: $ch_name. Active: $subs_num\n";
+      print "Subscribed: $channel. Active: $channels_num\n";
     },
 
     on_message => sub {
-      my $ch_name = shift;
+      my $channel = shift;
       my $msg     = shift;
 
-      print "$ch_name: $msg\n";
+      print "$channel: $msg\n";
     },
   }
 );
@@ -43,18 +43,18 @@ $redis->subscribe( qw( ch_foo ch_bar ),
 # Subscribe to channels by pattern
 $redis->psubscribe( qw( info_* err_* ),
   { on_done => sub {
-      my $ch_pattern = shift;
-      my $subs_num   = shift;
+      my $pattern      = shift;
+      my $channels_num = shift;
 
-      print "Subscribed: $ch_pattern. Active: $subs_num\n";
+      print "Subscribed: $pattern. Active: $channels_num\n";
     },
 
     on_message => sub {
-      my $ch_name    = shift;
+      my $channel    = shift;
       my $msg        = shift;
-      my $ch_pattern = shift;
+      my $pattern = shift;
 
-      print "$ch_name ($ch_pattern): $msg\n";
+      print "$channel ($pattern): $msg\n";
     },
   }
 );
@@ -63,12 +63,12 @@ $redis->psubscribe( qw( info_* err_* ),
 my $on_signal = sub {
   print "Stopped\n";
 
-  $redis->unsubscribe( qw( ch_foo ch_bar ),
+  $redis->unsubscribe( qw( foo bar ),
     { on_done => sub {
-        my $ch_name  = shift;
-        my $subs_num = shift;
+        my $channel      = shift;
+        my $channels_num = shift;
 
-        print "Unsubscribed: $ch_name. Remaining: $subs_num\n";
+        print "Unsubscribed: $channel. Remaining: $channels_num\n";
       },
     }
   );
@@ -76,12 +76,12 @@ my $on_signal = sub {
   $redis->punsubscribe(
     qw( info_* err_* ),
     { on_done => sub {
-        my $ch_pattern = shift;
-        my $subs_num   = shift;
+        my $pattern      = shift;
+        my $channels_num = shift;
 
-        print "Unsubscribed: $ch_pattern. Remaining: $subs_num\n";
+        print "Unsubscribed: $pattern. Remaining: $channels_num\n";
 
-        if ( $subs_num == 0 ) {
+        if ( $channels_num == 0 ) {
           $cv->send();
         }
       },
