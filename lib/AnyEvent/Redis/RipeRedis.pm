@@ -1409,7 +1409,7 @@ with error objects (see below), error message and error code.
 
 =head1 TRANSACTIONS
 
-The detailed information abount the Redis transactions can be found here:
+The detailed information about the Redis transactions can be found here:
 L<http://redis.io/topics/transactions>.
 
 =head2 multi( [ $cb | \%cbs ] )
